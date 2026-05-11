@@ -11,7 +11,7 @@
 
 Daemon nativo en Rust para transferencia de archivos en LAN y WAN privado, orientado a **servidores, NAS y homelabs** — el nicho que LocalSend actual no cubre por estar diseñado primariamente para móvil/desktop con GUI.
 
-El producto convive con el ecosistema LocalSend (compatibilidad bidireccional 100% con su protocolo v2) y añade un protocolo nativo propio sobre QUIC + Noise + Ed25519 con identidades persistentes, resume real, descubrimiento WAN vía rendezvous self-hosted y extensibilidad estructurada.
+El producto convive con el ecosistema LocalSend (compatibilidad bidireccional 100% con su protocolo v2) y añade un protocolo nativo propio sobre QUIC con TLS 1.3 (mutual auth vía certs autofirmados que embeben la pubkey Ed25519 del peer), identidades persistentes, resume real, descubrimiento WAN vía rendezvous self-hosted y extensibilidad estructurada.
 
 Modelo dual: **AGPL-3.0 + DCO** para una base abierta plenamente funcional e irreversiblemente libre, **BSL** para crates VIP separadas dirigidas a uso comercial/empresarial (relay gestionado, sync de carpetas, políticas admin, audit log, SSO).
 
@@ -62,7 +62,7 @@ Roadmap v1 estimado en **~22 semanas** con 7 milestones shippable.
 │  │  ├── identity   (Ed25519, fingerprints, trust store)      │  │
 │  │  ├── protocol                                             │  │
 │  │  │     ├── localsend_v2   (HTTP, compat 100%)             │  │
-│  │  │     └── native_v1      (QUIC + Noise, features full)   │  │
+│  │  │     └── native_v1      (QUIC+TLS1.3+Ed25519, full)      │  │
 │  │  ├── transfer   (chunking, resume, hashing BLAKE3)        │  │
 │  │  ├── discovery  (mDNS + rendezvous)                       │  │
 │  │  ├── storage    (inbox/outbox, manifest persistente)      │  │
@@ -100,7 +100,7 @@ Roadmap v1 estimado en **~22 semanas** con 7 milestones shippable.
 <app>/
 ├── core/                # libcore (AGPL-3.0)
 ├── protocol-localsend-v2/  # listener compat (AGPL-3.0)
-├── protocol-native-v1/  # QUIC+Noise nativo (AGPL-3.0)
+├── protocol-native-v1/  # QUIC+TLS1.3+Ed25519 nativo (AGPL-3.0)
 ├── daemon/              # binario daemon (AGPL-3.0)
 ├── cli/                 # binario CLI (AGPL-3.0)
 ├── tui/                 # binario TUI con ratatui (AGPL-3.0)
@@ -188,7 +188,7 @@ Modo invitado (one-off): flujo PIN efímero estilo LocalSend, sin tocar el trust
 - `_localsend._tcp` puerto 53317 (TXT idéntico a LocalSend para compat).
 - `_<app>._udp` con TXT que anuncia capacidades QUIC + fingerprint.
 
-Un nodo que ve ambos records sabe que puede usar el protocolo nativo. Solo `_localsend._tcp` → cae a compat.
+Ambos services se anuncian sobre el mismo socket mDNS estándar (`5353/udp` multicast); son service types distintos, no listeners separados. Un nodo que ve ambos records sabe que puede usar el protocolo nativo. Solo `_localsend._tcp` → cae a compat.
 
 **WAN — rendezvous self-hosted, cero defaults:**
 
@@ -268,8 +268,8 @@ Todos configurables vía archivo o flags.
 
 ### 5.2 Autenticación
 
-- **Loopback**: token bearer almacenado en `~/.config/<app>/api.token` (perms `0600`). Cualquier proceso del mismo usuario puede leerlo.
-- **GUI remota**: se autentica como peer del protocolo nativo (pubkey Ed25519), **no con bearer token**. Esto significa que conectar la GUI de tu laptop al daemon de tu NAS es exactamente igual que cualquier otro pairing.
+- **Loopback**: token bearer almacenado en `~/.config/<app>/api.token` (perms `0600`). Cualquier proceso del mismo usuario puede leerlo. Solo expuesto en `localhost`.
+- **GUI remota**: se autentica como peer del protocolo nativo (pubkey Ed25519), **no con bearer token**. La GUI remota se conecta al puerto QUIC nativo del daemon (`53400/udp`), realiza el handshake TLS 1.3 mutuo con su cert Ed25519, y dentro de la sesión cifrada abre streams gRPC dedicados a la API local. Es decir: **la API local del daemon viaja por loopback en plain TCP O por QUIC cifrado cuando el cliente es remoto**, pero el conjunto de servicios gRPC es idéntico. El daemon **nunca expone los puertos `53500/tcp` o `53501/tcp` fuera de loopback**.
 
 ### 5.3 Servicios gRPC mínimos v1
 
@@ -369,12 +369,27 @@ Quien quiera "LocalSend mejorado en mi NAS" lo tiene gratis para siempre. VIP es
 ### 7.1 Layout de filesystem
 
 ```
-~/.config/<app>/         # identity.key, api.token, config.toml
-~/.local/share/<app>/    # trust.db, manifests.db, logs/
-~/Downloads/<app>/       # inbox por defecto (configurable)
-```
+Linux (XDG):
+  ~/.config/<app>/         # identity.key, api.token, config.toml
+  ~/.local/share/<app>/    # trust.db, manifests.db, logs/
+  ~/Downloads/<app>/       # inbox por defecto (configurable)
 
-Linux sigue XDG. macOS y Windows usan equivalentes nativos. NAS/servidor sin `$HOME` usa rutas absolutas bajo `/var/lib/<app>/` y `/etc/<app>/`.
+macOS:
+  ~/Library/Application Support/<app>/      # config + state (identity, trust.db, manifests.db)
+  ~/Library/Logs/<app>/                     # logs
+  ~/Downloads/<app>/                        # inbox por defecto
+
+Windows:
+  %APPDATA%\<app>\                          # config + state
+  %LOCALAPPDATA%\<app>\Logs\                # logs
+  %USERPROFILE%\Downloads\<app>\            # inbox por defecto
+
+Servidor/NAS sin $HOME:
+  /etc/<app>/                               # config
+  /var/lib/<app>/                           # state (identity, trust.db, manifests.db)
+  /var/log/<app>/                           # logs
+  /var/lib/<app>/inbox/                     # inbox por defecto
+```
 
 ### 7.2 Lifecycle de inbox
 
@@ -512,7 +527,7 @@ GUI Tauri: distribución aparte con `.dmg`, `.AppImage`, `.msi`.
 |---|---|---|
 | **M0 — Esqueleto** | 1-2 | Workspace + CI + identidad Ed25519 + trust store + CLI mínimo |
 | **M1 — Compat LocalSend v2** | 3-5 | Listener v2 + mDNS dual + inbox + CLI `peers`/`receive`. Demo: recibir archivo desde LocalSend Android en Raspberry Pi |
-| **M2 — Protocolo nativo LAN** | 6-9 | QUIC+Noise + pairing SAS+QR + negociación de extensiones + transferencia con resume |
+| **M2 — Protocolo nativo LAN** | 6-9 | QUIC + TLS 1.3 mutuo con certs Ed25519 + pairing SAS+QR + negociación de extensiones + transferencia con resume |
 | **M3 — API local + TUI + WebUI** | 10-12 | gRPC+HTTP+SSE + SDKs autogenerados + TUI ratatui + WebUI embebida |
 | **M4 — Hooks y observabilidad** | 13-14 | Webhooks + exec hooks + métricas + logs + packaging multi-plataforma |
 | **M5 — WAN** | 15-17 | Rendezvous server + hole punching QUIC+STUN. Sin relay full |
@@ -558,7 +573,6 @@ Para evitar parálisis en el siguiente paso (plan de implementación), estos pun
 - **Ed25519**: esquema de firma digital de curva elíptica, rápido y con claves cortas (32 bytes).
 - **Hole punching**: técnica de NAT traversal donde dos peers detrás de NAT inician conexiones simultáneas que abren un agujero en sus respectivos firewalls.
 - **mDNS**: Multicast DNS, descubrimiento de servicios en LAN sin servidor.
-- **Noise Protocol Framework**: framework para diseñar handshakes criptográficos; usado por WireGuard.
 - **QUIC**: transporte sobre UDP con TLS 1.3 integrado, multiplexing nativo y connection migration.
 - **SAS (Short Authentication String)**: cadena corta derivada criptográficamente de ambas pubkeys en un handshake; usuarios la comparan visual/auralmente para detectar MITM.
 - **STUN**: protocolo para que un peer descubra su endpoint público visto desde Internet.
