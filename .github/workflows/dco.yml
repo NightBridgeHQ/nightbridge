@@ -1,0 +1,27 @@
+name: DCO
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+jobs:
+  dco:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Check DCO sign-off on all PR commits
+        run: |
+          BASE_SHA="${{ github.event.pull_request.base.sha }}"
+          HEAD_SHA="${{ github.event.pull_request.head.sha }}"
+          MISSING=$(git log --format='%H %s' "$BASE_SHA..$HEAD_SHA" | while read sha _rest; do
+            if ! git log -1 --format=%B "$sha" | grep -qE '^Signed-off-by: .+ <.+@.+>$'; then
+              echo "$sha"
+            fi
+          done)
+          if [ -n "$MISSING" ]; then
+            echo "::error::Commits missing Signed-off-by:"
+            echo "$MISSING"
+            exit 1
+          fi
