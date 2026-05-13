@@ -1,0 +1,10 @@
+[package]
+name = "lsi-proto"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+description = "Local API protocol definitions (stub; implemented in Sprint 3)"
+
+[dependencies]

@@ -1,0 +1,10 @@
+[package]
+name = "lsi-webui"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+description = "Web UI (stub; implemented in Sprint 3)"
+
+[dependencies]

@@ -29,7 +29,7 @@ clap = { version = "4.5", features = ["derive"] }
 thiserror = "1.0"
 anyhow = "1.0"
 # Crypto
-ed25519-dalek = { version = "2.1", features = ["rand_core", "serde"] }
+ed25519-dalek = { version = "=2.1.1", features = ["rand_core", "serde"] }
 sha2 = "0.10"
 hkdf = "0.12"
 rand = "0.8"

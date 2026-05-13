@@ -1,0 +1,22 @@
+[package]
+name = "lsi-core"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+description = "Protocol-agnostic core for LocalSend Improved"
+
+[dependencies]
+thiserror.workspace = true
+serde.workspace = true
+tracing.workspace = true
+ed25519-dalek.workspace = true
+sha2.workspace = true
+hkdf.workspace = true
+rand.workspace = true
+rusqlite.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true
+proptest.workspace = true

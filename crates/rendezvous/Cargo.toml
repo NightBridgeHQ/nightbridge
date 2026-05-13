@@ -1,0 +1,10 @@
+[package]
+name = "lsi-rendezvous"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+description = "WAN rendezvous service (stub; implemented in Sprint 5)"
+
+[dependencies]

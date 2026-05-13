@@ -1,0 +1,13 @@
+//! Protocol-agnostic core for LocalSend Improved.
+//!
+//! Exposes identity, trust, and (later) protocol primitives via traits so the
+//! daemon and other surfaces can inject I/O implementations.
+
+#![forbid(unsafe_code)]
+#![warn(missing_docs)]
+
+pub mod error;
+pub mod identity;
+pub mod trust;
+
+pub use error::{CoreError, Result};

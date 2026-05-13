@@ -1,0 +1,10 @@
+[package]
+name = "lsi-protocol-localsend-v2"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+description = "LocalSend v2 protocol listener (stub; implemented in Sprint 1)"
+
+[dependencies]
