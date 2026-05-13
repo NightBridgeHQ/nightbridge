@@ -99,18 +99,10 @@ pub struct PrepareUploadResponse {
 }
 
 /// Request body for `/api/localsend/v2/register`.
-#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
-pub struct RegisterRequest {
-    /// Registering peer device information.
-    pub info: DeviceInfo,
-}
+pub type RegisterRequest = DeviceInfo;
 
 /// Response body for `/api/localsend/v2/register`.
-#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
-pub struct RegisterResponse {
-    /// Receiver device information.
-    pub info: DeviceInfo,
-}
+pub type RegisterResponse = DeviceInfo;
 
 #[cfg(test)]
 mod tests {

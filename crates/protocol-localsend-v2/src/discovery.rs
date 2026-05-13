@@ -7,9 +7,10 @@ use serde::{Deserialize, Serialize};
 use socket2::{Domain, Protocol as SocketProtocol, Socket, Type};
 use tokio::net::UdpSocket;
 use tokio::time;
+use tracing::{info, trace, warn};
 
-use crate::dto::DeviceInfo;
-use crate::Result;
+use crate::dto::{DeviceInfo, Protocol};
+use crate::{LocalSendError, Result};
 
 /// Default LocalSend v2 multicast group.
 pub const DEFAULT_MULTICAST_IP: Ipv4Addr = Ipv4Addr::new(224, 0, 0, 167);
@@ -27,19 +28,23 @@ pub struct Announcement {
     /// Device information advertised by the peer.
     #[serde(flatten)]
     pub info: DeviceInfo,
+    /// Legacy v1 announcement flag kept for LocalSend app compatibility.
+    #[serde(default)]
+    pub announcement: bool,
     /// Whether this datagram is a multicast announcement or a unicast response.
+    #[serde(default)]
     pub announce: bool,
 }
 
 impl Announcement {
     /// Creates a multicast discovery announcement.
     pub fn announce(info: DeviceInfo) -> Self {
-        Self { info, announce: true }
+        Self { info, announcement: true, announce: true }
     }
 
     /// Creates a discovery response for a received announcement.
     pub fn response(info: DeviceInfo) -> Self {
-        Self { info, announce: false }
+        Self { info, announcement: false, announce: false }
     }
 }
 
@@ -93,11 +98,85 @@ impl DiscoveryAnnouncer {
 
     /// Sends discovery announcements forever at the configured interval.
     pub async fn run(&self) -> Result<()> {
+        let socket = bind_multicast_socket(self.multicast_addr)?;
+        let socket = UdpSocket::from_std(socket.into())?;
+        let mut buf = vec![0; 16 * 1024];
+        let mut interval = time::interval(self.interval);
+
         loop {
-            self.announce_once().await?;
-            time::sleep(self.interval).await;
+            tokio::select! {
+                _ = interval.tick() => {
+                    let payload = serde_json::to_vec(&Announcement::announce(self.info.clone()))?;
+                    socket.send_to(&payload, self.multicast_addr).await?;
+                }
+                received = socket.recv_from(&mut buf) => {
+                    let (len, source) = received?;
+                    let payload = &buf[..len];
+                    match self.should_answer(payload) {
+                        Ok(true) => {
+                            let url = self.register_url(payload, source)?;
+                            info!(source = %source, register_url = %url, "received LocalSend discovery announcement");
+                            if post_register_url(&self.info, &url).await.is_ok() {
+                                info!(source = %source, "responded to LocalSend announcement via TCP register");
+                            } else {
+                                warn!(source = %source, "TCP register response failed; sending UDP fallback");
+                                let fallback = serde_json::to_vec(&Announcement::response(self.info.clone()))?;
+                                socket.send_to(&fallback, self.multicast_addr).await?;
+                            }
+                        }
+                        Ok(false) => trace!(source = %source, "ignored LocalSend discovery packet"),
+                        Err(error) => {
+                            warn!(source = %source, error = %error, "failed to parse LocalSend discovery packet");
+                        }
+                    }
+                }
+            }
         }
     }
+
+    fn should_answer(&self, payload: &[u8]) -> Result<bool> {
+        let announcement: Announcement = serde_json::from_slice(payload)?;
+        Ok((announcement.announcement || announcement.announce)
+            && announcement.info.fingerprint != self.info.fingerprint)
+    }
+
+    #[cfg(test)]
+    fn fallback_response_payload_for(&self, payload: &[u8]) -> Result<Option<Vec<u8>>> {
+        if !self.should_answer(payload)? {
+            return Ok(None);
+        }
+
+        Ok(Some(serde_json::to_vec(&Announcement::response(self.info.clone()))?))
+    }
+
+    fn register_url(&self, payload: &[u8], source: SocketAddr) -> Result<String> {
+        let announcement: Announcement = serde_json::from_slice(payload)?;
+        let target = peer_api_address(source, announcement.info.port);
+        Ok(register_url(target, &announcement.info.protocol))
+    }
+}
+
+async fn post_register_url(info: &DeviceInfo, url: &str) -> Result<()> {
+    let client = reqwest::Client::builder()
+        .danger_accept_invalid_certs(true)
+        .build()
+        .map_err(|error| LocalSendError::Http(error.to_string()))?;
+    let response = client
+        .post(url)
+        .json(info)
+        .send()
+        .await
+        .map_err(|error| LocalSendError::Http(error.to_string()))?;
+
+    if response.status().is_success() {
+        Ok(())
+    } else {
+        Err(LocalSendError::Http(format!("register response status {}", response.status())))
+    }
+}
+
+fn register_url(target: SocketAddr, protocol: &Protocol) -> String {
+    format!("{}://{target}/api/localsend/v2/register", protocol.as_str())
 }
 
 /// Listens for LocalSend v2 UDP discovery announcements.
@@ -197,7 +276,7 @@ fn peer_api_address(source: SocketAddr, advertised_port: u16) -> SocketAddr {
 mod tests {
     use std::net::{Ipv4Addr, SocketAddr, SocketAddrV4};
 
-    use crate::discovery::{Announcement, DiscoveryBrowser};
+    use crate::discovery::{Announcement, DiscoveryAnnouncer, DiscoveryBrowser};
     use crate::dto::{DeviceInfo, Protocol};
 
     fn device_info(fingerprint: &str) -> DeviceInfo {
@@ -227,6 +306,7 @@ mod tests {
         assert_eq!(json["port"], 53317);
         assert_eq!(json["protocol"], "https");
         assert_eq!(json["download"], true);
+        assert_eq!(json["announcement"], true);
         assert_eq!(json["announce"], true);
     }
 
@@ -236,6 +316,7 @@ mod tests {
 
         let json = serde_json::to_value(&response).unwrap();
 
+        assert_eq!(json["announcement"], false);
         assert_eq!(json["announce"], false);
     }
 
@@ -249,5 +330,42 @@ mod tests {
         let peer = browser.parse_peer(&payload, sender).unwrap();
 
         assert!(peer.is_none());
+    }
+
+    #[test]
+    fn announcer_responds_to_foreign_announce() {
+        let announcer = DiscoveryAnnouncer::new(device_info("self-fingerprint"));
+        let payload =
+            serde_json::to_vec(&Announcement::announce(device_info("peer-fingerprint"))).unwrap();
+
+        let response = announcer.fallback_response_payload_for(&payload).unwrap().unwrap();
+        let announcement: Announcement = serde_json::from_slice(&response).unwrap();
+
+        assert_eq!(announcement.info.fingerprint, "self-fingerprint");
+        assert!(!announcement.announce);
+    }
+
+    #[test]
+    fn announcer_ignores_self_or_response_packets() {
+        let announcer = DiscoveryAnnouncer::new(device_info("self-fingerprint"));
+        let self_payload =
+            serde_json::to_vec(&Announcement::announce(device_info("self-fingerprint"))).unwrap();
+        let response_payload =
+            serde_json::to_vec(&Announcement::response(device_info("peer-fingerprint"))).unwrap();
+
+        assert!(announcer.fallback_response_payload_for(&self_payload).unwrap().is_none());
+        assert!(announcer.fallback_response_payload_for(&response_payload).unwrap().is_none());
+    }
+
+    #[test]
+    fn announcer_builds_tcp_register_url_from_peer_announcement() {
+        let announcer = DiscoveryAnnouncer::new(device_info("self-fingerprint"));
+        let sender = SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::new(10, 16, 20, 50), 50123));
+        let payload =
+            serde_json::to_vec(&Announcement::announce(device_info("peer-fingerprint"))).unwrap();
+
+        let url = announcer.register_url(&payload, sender).unwrap();
+
+        assert_eq!(url, "https://10.16.20.50:53317/api/localsend/v2/register");
     }
 }

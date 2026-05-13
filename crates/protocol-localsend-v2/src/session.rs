@@ -130,6 +130,24 @@ impl SessionManager {
         Ok(sessions.remove(session_id).is_some())
     }
 
+    /// Finds the first live session containing `file_id`.
+    pub fn session_id_for_file(&self, file_id: &str) -> Result<Option<String>> {
+        let mut sessions = self.lock_sessions()?;
+        prune_expired_locked(&mut sessions);
+
+        Ok(sessions.iter().find_map(|(session_id, session)| {
+            session.files.contains_key(file_id).then(|| session_id.clone())
+        }))
+    }
+
+    /// Cancels every live session and returns the number removed.
+    pub fn cancel_all(&self) -> Result<usize> {
+        let mut sessions = self.lock_sessions()?;
+        let count = sessions.len();
+        sessions.clear();
+        Ok(count)
+    }
+
     /// Removes expired sessions and returns the number of sessions pruned.
     pub fn prune_expired(&self) -> usize {
         self.lock_sessions().map(|mut sessions| prune_expired_locked(&mut sessions)).unwrap_or(0)
