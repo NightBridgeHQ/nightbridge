@@ -15,6 +15,7 @@ path = "src/main.rs"
 anyhow.workspace = true
 clap.workspace = true
 lsi-core = { path = "../core" }
+lsi-protocol-localsend-v2 = { path = "../protocol-localsend-v2" }
 tokio.workspace = true
 tracing.workspace = true
 tracing-subscriber.workspace = true

@@ -13,6 +13,7 @@ path = "src/main.rs"
 
 [dependencies]
 lsi-core = { path = "../core" }
+lsi-protocol-localsend-v2 = { path = "../protocol-localsend-v2" }
 clap.workspace = true
 anyhow.workspace = true
 tracing.workspace = true

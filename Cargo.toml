@@ -23,8 +23,18 @@ rust-version = "1.78"
 [workspace.dependencies]
 # Async
 tokio = { version = "1.38", features = ["full"] }
+tokio-rustls = "=0.26.0"
+tokio-util = { version = "=0.7.10", features = ["io"] }
 # CLI
 clap = { version = "=4.5.0", features = ["derive"] }
+# HTTP
+axum = "=0.7.5"
+futures-util = "=0.3.31"
+http = "=1.1.0"
+hyper = "=1.3.1"
+hyper-util = { version = "=0.1.3", features = ["server", "http1", "http2", "tokio"] }
+reqwest = { version = "=0.12.4", default-features = false, features = ["json", "stream", "rustls-tls"] }
+url = "=2.5.2"
 # Errors
 thiserror = "1.0"
 anyhow = "1.0"
@@ -33,17 +43,28 @@ ed25519-dalek = { version = "=2.1.1", features = ["rand_core", "serde"] }
 sha2 = "0.10"
 hkdf = "0.12"
 rand = "0.8"
+blake3 = "=1.5.1"
+rcgen = "=0.13.1"
+rustls = "=0.23.5"
+time = "=0.3.36"
 # Storage
 rusqlite = { version = "0.31", features = ["bundled"] }
+indexmap = "=2.2.6"
 # Serde
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 toml = "0.8"
+# File/media helpers
+mime_guess = "=2.0.4"
 # Logging
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
+# Network helpers
+socket2 = "=0.5.7"
 # Filesystem helpers
 directories = "5.0"
+# IDs
+uuid = { version = "=1.8.0", features = ["v4", "serde"] }
 # Tests
 tempfile = "=3.10.1"
 proptest = "=1.4.0"
