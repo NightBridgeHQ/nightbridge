@@ -24,7 +24,7 @@ rust-version = "1.78"
 # Async
 tokio = { version = "1.38", features = ["full"] }
 # CLI
-clap = { version = "4.5", features = ["derive"] }
+clap = { version = "=4.5.0", features = ["derive"] }
 # Errors
 thiserror = "1.0"
 anyhow = "1.0"
@@ -47,8 +47,8 @@ directories = "5.0"
 # Tests
 tempfile = "=3.10.1"
 proptest = "=1.4.0"
-assert_cmd = "2.0"
-predicates = "3.1"
+assert_cmd = "=2.0.14"
+predicates = "=3.1.0"
 
 [profile.release]
 lto = "thin"
