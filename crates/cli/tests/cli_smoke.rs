@@ -111,3 +111,15 @@ fn peers_list_lan_empty_with_short_timeout() {
         .success()
         .stdout(predicate::str::contains("no LocalSend peers found"));
 }
+
+#[test]
+fn send_rejects_missing_file() {
+    let dir = TempDir::new().unwrap();
+    let mut cmd = Command::cargo_bin("localsend-improved").unwrap();
+    set_isolated_dirs(&mut cmd, &dir);
+
+    cmd.args(["send", "--url", "http://127.0.0.1:9", "missing.txt"])
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains("sending files"));
+}

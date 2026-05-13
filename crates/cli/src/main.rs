@@ -25,6 +25,8 @@ enum Command {
     /// Manage trusted peers.
     #[command(subcommand)]
     Peers(cmd::peers::Cmd),
+    /// Send files to a LocalSend peer.
+    Send(cmd::send::Cmd),
 }
 
 fn main() -> Result<()> {
@@ -40,5 +42,6 @@ fn main() -> Result<()> {
     match cli.command {
         Command::Identity(command) => cmd::identity::run(command),
         Command::Peers(command) => cmd::peers::run(command),
+        Command::Send(command) => cmd::send::run(command),
     }
 }
