@@ -5,5 +5,6 @@
 
 pub mod dto;
 pub mod error;
+pub mod tls;
 
 pub use error::{LocalSendError, Result};
