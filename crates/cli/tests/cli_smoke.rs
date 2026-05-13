@@ -99,3 +99,15 @@ fn peers_list_empty_on_fresh_install() {
         .success()
         .stdout(predicate::str::contains("no trusted peers"));
 }
+
+#[test]
+fn peers_list_lan_empty_with_short_timeout() {
+    let dir = TempDir::new().unwrap();
+    let mut cmd = Command::cargo_bin("localsend-improved").unwrap();
+    set_isolated_dirs(&mut cmd, &dir);
+
+    cmd.args(["peers", "list-lan", "--timeout-ms", "1"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("no LocalSend peers found"));
+}

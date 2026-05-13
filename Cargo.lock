@@ -975,6 +975,7 @@ dependencies = [
  "lsi-protocol-localsend-v2",
  "predicates",
  "tempfile",
+ "tokio",
  "tracing",
  "tracing-subscriber",
 ]
