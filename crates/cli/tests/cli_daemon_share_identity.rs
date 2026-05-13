@@ -46,7 +46,7 @@ fn cli_and_daemon_see_same_fingerprint() {
     let cli_stdout = String::from_utf8(cli_output.stdout).unwrap();
     let cli_fingerprint = parse_fingerprint(&cli_stdout);
 
-    let daemon_bin = assert_cmd::cargo::cargo_bin("localsend-improved-daemon");
+    let daemon_bin = daemon_bin_path();
     let mut daemon = std::process::Command::new(daemon_bin);
     set_isolated_dirs(&mut daemon, &dir);
     let mut child = daemon
@@ -99,4 +99,18 @@ fn parse_json_string_field(line: &str, field: &str) -> Option<String> {
     let rest = &line[start + needle.len()..];
     let end = rest.find('"')?;
     Some(rest[..end].to_string())
+}
+
+fn daemon_bin_path() -> std::path::PathBuf {
+    let path = assert_cmd::cargo::cargo_bin("localsend-improved-daemon");
+    if path.exists() {
+        return path;
+    }
+
+    let status = std::process::Command::new(env!("CARGO"))
+        .args(["build", "-p", "lsi-daemon"])
+        .status()
+        .expect("build daemon binary");
+    assert!(status.success(), "failed to build daemon binary for E2E test");
+    path
 }
