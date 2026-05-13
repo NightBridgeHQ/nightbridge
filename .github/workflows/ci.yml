@@ -4,6 +4,7 @@ on:
   push:
     branches: [main]
   pull_request:
+  workflow_dispatch:
 
 env:
   CARGO_TERM_COLOR: always
@@ -74,3 +75,16 @@ jobs:
         run: cross build --workspace --release --target ${{ matrix.target }}
       - if: '!matrix.cross'
         run: cargo build --workspace --release --target ${{ matrix.target }}
+
+  interop-localsend:
+    name: LocalSend interop placeholder
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo test -p lsi-protocol-localsend-v2 --test interop_receive
+      - run: |
+          echo "Official LocalSend artifact smoke is intentionally manual for now."
+          echo "Next step: download a headless-capable official Linux artifact and send a file to lsi-daemon."
