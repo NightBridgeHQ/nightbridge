@@ -1,4 +1,4 @@
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use anyhow::{Context, Result};
 use clap::Parser;
@@ -73,7 +73,7 @@ fn load_or_create_identity(vault: &FsVault) -> Result<Keypair> {
     Ok(identity)
 }
 
-fn ensure_parent_dir(path: &PathBuf) -> Result<()> {
+fn ensure_parent_dir(path: &Path) -> Result<()> {
     if let Some(parent) = path.parent() {
         std::fs::create_dir_all(parent)?;
     } else {

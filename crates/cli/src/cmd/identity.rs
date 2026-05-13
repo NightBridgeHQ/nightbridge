@@ -58,5 +58,10 @@ fn rotate(vault: &FsVault, yes: bool) -> Result<()> {
 }
 
 fn hex_encode(bytes: &[u8]) -> String {
-    bytes.iter().map(|byte| format!("{byte:02x}")).collect()
+    use std::fmt::Write as _;
+
+    bytes.iter().fold(String::with_capacity(bytes.len() * 2), |mut hex, byte| {
+        write!(&mut hex, "{byte:02x}").expect("writing to a String cannot fail");
+        hex
+    })
 }

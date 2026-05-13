@@ -47,7 +47,7 @@ fn cli_and_daemon_see_same_fingerprint() {
     let cli_fingerprint = parse_fingerprint(&cli_stdout);
 
     let daemon_bin = assert_cmd::cargo::cargo_bin("localsend-improved-daemon");
-    let mut daemon = std::process::Command::new(&daemon_bin);
+    let mut daemon = std::process::Command::new(daemon_bin);
     set_isolated_dirs(&mut daemon, &dir);
     let mut child = daemon
         .env("RUST_LOG", "info")
