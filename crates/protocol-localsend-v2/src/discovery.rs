@@ -296,7 +296,7 @@ mod tests {
     fn announcement_matches_official_fields() {
         let announcement = Announcement::announce(device_info("abc"));
 
-        let json = serde_json::to_value(&announcement).unwrap();
+        let json = serde_json::to_value(announcement).unwrap();
 
         assert_eq!(json["alias"], "NAS");
         assert_eq!(json["version"], "2.0");
@@ -314,7 +314,7 @@ mod tests {
     fn response_sets_announce_false() {
         let response = Announcement::response(device_info("def"));
 
-        let json = serde_json::to_value(&response).unwrap();
+        let json = serde_json::to_value(response).unwrap();
 
         assert_eq!(json["announcement"], false);
         assert_eq!(json["announce"], false);
