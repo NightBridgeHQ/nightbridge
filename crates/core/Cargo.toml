@@ -16,6 +16,7 @@ sha2.workspace = true
 hkdf.workspace = true
 rand.workspace = true
 rusqlite.workspace = true
+directories.workspace = true
 
 [dev-dependencies]
 tempfile.workspace = true

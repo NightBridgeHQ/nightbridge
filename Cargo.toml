@@ -45,8 +45,8 @@ tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
 # Filesystem helpers
 directories = "5.0"
 # Tests
-tempfile = "3.10"
-proptest = "1.4"
+tempfile = "=3.10.1"
+proptest = "=1.4.0"
 assert_cmd = "2.0"
 predicates = "3.1"
 

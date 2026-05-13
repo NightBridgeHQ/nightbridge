@@ -8,6 +8,7 @@
 
 pub mod error;
 pub mod identity;
+pub mod paths;
 pub mod trust;
 
 pub use error::{CoreError, Result};
