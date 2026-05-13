@@ -1,3 +1,9 @@
-//! Stub for `lsi-protocol-localsend-v2`. Implemented in Sprint 1.
+//! LocalSend v2 protocol compatibility.
 
-#![allow(dead_code)]
+#![forbid(unsafe_code)]
+#![warn(missing_docs)]
+
+pub mod dto;
+pub mod error;
+
+pub use error::{LocalSendError, Result};
