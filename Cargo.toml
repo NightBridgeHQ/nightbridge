@@ -72,7 +72,7 @@ prost = "=0.13.5"
 prost-types = "=0.13.5"
 tonic = { version = "=0.12.3", features = ["transport"] }
 tonic-build = "=0.12.3"
-tokio-stream = "=0.1.17"
+tokio-stream = { version = "=0.1.17", features = ["net"] }
 # Filesystem helpers
 directories = "5.0"
 rust-embed = "=8.3.0"

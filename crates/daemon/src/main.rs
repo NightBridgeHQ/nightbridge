@@ -35,12 +35,14 @@ use tokio::task::JoinHandle;
 use tracing::{info, warn};
 use tracing_subscriber::{fmt, EnvFilter};
 
+mod api;
 mod state;
 
 use state::DaemonState;
 
 const DEFAULT_LOCALSEND_PORT: u16 = 53317;
 const DEFAULT_NATIVE_PORT: u16 = 53400;
+const DEFAULT_API_GRPC_PORT: u16 = 53500;
 const DEFAULT_ALIAS: &str = "localsend-improved";
 const LOCALSEND_VERSION: &str = "2.0";
 const LOCALSEND_SESSION_TTL: Duration = Duration::from_secs(60 * 60);
@@ -88,6 +90,14 @@ struct Args {
     /// Path to the native transfer manifest SQLite database.
     #[arg(long = "native-manifest-db")]
     native_manifest_db: Option<PathBuf>,
+
+    /// Loopback gRPC API port.
+    #[arg(long = "api-grpc-port", default_value_t = DEFAULT_API_GRPC_PORT)]
+    api_grpc_port: u16,
+
+    /// Disable the local daemon API.
+    #[arg(long = "disable-api")]
+    disable_api: bool,
 }
 
 #[derive(Debug)]
@@ -143,6 +153,17 @@ async fn main() -> Result<()> {
         "daemon initialized"
     );
 
+    let api_runtime = if args.disable_api {
+        info!("local daemon API disabled");
+        None
+    } else {
+        let runtime = api::grpc::start_grpc_runtime(Arc::clone(&state), args.api_grpc_port)
+            .await
+            .with_context(|| "failed to start gRPC API")?;
+        info!(addr = %runtime.local_addr(), "gRPC API started");
+        Some(runtime)
+    };
+
     let localsend_runtime = if args.disable_localsend_v2 {
         info!("LocalSend v2 receiver disabled");
         None
@@ -173,6 +194,10 @@ async fn main() -> Result<()> {
 
     if let Some(runtime) = localsend_runtime {
         stop_localsend_v2(runtime).await?;
+    }
+
+    if let Some(runtime) = api_runtime {
+        api::grpc::stop_grpc_runtime(runtime).await?;
     }
 
     info!("shutdown");
@@ -581,6 +606,14 @@ mod tests {
     }
 
     #[test]
+    fn args_default_api_options() {
+        let args = Args::parse_from(["daemon"]);
+
+        assert_eq!(args.api_grpc_port, DEFAULT_API_GRPC_PORT);
+        assert!(!args.disable_api);
+    }
+
+    #[test]
     fn args_parse_localsend_receive_overrides() {
         let args = Args::parse_from([
             "daemon",
@@ -612,6 +645,14 @@ mod tests {
         assert_eq!(args.native_port, 4445);
         assert!(args.disable_native);
         assert!(args.disable_native_discovery);
+    }
+
+    #[test]
+    fn args_parse_api_overrides() {
+        let args = Args::parse_from(["daemon", "--api-grpc-port", "53555", "--disable-api"]);
+
+        assert_eq!(args.api_grpc_port, 53555);
+        assert!(args.disable_api);
     }
 
     #[tokio::test]
