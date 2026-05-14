@@ -1,4 +1,4 @@
-use std::net::{Ipv4Addr, SocketAddr};
+use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
@@ -15,11 +15,21 @@ use lsi_protocol_localsend_v2::{
     server::{LocalSendServer, LocalSendServerConfig},
     tls::{TlsIdentity, TlsIdentityVault},
 };
+use lsi_protocol_native_v1::{
+    discovery::NativeDiscoveryAnnouncer,
+    dto::{default_extensions, negotiate_extensions, HelloAck, NativePeerInfo, PROTOCOL_VERSION},
+    framing::ControlMessage,
+    tls::NativeTlsIdentity,
+    transport::{
+        bind_server_endpoint, NativeControlStream, NativeServerBind, NativeTransportConfig,
+    },
+};
 use tokio::task::JoinHandle;
 use tracing::{info, warn};
 use tracing_subscriber::{fmt, EnvFilter};
 
 const DEFAULT_LOCALSEND_PORT: u16 = 53317;
+const DEFAULT_NATIVE_PORT: u16 = 53400;
 const DEFAULT_ALIAS: &str = "localsend-improved";
 const LOCALSEND_VERSION: &str = "2.0";
 const LOCALSEND_SESSION_TTL: Duration = Duration::from_secs(60 * 60);
@@ -51,6 +61,18 @@ struct Args {
     /// Disable the LocalSend v2 receiver and LAN discovery announcer.
     #[arg(long = "disable-localsend-v2")]
     disable_localsend_v2: bool,
+
+    /// UDP port for the native QUIC listener.
+    #[arg(long = "native-port", default_value_t = DEFAULT_NATIVE_PORT)]
+    native_port: u16,
+
+    /// Disable the native QUIC listener.
+    #[arg(long = "disable-native")]
+    disable_native: bool,
+
+    /// Disable native mDNS discovery advertisement.
+    #[arg(long = "disable-native-discovery")]
+    disable_native_discovery: bool,
 }
 
 #[derive(Debug)]
@@ -58,6 +80,14 @@ struct LocalSendRuntime {
     shutdown_tx: tokio::sync::watch::Sender<bool>,
     server_task: JoinHandle<Result<()>>,
     announcer_task: JoinHandle<Result<()>>,
+}
+
+struct NativeRuntime {
+    local_addr: SocketAddr,
+    endpoint: quinn::Endpoint,
+    discovery_announcer: Option<NativeDiscoveryAnnouncer>,
+    shutdown_tx: tokio::sync::watch::Sender<bool>,
+    server_task: JoinHandle<Result<()>>,
 }
 
 #[tokio::main]
@@ -98,7 +128,22 @@ async fn main() -> Result<()> {
         )
     };
 
+    let native_runtime = if args.disable_native {
+        info!("native LAN listener disabled");
+        None
+    } else {
+        Some(
+            start_native_runtime(&args, &identity)
+                .await
+                .with_context(|| "failed to start native LAN listener")?,
+        )
+    };
+
     wait_for_shutdown().await?;
+
+    if let Some(runtime) = native_runtime {
+        stop_native_runtime(runtime).await?;
+    }
 
     if let Some(runtime) = localsend_runtime {
         stop_localsend_v2(runtime).await?;
@@ -189,6 +234,156 @@ async fn stop_localsend_v2(runtime: LocalSendRuntime) -> Result<()> {
     Ok(())
 }
 
+async fn start_native_runtime(args: &Args, identity: &Keypair) -> Result<NativeRuntime> {
+    let tls_identity = NativeTlsIdentity::generate(&args.alias)
+        .context("failed to generate native TLS identity")?;
+    let server_config = NativeTransportConfig::default()
+        .apply_to_server_config(tls_identity.quinn_server_config()?)
+        .context("failed to build native QUIC server config")?;
+    let endpoint = bind_native_endpoint(args.native_port, server_config)?;
+    let local_addr = endpoint.local_addr().context("failed to read native listener address")?;
+    let peer_info = native_peer_info(&args.alias, identity, local_addr.port());
+    let discovery_announcer = start_native_discovery(args, &peer_info);
+    let (shutdown_tx, server_shutdown_rx) = tokio::sync::watch::channel(false);
+    let server_endpoint = endpoint.clone();
+    let server_alias = args.alias.clone();
+    let server_pubkey = identity.public_bytes();
+
+    let server_task = tokio::spawn(async move {
+        native_accept_loop(server_endpoint, server_alias, server_pubkey, server_shutdown_rx).await
+    });
+
+    info!(
+        alias = %args.alias,
+        addr = %local_addr,
+        discovery = !args.disable_native_discovery,
+        "native LAN listener started"
+    );
+
+    Ok(NativeRuntime { local_addr, endpoint, discovery_announcer, shutdown_tx, server_task })
+}
+
+fn bind_native_endpoint(
+    native_port: u16,
+    server_config: quinn::ServerConfig,
+) -> Result<quinn::Endpoint> {
+    if native_port == 0 {
+        return quinn::Endpoint::server(
+            server_config,
+            SocketAddr::from((Ipv4Addr::UNSPECIFIED, 0)),
+        )
+        .context("failed to bind native QUIC endpoint");
+    }
+
+    let bind = NativeServerBind { host: Ipv4Addr::UNSPECIFIED.to_string(), port: native_port };
+    Ok(bind_server_endpoint(&bind, server_config)?.into_quinn())
+}
+
+fn native_peer_info(alias: &str, identity: &Keypair, quic_port: u16) -> NativePeerInfo {
+    NativePeerInfo {
+        alias: alias.to_string(),
+        fingerprint: Fingerprint::from_pubkey(&identity.public_bytes()).to_string(),
+        pubkey: identity.public_bytes(),
+        quic_port,
+        extensions: default_extensions(),
+    }
+}
+
+fn start_native_discovery(
+    args: &Args,
+    peer_info: &NativePeerInfo,
+) -> Option<NativeDiscoveryAnnouncer> {
+    if args.disable_native_discovery {
+        return None;
+    }
+
+    match NativeDiscoveryAnnouncer::register(
+        peer_info,
+        &args.alias,
+        "localhost",
+        IpAddr::V4(Ipv4Addr::UNSPECIFIED),
+    ) {
+        Ok(announcer) => Some(announcer),
+        Err(error) => {
+            warn!(%error, "failed to start native mDNS discovery advertisement");
+            None
+        }
+    }
+}
+
+async fn native_accept_loop(
+    endpoint: quinn::Endpoint,
+    alias: String,
+    pubkey: [u8; 32],
+    mut shutdown_rx: tokio::sync::watch::Receiver<bool>,
+) -> Result<()> {
+    loop {
+        tokio::select! {
+            changed = shutdown_rx.changed() => {
+                if changed.is_err() || *shutdown_rx.borrow() {
+                    return Ok(());
+                }
+            }
+            incoming = endpoint.accept() => {
+                let Some(incoming) = incoming else {
+                    return Ok(());
+                };
+                let alias = alias.clone();
+                tokio::spawn(async move {
+                    if let Err(error) = handle_native_connection(incoming, alias, pubkey).await {
+                        warn!(%error, "native connection failed");
+                    }
+                });
+            }
+        }
+    }
+}
+
+async fn handle_native_connection(
+    incoming: quinn::Incoming,
+    alias: String,
+    pubkey: [u8; 32],
+) -> Result<()> {
+    let connection = incoming.await.context("failed to accept native QUIC connection")?;
+    let mut stream = NativeControlStream::accept(&connection)
+        .await
+        .context("failed to accept native control stream")?;
+    let message = stream.read().await.context("failed to read native control message")?;
+
+    if let ControlMessage::Hello(hello) = message {
+        let ack = HelloAck {
+            protocol_version: PROTOCOL_VERSION,
+            alias,
+            pubkey,
+            nonce: b"daemon".to_vec(),
+            accepted_extensions: negotiate_extensions(&default_extensions(), &hello.extensions),
+        };
+        stream
+            .write(&ControlMessage::HelloAck(ack))
+            .await
+            .context("failed to write native hello ack")?;
+        let (mut send, _recv) = stream.into_inner();
+        send.finish().context("failed to finish native hello ack stream")?;
+        let _ = tokio::time::timeout(Duration::from_millis(250), connection.closed()).await;
+    }
+
+    Ok(())
+}
+
+async fn stop_native_runtime(runtime: NativeRuntime) -> Result<()> {
+    let _ = runtime.shutdown_tx.send(true);
+    runtime.endpoint.close(0_u32.into(), b"daemon shutdown");
+    if let Some(announcer) = &runtime.discovery_announcer {
+        if let Err(error) = announcer.shutdown() {
+            warn!(%error, "failed to stop native mDNS discovery advertisement");
+        }
+    }
+    runtime.server_task.await.context("native listener task panicked")??;
+    runtime.endpoint.wait_idle().await;
+    info!(addr = %runtime.local_addr, "native LAN listener stopped");
+    Ok(())
+}
+
 async fn wait_for_shutdown_signal(mut shutdown_rx: tokio::sync::watch::Receiver<bool>) {
     while !*shutdown_rx.borrow_and_update() {
         if shutdown_rx.changed().await.is_err() {
@@ -255,6 +450,15 @@ mod tests {
     }
 
     #[test]
+    fn args_default_native_options() {
+        let args = Args::parse_from(["daemon"]);
+
+        assert_eq!(args.native_port, DEFAULT_NATIVE_PORT);
+        assert!(!args.disable_native);
+        assert!(!args.disable_native_discovery);
+    }
+
+    #[test]
     fn args_parse_localsend_receive_overrides() {
         let args = Args::parse_from([
             "daemon",
@@ -271,5 +475,126 @@ mod tests {
         assert_eq!(args.alias, "workstation");
         assert_eq!(args.inbox, PathBuf::from("/tmp/lsi-inbox"));
         assert!(args.disable_localsend_v2);
+    }
+
+    #[test]
+    fn args_parse_native_overrides() {
+        let args = Args::parse_from([
+            "daemon",
+            "--native-port",
+            "4445",
+            "--disable-native",
+            "--disable-native-discovery",
+        ]);
+
+        assert_eq!(args.native_port, 4445);
+        assert!(args.disable_native);
+        assert!(args.disable_native_discovery);
+    }
+
+    #[tokio::test]
+    async fn native_runtime_accepts_hello_on_ephemeral_port() {
+        let args = Args::parse_from([
+            "daemon",
+            "--native-port",
+            "0",
+            "--disable-native-discovery",
+            "--disable-localsend-v2",
+        ]);
+        let identity = Keypair::generate();
+        let runtime = start_native_runtime(&args, &identity).await.unwrap();
+        let addr = runtime.local_addr;
+
+        assert_ne!(addr.port(), 0);
+
+        let client_endpoint = native_test_client_endpoint();
+        let target = SocketAddr::from((Ipv4Addr::LOCALHOST, addr.port()));
+        let connection = client_endpoint.connect(target, "localhost").unwrap().await.unwrap();
+        let (mut send, mut recv) = connection.open_bi().await.unwrap();
+        let hello = lsi_protocol_native_v1::dto::Hello {
+            protocol_version: lsi_protocol_native_v1::dto::PROTOCOL_VERSION,
+            alias: "client".to_string(),
+            pubkey: [9; 32],
+            nonce: b"test-nonce".to_vec(),
+            extensions: lsi_protocol_native_v1::dto::default_extensions(),
+        };
+
+        lsi_protocol_native_v1::framing::write_control(
+            &mut send,
+            &lsi_protocol_native_v1::framing::ControlMessage::Hello(hello),
+        )
+        .await
+        .unwrap();
+        let ack = lsi_protocol_native_v1::framing::read_control(&mut recv).await.unwrap();
+
+        assert!(matches!(ack, lsi_protocol_native_v1::framing::ControlMessage::HelloAck(_)));
+
+        stop_native_runtime(runtime).await.unwrap();
+    }
+
+    fn native_test_client_endpoint() -> quinn::Endpoint {
+        use std::sync::Arc;
+
+        use quinn::crypto::rustls::QuicClientConfig;
+        use rustls::client::danger::{
+            HandshakeSignatureValid, ServerCertVerified, ServerCertVerifier,
+        };
+        use rustls::pki_types::{CertificateDer, ServerName, UnixTime};
+        use rustls::{DigitallySignedStruct, SignatureScheme};
+
+        #[derive(Debug)]
+        struct TrustAnyServer;
+
+        impl ServerCertVerifier for TrustAnyServer {
+            fn verify_server_cert(
+                &self,
+                _end_entity: &CertificateDer<'_>,
+                _intermediates: &[CertificateDer<'_>],
+                _server_name: &ServerName<'_>,
+                _ocsp_response: &[u8],
+                _now: UnixTime,
+            ) -> std::result::Result<ServerCertVerified, rustls::Error> {
+                Ok(ServerCertVerified::assertion())
+            }
+
+            fn verify_tls12_signature(
+                &self,
+                _message: &[u8],
+                _cert: &CertificateDer<'_>,
+                _dss: &DigitallySignedStruct,
+            ) -> std::result::Result<HandshakeSignatureValid, rustls::Error> {
+                Ok(HandshakeSignatureValid::assertion())
+            }
+
+            fn verify_tls13_signature(
+                &self,
+                _message: &[u8],
+                _cert: &CertificateDer<'_>,
+                _dss: &DigitallySignedStruct,
+            ) -> std::result::Result<HandshakeSignatureValid, rustls::Error> {
+                Ok(HandshakeSignatureValid::assertion())
+            }
+
+            fn supported_verify_schemes(&self) -> Vec<SignatureScheme> {
+                vec![
+                    SignatureScheme::ECDSA_NISTP256_SHA256,
+                    SignatureScheme::ED25519,
+                    SignatureScheme::RSA_PSS_SHA256,
+                ]
+            }
+        }
+
+        lsi_protocol_native_v1::tls::ensure_ring_crypto_provider();
+        let mut rustls_config = rustls::ClientConfig::builder()
+            .dangerous()
+            .with_custom_certificate_verifier(Arc::new(TrustAnyServer))
+            .with_no_client_auth();
+        rustls_config.alpn_protocols =
+            vec![lsi_protocol_native_v1::transport::NATIVE_ALPN.to_vec()];
+        let quic_crypto = QuicClientConfig::try_from(rustls_config).unwrap();
+        let client_config = quinn::ClientConfig::new(Arc::new(quic_crypto));
+        let mut endpoint = quinn::Endpoint::client(SocketAddr::from(([127, 0, 0, 1], 0))).unwrap();
+        endpoint.set_default_client_config(client_config);
+        endpoint
     }
 }

@@ -1059,6 +1059,8 @@ dependencies = [
  "lsi-core",
  "lsi-protocol-localsend-v2",
  "lsi-protocol-native-v1",
+ "quinn",
+ "rustls 0.23.5",
  "tokio",
  "tracing",
  "tracing-subscriber",
