@@ -80,6 +80,19 @@ pub struct ResumeRange {
     pub length: u64,
 }
 
+/// Persisted file metadata for a transfer.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ManifestFile {
+    /// Sender-scoped file id.
+    pub file_id: String,
+    /// Original file name.
+    pub file_name: String,
+    /// File size in bytes.
+    pub size: u64,
+    /// Optional full-file BLAKE3 hex digest.
+    pub blake3: Option<String>,
+}
+
 /// SQLite-backed transfer manifest store.
 pub struct ManifestStore {
     conn: Mutex<Connection>,
@@ -228,6 +241,31 @@ impl ManifestStore {
         .map_err(sqlite_error)?
         .map(|state| TransferState::from_str(&state))
         .transpose()
+    }
+
+    /// Return files recorded for a transfer in file id order.
+    pub fn files(&self, transfer_id: &str) -> Result<Vec<ManifestFile>> {
+        let conn = self.conn.lock().expect("manifest store mutex poisoned");
+        let mut stmt = conn
+            .prepare(
+                "SELECT file_id, file_name, size, blake3
+                 FROM transfer_files
+                 WHERE transfer_id = ?
+                 ORDER BY file_id ASC",
+            )
+            .map_err(sqlite_error)?;
+        let mut rows = stmt.query(params![transfer_id]).map_err(sqlite_error)?;
+        let mut files = Vec::new();
+        while let Some(row) = rows.next().map_err(sqlite_error)? {
+            let size: i64 = row.get(2).map_err(sqlite_error)?;
+            files.push(ManifestFile {
+                file_id: row.get(0).map_err(sqlite_error)?,
+                file_name: row.get(1).map_err(sqlite_error)?,
+                size: size as u64,
+                blake3: row.get(3).map_err(sqlite_error)?,
+            });
+        }
+        Ok(files)
     }
 
     /// Returns whether all files in a transfer have complete verified coverage.

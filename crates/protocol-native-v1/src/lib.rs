@@ -11,6 +11,7 @@ pub mod framing;
 pub mod manifest;
 pub mod pairing;
 pub mod tls;
+pub mod transfer;
 pub mod transport;
 
 pub use error::{NativeError, Result};
