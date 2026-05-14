@@ -36,6 +36,7 @@ use tracing::{info, warn};
 use tracing_subscriber::{fmt, EnvFilter};
 
 mod api;
+mod events;
 mod state;
 
 use state::DaemonState;
@@ -134,7 +135,7 @@ async fn main() -> Result<()> {
         })?;
     let state = Arc::new(DaemonState::from_args(&args, identity, fingerprint, api_token));
     let api_auth_enabled = !state.api_token.expose_secret().is_empty();
-    let event_broadcaster_ready = state.event_placeholder.is_some();
+    let event_subscribers = state.events.subscriber_count();
 
     ensure_parent_dir(&state.trust_db_path).with_context(|| {
         format!("failed to prepare trust store at {}", state.trust_db_path.display())
@@ -149,7 +150,7 @@ async fn main() -> Result<()> {
     info!(
         identity = %identity_path.display(),
         trust_db = %state.trust_db_path.display(),
-        event_broadcaster_ready,
+        event_subscribers,
         "daemon initialized"
     );
 

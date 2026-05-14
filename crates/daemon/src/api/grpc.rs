@@ -8,9 +8,15 @@ use lsi_proto::{
         daemon_service_server::{DaemonService, DaemonServiceServer},
         DaemonStatus,
     },
+    events::v1::{
+        events_service_server::{EventsService, EventsServiceServer},
+        DaemonEvent as ProtoDaemonEvent, WatchEventsRequest,
+    },
 };
+use std::pin::Pin;
 use tokio::task::JoinHandle;
 use tokio_stream::wrappers::TcpListenerStream;
+use tonic::codegen::tokio_stream::Stream;
 use tonic::{transport::Server, Request, Response, Status};
 
 use crate::api::auth::BearerAuth;
@@ -53,6 +59,29 @@ impl DaemonService for DaemonApi {
     }
 }
 
+#[tonic::async_trait]
+impl EventsService for DaemonApi {
+    type WatchStream = Pin<Box<dyn Stream<Item = Result<ProtoDaemonEvent, Status>> + Send>>;
+
+    async fn watch(
+        &self,
+        _request: Request<WatchEventsRequest>,
+    ) -> Result<Response<Self::WatchStream>, Status> {
+        let mut rx = self.state.events.subscribe();
+        let stream = async_stream::try_stream! {
+            loop {
+                match rx.recv().await {
+                    Ok(event) => yield event.to_proto(),
+                    Err(tokio::sync::broadcast::error::RecvError::Lagged(_)) => continue,
+                    Err(tokio::sync::broadcast::error::RecvError::Closed) => break,
+                }
+            }
+        };
+
+        Ok(Response::new(Box::pin(stream) as Self::WatchStream))
+    }
+}
+
 pub(crate) async fn start_grpc_runtime(
     state: Arc<DaemonState>,
     port: u16,
@@ -65,10 +94,13 @@ pub(crate) async fn start_grpc_runtime(
     let incoming = TcpListenerStream::new(listener);
     let (shutdown_tx, shutdown_rx) = tokio::sync::watch::channel(false);
     let auth = BearerAuth::new(state.api_token.expose_secret());
+    let daemon_api = DaemonApi::new(Arc::clone(&state));
+    let events_api = DaemonApi::new(state);
 
     let server_task = tokio::spawn(async move {
         Server::builder()
-            .add_service(DaemonServiceServer::with_interceptor(DaemonApi::new(state), auth))
+            .add_service(DaemonServiceServer::with_interceptor(daemon_api, auth.clone()))
+            .add_service(EventsServiceServer::with_interceptor(events_api, auth))
             .serve_with_incoming_shutdown(incoming, wait_for_shutdown_signal(shutdown_rx))
             .await
             .map_err(Into::into)
@@ -94,13 +126,21 @@ async fn wait_for_shutdown_signal(mut shutdown_rx: tokio::sync::watch::Receiver<
 #[cfg(test)]
 mod tests {
     use std::sync::Arc;
+    use std::time::Duration;
 
     use clap::Parser;
     use lsi_core::{
         api_token::ApiToken,
         identity::{Fingerprint, Keypair},
     };
-    use lsi_proto::{common::v1::Empty, daemon::v1::daemon_service_client::DaemonServiceClient};
+    use lsi_proto::{
+        common::v1::Empty,
+        daemon::v1::daemon_service_client::DaemonServiceClient,
+        events::v1::{
+            daemon_event, events_service_client::EventsServiceClient, DaemonEventType,
+            WatchEventsRequest,
+        },
+    };
     use tonic::metadata::MetadataValue;
 
     use super::*;
@@ -148,6 +188,39 @@ mod tests {
         fixture.stop().await;
     }
 
+    #[tokio::test]
+    async fn grpc_watch_streams_daemon_events() {
+        let fixture = ApiFixture::start().await;
+        let mut client = fixture.events_client().await;
+        let state = Arc::clone(&fixture.state);
+        let emit_task = tokio::spawn(async move {
+            wait_for_event_subscriber(&state).await;
+            state.events.emit(crate::events::DaemonEvent::InboxChanged);
+        });
+
+        let mut stream = tokio::time::timeout(
+            Duration::from_secs(1),
+            client.watch(authenticated_events_request("test-token")),
+        )
+        .await
+        .unwrap()
+        .unwrap()
+        .into_inner();
+
+        let event = tokio::time::timeout(Duration::from_secs(1), stream.message())
+            .await
+            .unwrap()
+            .unwrap()
+            .unwrap();
+
+        assert_eq!(event.r#type, DaemonEventType::InboxChanged as i32);
+        assert!(matches!(event.payload, Some(daemon_event::Payload::InboxChanged(_))));
+        emit_task.await.unwrap();
+        drop(stream);
+        drop(client);
+        fixture.stop().await;
+    }
+
     struct ApiFixture {
         runtime: GrpcApiRuntime,
         state: Arc<DaemonState>,
@@ -187,6 +260,16 @@ mod tests {
                 .unwrap()
         }
 
+        async fn events_client(&self) -> EventsServiceClient<tonic::transport::Channel> {
+            tokio::time::timeout(
+                Duration::from_secs(1),
+                EventsServiceClient::connect(format!("http://{}", self.runtime.local_addr())),
+            )
+            .await
+            .unwrap()
+            .unwrap()
+        }
+
         async fn stop(self) {
             stop_grpc_runtime(self.runtime).await.unwrap();
         }
@@ -197,5 +280,22 @@ mod tests {
         let value = format!("Bearer {token}");
         request.metadata_mut().insert("authorization", MetadataValue::try_from(value).unwrap());
         request
+    }
+
+    fn authenticated_events_request(token: &str) -> Request<WatchEventsRequest> {
+        let mut request = Request::new(WatchEventsRequest {});
+        let value = format!("Bearer {token}");
+        request.metadata_mut().insert("authorization", MetadataValue::try_from(value).unwrap());
+        request
+    }
+
+    async fn wait_for_event_subscriber(state: &DaemonState) {
+        for _ in 0..20 {
+            if state.events.subscriber_count() > 0 {
+                return;
+            }
+            tokio::time::sleep(Duration::from_millis(10)).await;
+        }
+        panic!("event stream did not subscribe");
     }
 }

@@ -2,7 +2,7 @@ use std::path::PathBuf;
 
 use lsi_core::{api_token::ApiToken, identity::Keypair, paths};
 
-use crate::Args;
+use crate::{events::EventBus, Args};
 
 #[derive(Clone)]
 pub(crate) struct DaemonState {
@@ -14,7 +14,7 @@ pub(crate) struct DaemonState {
     pub(crate) localsend_port: u16,
     pub(crate) native_port: u16,
     pub(crate) api_token: ApiToken,
-    pub(crate) event_placeholder: Option<()>,
+    pub(crate) events: EventBus,
 }
 
 impl DaemonState {
@@ -33,7 +33,7 @@ impl DaemonState {
             localsend_port: args.localsend_port,
             native_port: args.native_port,
             api_token,
-            event_placeholder: None,
+            events: EventBus::new(),
         }
     }
 }
@@ -78,7 +78,7 @@ mod tests {
         assert_eq!(state.localsend_port, 4444);
         assert_eq!(state.native_port, 4445);
         assert_eq!(state.api_token.expose_secret(), "temporary-token");
-        assert_eq!(state.event_placeholder, None);
+        assert_eq!(state.events.subscriber_count(), 0);
     }
 
     #[test]
