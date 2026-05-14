@@ -1,10 +1,12 @@
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
 use std::time::Duration;
 
 use anyhow::{Context, Result};
 use clap::Parser;
 use lsi_core::{
+    api_token::{ApiTokenVault, FsApiTokenVault},
     identity::{Fingerprint, FsVault, IdentityVault, Keypair},
     paths,
     trust::TrustStore,
@@ -32,6 +34,10 @@ use lsi_protocol_native_v1::{
 use tokio::task::JoinHandle;
 use tracing::{info, warn};
 use tracing_subscriber::{fmt, EnvFilter};
+
+mod state;
+
+use state::DaemonState;
 
 const DEFAULT_LOCALSEND_PORT: u16 = 53317;
 const DEFAULT_NATIVE_PORT: u16 = 53400;
@@ -105,24 +111,35 @@ async fn main() -> Result<()> {
 
     let args = Args::parse();
     let identity_path = args.identity.clone().unwrap_or_else(paths::identity_file);
-    let trust_db_path = args.trust_db.clone().unwrap_or_else(paths::trust_db_file);
 
     let vault = FsVault::new(&identity_path);
     let identity = load_or_create_identity(&vault).with_context(|| {
         format!("failed to load or create identity at {}", identity_path.display())
     })?;
-    let fingerprint = Fingerprint::from_pubkey(&identity.public_bytes());
+    let fingerprint = Fingerprint::from_pubkey(&identity.public_bytes()).to_string();
+    let api_token_path = paths::api_token_file();
+    let api_token =
+        FsApiTokenVault::new(&api_token_path).load_or_generate().with_context(|| {
+            format!("failed to load or create API token at {}", api_token_path.display())
+        })?;
+    let state = Arc::new(DaemonState::from_args(&args, identity, fingerprint, api_token));
+    let api_auth_enabled = !state.api_token.expose_secret().is_empty();
+    let event_broadcaster_ready = state.event_placeholder.is_some();
 
-    ensure_parent_dir(&trust_db_path)
-        .with_context(|| format!("failed to prepare trust store at {}", trust_db_path.display()))?;
-    let _trust_store = TrustStore::open(&trust_db_path)
-        .with_context(|| format!("failed to open trust store at {}", trust_db_path.display()))?;
+    ensure_parent_dir(&state.trust_db_path).with_context(|| {
+        format!("failed to prepare trust store at {}", state.trust_db_path.display())
+    })?;
+    let _trust_store = TrustStore::open(&state.trust_db_path).with_context(|| {
+        format!("failed to open trust store at {}", state.trust_db_path.display())
+    })?;
 
-    info!(fp = %fingerprint, "identity loaded");
-    info!(path = %trust_db_path.display(), "trust store opened");
+    info!(fp = %state.fingerprint, "identity loaded");
+    info!(path = %state.trust_db_path.display(), "trust store opened");
+    info!(path = %api_token_path.display(), enabled = api_auth_enabled, "API token loaded");
     info!(
         identity = %identity_path.display(),
-        trust_db = %trust_db_path.display(),
+        trust_db = %state.trust_db_path.display(),
+        event_broadcaster_ready,
         "daemon initialized"
     );
 
@@ -131,7 +148,7 @@ async fn main() -> Result<()> {
         None
     } else {
         Some(
-            start_localsend_v2(&args)
+            start_localsend_v2(&state)
                 .await
                 .with_context(|| "failed to start LocalSend v2 receiver")?,
         )
@@ -142,7 +159,7 @@ async fn main() -> Result<()> {
         None
     } else {
         Some(
-            start_native_runtime(&args, &identity)
+            start_native_runtime(&args, &state)
                 .await
                 .with_context(|| "failed to start native LAN listener")?,
         )
@@ -188,15 +205,15 @@ fn ensure_parent_dir(path: &Path) -> Result<()> {
     Ok(())
 }
 
-async fn start_localsend_v2(args: &Args) -> Result<LocalSendRuntime> {
+async fn start_localsend_v2(state: &DaemonState) -> Result<LocalSendRuntime> {
     let tls_identity = TlsIdentityVault::new(paths::config_dir())
-        .load_or_generate(&args.alias)
+        .load_or_generate(&state.alias)
         .context("failed to load or generate LocalSend v2 TLS identity")?;
-    let device_info = device_info(&args.alias, args.localsend_port, &tls_identity);
+    let device_info = device_info(&state.alias, state.localsend_port, &tls_identity);
     let server = LocalSendServer::bind(LocalSendServerConfig {
-        bind_addr: SocketAddr::from((Ipv4Addr::UNSPECIFIED, args.localsend_port)),
+        bind_addr: SocketAddr::from((Ipv4Addr::UNSPECIFIED, state.localsend_port)),
         info: device_info.clone(),
-        inbox_dir: args.inbox.clone(),
+        inbox_dir: state.inbox_dir.clone(),
         session_ttl: LOCALSEND_SESSION_TTL,
         tls_identity: Some(tls_identity),
     })
@@ -223,8 +240,8 @@ async fn start_localsend_v2(args: &Args) -> Result<LocalSendRuntime> {
     });
 
     info!(
-        alias = %args.alias,
-        inbox = %args.inbox.display(),
+        alias = %state.alias,
+        inbox = %state.inbox_dir.display(),
         addr = %bound_addr,
         "LocalSend v2 receiver started"
     );
@@ -243,21 +260,21 @@ async fn stop_localsend_v2(runtime: LocalSendRuntime) -> Result<()> {
     Ok(())
 }
 
-async fn start_native_runtime(args: &Args, identity: &Keypair) -> Result<NativeRuntime> {
-    let tls_identity = NativeTlsIdentity::generate(&args.alias)
+async fn start_native_runtime(args: &Args, state: &DaemonState) -> Result<NativeRuntime> {
+    let tls_identity = NativeTlsIdentity::generate(&state.alias)
         .context("failed to generate native TLS identity")?;
     let server_config = NativeTransportConfig::default()
         .apply_to_server_config(tls_identity.quinn_server_config()?)
         .context("failed to build native QUIC server config")?;
-    let endpoint = bind_native_endpoint(args.native_port, server_config)?;
+    let endpoint = bind_native_endpoint(state.native_port, server_config)?;
     let local_addr = endpoint.local_addr().context("failed to read native listener address")?;
-    let peer_info = native_peer_info(&args.alias, identity, local_addr.port());
+    let peer_info = native_peer_info(&state.alias, &state.identity, local_addr.port());
     let discovery_announcer = start_native_discovery(args, &peer_info);
     let (shutdown_tx, server_shutdown_rx) = tokio::sync::watch::channel(false);
     let server_endpoint = endpoint.clone();
-    let server_alias = args.alias.clone();
-    let server_pubkey = identity.public_bytes();
-    let inbox_dir = args.inbox.clone();
+    let server_alias = state.alias.clone();
+    let server_pubkey = state.identity.public_bytes();
+    let inbox_dir = state.inbox_dir.clone();
     let manifest_path = args
         .native_manifest_db
         .clone()
@@ -279,7 +296,7 @@ async fn start_native_runtime(args: &Args, identity: &Keypair) -> Result<NativeR
     });
 
     info!(
-        alias = %args.alias,
+        alias = %state.alias,
         addr = %local_addr,
         discovery = !args.disable_native_discovery,
         "native LAN listener started"
@@ -610,7 +627,10 @@ mod tests {
             "--disable-localsend-v2",
         ]);
         let identity = Keypair::generate();
-        let runtime = start_native_runtime(&args, &identity).await.unwrap();
+        let fingerprint = Fingerprint::from_pubkey(&identity.public_bytes()).to_string();
+        let token = lsi_core::api_token::ApiToken::new("temporary-api-token").unwrap();
+        let state = DaemonState::from_args(&args, identity, fingerprint, token);
+        let runtime = start_native_runtime(&args, &state).await.unwrap();
         let addr = runtime.local_addr;
 
         assert_ne!(addr.port(), 0);
