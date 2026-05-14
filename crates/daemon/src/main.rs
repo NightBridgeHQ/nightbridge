@@ -17,9 +17,14 @@ use lsi_protocol_localsend_v2::{
 };
 use lsi_protocol_native_v1::{
     discovery::NativeDiscoveryAnnouncer,
-    dto::{default_extensions, negotiate_extensions, HelloAck, NativePeerInfo, PROTOCOL_VERSION},
+    dto::{
+        default_extensions, negotiate_extensions, HelloAck, NativePeerInfo, RequestTransfer,
+        PROTOCOL_VERSION,
+    },
     framing::ControlMessage,
+    manifest::ManifestStore,
     tls::NativeTlsIdentity,
+    transfer::{read_chunk_frame, NativeTransferReceiver},
     transport::{
         bind_server_endpoint, NativeControlStream, NativeServerBind, NativeTransportConfig,
     },
@@ -73,6 +78,10 @@ struct Args {
     /// Disable native mDNS discovery advertisement.
     #[arg(long = "disable-native-discovery")]
     disable_native_discovery: bool,
+
+    /// Path to the native transfer manifest SQLite database.
+    #[arg(long = "native-manifest-db")]
+    native_manifest_db: Option<PathBuf>,
 }
 
 #[derive(Debug)]
@@ -248,9 +257,25 @@ async fn start_native_runtime(args: &Args, identity: &Keypair) -> Result<NativeR
     let server_endpoint = endpoint.clone();
     let server_alias = args.alias.clone();
     let server_pubkey = identity.public_bytes();
+    let inbox_dir = args.inbox.clone();
+    let manifest_path = args
+        .native_manifest_db
+        .clone()
+        .unwrap_or_else(|| paths::state_dir().join("native-manifests.db"));
+    ensure_parent_dir(&manifest_path).with_context(|| {
+        format!("failed to prepare native manifest db at {}", manifest_path.display())
+    })?;
 
     let server_task = tokio::spawn(async move {
-        native_accept_loop(server_endpoint, server_alias, server_pubkey, server_shutdown_rx).await
+        native_accept_loop(
+            server_endpoint,
+            server_alias,
+            server_pubkey,
+            inbox_dir,
+            manifest_path,
+            server_shutdown_rx,
+        )
+        .await
     });
 
     info!(
@@ -315,6 +340,8 @@ async fn native_accept_loop(
     endpoint: quinn::Endpoint,
     alias: String,
     pubkey: [u8; 32],
+    inbox_dir: PathBuf,
+    manifest_path: PathBuf,
     mut shutdown_rx: tokio::sync::watch::Receiver<bool>,
 ) -> Result<()> {
     loop {
@@ -329,8 +356,16 @@ async fn native_accept_loop(
                     return Ok(());
                 };
                 let alias = alias.clone();
+                let inbox_dir = inbox_dir.clone();
+                let manifest_path = manifest_path.clone();
                 tokio::spawn(async move {
-                    if let Err(error) = handle_native_connection(incoming, alias, pubkey).await {
+                    if let Err(error) = handle_native_connection(
+                        incoming,
+                        alias,
+                        pubkey,
+                        inbox_dir,
+                        manifest_path,
+                    ).await {
                         warn!(%error, "native connection failed");
                     }
                 });
@@ -343,6 +378,8 @@ async fn handle_native_connection(
     incoming: quinn::Incoming,
     alias: String,
     pubkey: [u8; 32],
+    inbox_dir: PathBuf,
+    manifest_path: PathBuf,
 ) -> Result<()> {
     let connection = incoming.await.context("failed to accept native QUIC connection")?;
     let mut stream = NativeControlStream::accept(&connection)
@@ -350,24 +387,92 @@ async fn handle_native_connection(
         .context("failed to accept native control stream")?;
     let message = stream.read().await.context("failed to read native control message")?;
 
-    if let ControlMessage::Hello(hello) = message {
-        let ack = HelloAck {
-            protocol_version: PROTOCOL_VERSION,
-            alias,
-            pubkey,
-            nonce: b"daemon".to_vec(),
-            accepted_extensions: negotiate_extensions(&default_extensions(), &hello.extensions),
-        };
-        stream
-            .write(&ControlMessage::HelloAck(ack))
-            .await
-            .context("failed to write native hello ack")?;
-        let (mut send, _recv) = stream.into_inner();
-        send.finish().context("failed to finish native hello ack stream")?;
-        let _ = tokio::time::timeout(Duration::from_millis(250), connection.closed()).await;
-    }
+    let ControlMessage::Hello(hello) = message else {
+        return Ok(());
+    };
+    let peer = NativePeerInfo {
+        alias: hello.alias.clone(),
+        fingerprint: Fingerprint::from_pubkey(&hello.pubkey).to_string(),
+        pubkey: hello.pubkey,
+        quic_port: 0,
+        extensions: hello.extensions.clone(),
+    };
+    let ack = HelloAck {
+        protocol_version: PROTOCOL_VERSION,
+        alias,
+        pubkey,
+        nonce: b"daemon".to_vec(),
+        accepted_extensions: negotiate_extensions(&default_extensions(), &hello.extensions),
+    };
+    stream
+        .write(&ControlMessage::HelloAck(ack))
+        .await
+        .context("failed to write native hello ack")?;
+
+    let message = stream.read().await.context("failed to read native transfer request")?;
+    let ControlMessage::RequestTransfer(request) = message else {
+        return Ok(());
+    };
+    receive_native_transfer(&mut stream, inbox_dir, manifest_path, &peer, request).await?;
+    let (mut send, _recv) = stream.into_inner();
+    send.finish().context("failed to finish native stream")?;
+    let _ = tokio::time::timeout(Duration::from_millis(250), connection.closed()).await;
 
     Ok(())
+}
+
+async fn receive_native_transfer(
+    stream: &mut NativeControlStream,
+    inbox_dir: PathBuf,
+    manifest_path: PathBuf,
+    peer: &NativePeerInfo,
+    request: RequestTransfer,
+) -> Result<()> {
+    let manifest = ManifestStore::open(&manifest_path)
+        .with_context(|| format!("failed to open native manifest {}", manifest_path.display()))?;
+    let receiver = NativeTransferReceiver::trusted(inbox_dir, manifest, peer.fingerprint.clone());
+    let accepted = receiver
+        .accept_transfer(peer, &request)
+        .await
+        .context("failed to accept native transfer")?;
+    stream
+        .write(&ControlMessage::Accept(accepted.clone()))
+        .await
+        .context("failed to write native transfer acceptance")?;
+
+    let expected_chunks = expected_chunk_count(&request, accepted.chunk_size);
+    for _ in 0..expected_chunks {
+        let chunk =
+            read_chunk_frame(stream.recv_mut()).await.context("failed to read native chunk")?;
+        receiver
+            .receive_chunk_with_hash(
+                &request.transfer_id,
+                &chunk.file_id,
+                chunk.offset,
+                &chunk.bytes,
+                &chunk.blake3,
+            )
+            .await
+            .context("failed to receive native chunk")?;
+    }
+
+    let done = match stream.read().await.context("failed to read native transfer completion")? {
+        ControlMessage::Done(done) if done.transfer_id == request.transfer_id => done,
+        _ => return Err(anyhow::anyhow!("native transfer did not finish with Done")),
+    };
+    receiver
+        .finish_transfer(&request.transfer_id)
+        .await
+        .context("failed to publish native files")?;
+    stream.write(&ControlMessage::Done(done)).await.context("failed to write native completion ack")
+}
+
+fn expected_chunk_count(request: &RequestTransfer, chunk_size: u64) -> u64 {
+    request
+        .files
+        .iter()
+        .map(|file| if file.size == 0 { 0 } else { file.size.div_ceil(chunk_size) })
+        .sum()
 }
 
 async fn stop_native_runtime(runtime: NativeRuntime) -> Result<()> {
@@ -493,11 +598,14 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn native_runtime_accepts_hello_on_ephemeral_port() {
+    async fn native_runtime_accepts_hello_and_receives_file_on_ephemeral_port() {
+        let temp = tempfile::TempDir::new().unwrap();
         let args = Args::parse_from([
             "daemon",
             "--native-port",
             "0",
+            "--inbox",
+            temp.path().join("inbox").to_str().unwrap(),
             "--disable-native-discovery",
             "--disable-localsend-v2",
         ]);
@@ -528,6 +636,62 @@ mod tests {
         let ack = lsi_protocol_native_v1::framing::read_control(&mut recv).await.unwrap();
 
         assert!(matches!(ack, lsi_protocol_native_v1::framing::ControlMessage::HelloAck(_)));
+
+        let body = b"native hello file";
+        let request = lsi_protocol_native_v1::dto::RequestTransfer {
+            transfer_id: "test-transfer".to_string(),
+            files: vec![lsi_protocol_native_v1::dto::FileOffer {
+                file_id: "file-0".to_string(),
+                file_name: "native.txt".to_string(),
+                size: body.len() as u64,
+                blake3: Some(lsi_protocol_native_v1::chunk::blake3_hex(body)),
+            }],
+        };
+        lsi_protocol_native_v1::framing::write_control(
+            &mut send,
+            &lsi_protocol_native_v1::framing::ControlMessage::RequestTransfer(request),
+        )
+        .await
+        .unwrap();
+        let accepted = lsi_protocol_native_v1::framing::read_control(&mut recv).await.unwrap();
+        assert!(matches!(accepted, lsi_protocol_native_v1::framing::ControlMessage::Accept(_)));
+        lsi_protocol_native_v1::transfer::write_chunk_frame(
+            &mut send,
+            &lsi_protocol_native_v1::transfer::TransferChunk {
+                file_id: "file-0".to_string(),
+                offset: 0,
+                blake3: lsi_protocol_native_v1::chunk::blake3_hex(body),
+                bytes: body.to_vec(),
+            },
+        )
+        .await
+        .unwrap();
+        lsi_protocol_native_v1::framing::write_control(
+            &mut send,
+            &lsi_protocol_native_v1::framing::ControlMessage::Done(
+                lsi_protocol_native_v1::dto::DoneTransfer {
+                    transfer_id: "test-transfer".to_string(),
+                },
+            ),
+        )
+        .await
+        .unwrap();
+        let done = lsi_protocol_native_v1::framing::read_control(&mut recv).await.unwrap();
+        assert!(matches!(done, lsi_protocol_native_v1::framing::ControlMessage::Done(_)));
+        send.finish().unwrap();
+
+        tokio::time::timeout(std::time::Duration::from_secs(2), async {
+            loop {
+                if let Ok(bytes) = tokio::fs::read(temp.path().join("inbox/native.txt")).await {
+                    break bytes;
+                }
+                tokio::time::sleep(std::time::Duration::from_millis(20)).await;
+            }
+        })
+        .await
+        .unwrap();
+        let written = tokio::fs::read(temp.path().join("inbox/native.txt")).await.unwrap();
+        assert_eq!(written, body);
 
         stop_native_runtime(runtime).await.unwrap();
     }

@@ -5,7 +5,7 @@ use std::ffi::OsStr;
 use std::path::{Path, PathBuf};
 
 use tokio::fs::{self, OpenOptions};
-use tokio::io::{AsyncReadExt, AsyncSeekExt, AsyncWriteExt};
+use tokio::io::{AsyncRead, AsyncReadExt, AsyncSeekExt, AsyncWrite, AsyncWriteExt};
 use uuid::Uuid;
 
 use crate::chunk::{blake3_hex, DEFAULT_CHUNK_SIZE};
@@ -129,6 +129,100 @@ pub struct ResumePlan {
     pub missing: BTreeMap<String, Vec<ResumeRange>>,
 }
 
+/// One native data chunk transported after a transfer is accepted.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct TransferChunk {
+    /// Sender-scoped file id.
+    pub file_id: String,
+    /// Byte offset inside the file.
+    pub offset: u64,
+    /// BLAKE3 hex digest for `bytes`.
+    pub blake3: String,
+    /// Chunk bytes.
+    pub bytes: Vec<u8>,
+}
+
+/// Write one binary chunk frame.
+pub async fn write_chunk_frame<W>(writer: &mut W, chunk: &TransferChunk) -> Result<()>
+where
+    W: AsyncWrite + Unpin,
+{
+    if chunk.file_id.trim().is_empty() {
+        return Err(transfer_error("file id is required"));
+    }
+    if chunk.blake3.len() != 64 || !chunk.blake3.chars().all(|ch| ch.is_ascii_hexdigit()) {
+        return Err(transfer_error("chunk blake3 must be 64 hex characters"));
+    }
+    if chunk.bytes.is_empty() {
+        return Err(transfer_error("chunk bytes must not be empty"));
+    }
+    if blake3_hex(&chunk.bytes) != chunk.blake3 {
+        return Err(transfer_error("chunk hash mismatch"));
+    }
+
+    let file_id = chunk.file_id.as_bytes();
+    let file_id_len: u16 =
+        file_id.len().try_into().map_err(|_| transfer_error("file id is too long"))?;
+    let bytes_len: u32 =
+        chunk.bytes.len().try_into().map_err(|_| transfer_error("chunk is too large"))?;
+    let frame_len = 2_u32
+        .checked_add(file_id_len as u32)
+        .and_then(|len| len.checked_add(8))
+        .and_then(|len| len.checked_add(64))
+        .and_then(|len| len.checked_add(4))
+        .and_then(|len| len.checked_add(bytes_len))
+        .ok_or_else(|| transfer_error("chunk frame is too large"))?;
+
+    writer.write_all(&frame_len.to_be_bytes()).await?;
+    writer.write_all(&file_id_len.to_be_bytes()).await?;
+    writer.write_all(file_id).await?;
+    writer.write_all(&chunk.offset.to_be_bytes()).await?;
+    writer.write_all(chunk.blake3.as_bytes()).await?;
+    writer.write_all(&bytes_len.to_be_bytes()).await?;
+    writer.write_all(&chunk.bytes).await?;
+    writer.flush().await?;
+    Ok(())
+}
+
+/// Read one binary chunk frame.
+pub async fn read_chunk_frame<R>(reader: &mut R) -> Result<TransferChunk>
+where
+    R: AsyncRead + Unpin,
+{
+    let frame_len = reader.read_u32().await? as usize;
+    if frame_len < 2 + 8 + 64 + 4 {
+        return Err(transfer_error("chunk frame is too small"));
+    }
+
+    let file_id_len = reader.read_u16().await? as usize;
+    if file_id_len == 0 || file_id_len > frame_len {
+        return Err(transfer_error("invalid file id length"));
+    }
+    let mut file_id = vec![0_u8; file_id_len];
+    reader.read_exact(&mut file_id).await?;
+    let file_id =
+        String::from_utf8(file_id).map_err(|_| transfer_error("file id must be valid UTF-8"))?;
+
+    let offset = reader.read_u64().await?;
+    let mut blake3 = vec![0_u8; 64];
+    reader.read_exact(&mut blake3).await?;
+    let blake3 = String::from_utf8(blake3)
+        .map_err(|_| transfer_error("chunk blake3 must be valid UTF-8"))?;
+    let bytes_len = reader.read_u32().await? as usize;
+    let expected_len = 2 + file_id_len + 8 + 64 + 4 + bytes_len;
+    if expected_len != frame_len {
+        return Err(transfer_error("chunk frame length mismatch"));
+    }
+    let mut bytes = vec![0_u8; bytes_len];
+    reader.read_exact(&mut bytes).await?;
+
+    let chunk = TransferChunk { file_id, offset, blake3, bytes };
+    if blake3_hex(&chunk.bytes) != chunk.blake3 {
+        return Err(transfer_error("chunk hash mismatch"));
+    }
+    Ok(chunk)
+}
+
 /// Native transfer receiver.
 pub struct NativeTransferReceiver {
     inbox_dir: PathBuf,
@@ -221,7 +315,8 @@ impl NativeTransferReceiver {
         if let Some(parent) = path.parent() {
             fs::create_dir_all(parent).await?;
         }
-        let mut file = OpenOptions::new().create(true).write(true).open(&path).await?;
+        let mut file =
+            OpenOptions::new().create(true).truncate(false).write(true).open(&path).await?;
         file.seek(std::io::SeekFrom::Start(offset)).await?;
         file.write_all(bytes).await?;
         file.flush().await?;
@@ -504,5 +599,21 @@ mod tests {
 
         assert!(error.to_string().contains("chunk hash mismatch"));
         assert!(!temp.path().join("inbox/.incoming/native/tx/file-1.part").exists());
+    }
+
+    #[tokio::test]
+    async fn chunk_frame_roundtrip_preserves_metadata_and_bytes() {
+        let chunk = crate::transfer::TransferChunk {
+            file_id: "file-1".to_string(),
+            offset: 1024,
+            blake3: crate::chunk::blake3_hex(b"chunk"),
+            bytes: b"chunk".to_vec(),
+        };
+        let mut encoded = Vec::new();
+
+        crate::transfer::write_chunk_frame(&mut encoded, &chunk).await.unwrap();
+        let decoded = crate::transfer::read_chunk_frame(&mut encoded.as_slice()).await.unwrap();
+
+        assert_eq!(decoded, chunk);
     }
 }

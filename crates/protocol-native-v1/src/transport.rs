@@ -229,6 +229,16 @@ impl NativeControlStream {
         read_control(&mut self.recv).await
     }
 
+    /// Borrows the send half.
+    pub fn send_mut(&mut self) -> &mut quinn::SendStream {
+        &mut self.send
+    }
+
+    /// Borrows the receive half.
+    pub fn recv_mut(&mut self) -> &mut quinn::RecvStream {
+        &mut self.recv
+    }
+
     /// Splits the wrapper back into Quinn stream halves.
     pub fn into_inner(self) -> (quinn::SendStream, quinn::RecvStream) {
         (self.send, self.recv)

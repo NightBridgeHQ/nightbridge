@@ -135,7 +135,7 @@ fn patterned_bytes_have_stable_hash() {
     let bytes = patterned_bytes(4096, 1024);
 
     assert_eq!(
-        blake3_hex(&bytes),
+        blake3_hex(bytes),
         "206e6997faef0f33f3e624cd7f38a9ecf09a92c326324a2f32a0c5ac9eaba923"
     );
 }

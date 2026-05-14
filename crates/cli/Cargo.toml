@@ -17,6 +17,8 @@ lsi-protocol-localsend-v2 = { path = "../protocol-localsend-v2" }
 lsi-protocol-native-v1 = { path = "../protocol-native-v1" }
 clap.workspace = true
 anyhow.workspace = true
+quinn.workspace = true
+rustls.workspace = true
 tracing.workspace = true
 tracing-subscriber.workspace = true
 tokio.workspace = true
