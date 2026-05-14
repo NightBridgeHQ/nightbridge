@@ -27,6 +27,9 @@ enum Command {
     Peers(cmd::peers::Cmd),
     /// Send files to a LocalSend peer.
     Send(cmd::send::Cmd),
+    /// Inspect and resume native transfers.
+    #[command(subcommand)]
+    Transfers(cmd::transfers::Cmd),
 }
 
 fn main() -> Result<()> {
@@ -43,5 +46,6 @@ fn main() -> Result<()> {
         Command::Identity(command) => cmd::identity::run(command),
         Command::Peers(command) => cmd::peers::run(command),
         Command::Send(command) => cmd::send::run(command),
+        Command::Transfers(command) => cmd::transfers::run(command),
     }
 }

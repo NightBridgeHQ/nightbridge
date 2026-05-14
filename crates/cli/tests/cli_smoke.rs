@@ -123,3 +123,41 @@ fn send_rejects_missing_file() {
         .failure()
         .stderr(predicate::str::contains("sending files"));
 }
+
+#[test]
+fn send_native_requires_url_or_peer() {
+    let dir = TempDir::new().unwrap();
+    let file = dir.path().join("file.bin");
+    std::fs::write(&file, b"native payload").unwrap();
+
+    let mut cmd = Command::cargo_bin("localsend-improved").unwrap();
+    set_isolated_dirs(&mut cmd, &dir);
+
+    cmd.args(["send", "--native", file.to_str().unwrap()]).assert().failure().stderr(
+        predicate::str::contains("native send requires --url until peer selection is available"),
+    );
+}
+
+#[test]
+fn transfers_list_active_empty() {
+    let dir = TempDir::new().unwrap();
+    let mut cmd = Command::cargo_bin("localsend-improved").unwrap();
+    set_isolated_dirs(&mut cmd, &dir);
+
+    cmd.args(["transfers", "list-active"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("no active transfers"));
+}
+
+#[test]
+fn transfers_resume_requires_transfer_id() {
+    let dir = TempDir::new().unwrap();
+    let mut cmd = Command::cargo_bin("localsend-improved").unwrap();
+    set_isolated_dirs(&mut cmd, &dir);
+
+    cmd.args(["transfers", "resume"])
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains("<TRANSFER_ID>"));
+}
