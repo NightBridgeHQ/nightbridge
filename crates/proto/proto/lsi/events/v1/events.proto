@@ -1,0 +1,68 @@
+syntax = "proto3";
+
+package lsi.events.v1;
+
+import "lsi/common/v1/common.proto";
+import "lsi/inbox/v1/inbox.proto";
+import "lsi/peers/v1/peers.proto";
+import "lsi/transfers/v1/transfers.proto";
+
+service EventsService {
+  rpc Watch(WatchEventsRequest) returns (stream DaemonEvent);
+}
+
+message WatchEventsRequest {}
+
+enum DaemonEventType {
+  DAEMON_EVENT_TYPE_UNSPECIFIED = 0;
+  DAEMON_EVENT_TYPE_TRANSFER_STARTED = 1;
+  DAEMON_EVENT_TYPE_TRANSFER_PROGRESS = 2;
+  DAEMON_EVENT_TYPE_TRANSFER_COMPLETED = 3;
+  DAEMON_EVENT_TYPE_TRANSFER_FAILED = 4;
+  DAEMON_EVENT_TYPE_INBOX_CHANGED = 5;
+  DAEMON_EVENT_TYPE_PEER_SEEN = 6;
+}
+
+message DaemonEvent {
+  string event_id = 1;
+  int64 occurred_at_unix_seconds = 2;
+  DaemonEventType type = 3;
+
+  oneof payload {
+    TransferStarted transfer_started = 4;
+    TransferProgress transfer_progress = 5;
+    TransferCompleted transfer_completed = 6;
+    TransferFailed transfer_failed = 7;
+    InboxChanged inbox_changed = 8;
+    PeerSeen peer_seen = 9;
+  }
+}
+
+message TransferStarted {
+  lsi.transfers.v1.ActiveTransfer transfer = 1;
+}
+
+message TransferProgress {
+  string transfer_id = 1;
+  uint64 bytes_done = 2;
+  uint64 bytes_total = 3;
+  repeated lsi.transfers.v1.TransferFile files = 4;
+}
+
+message TransferCompleted {
+  string transfer_id = 1;
+  repeated lsi.inbox.v1.InboxEntry inbox_entries = 2;
+}
+
+message TransferFailed {
+  string transfer_id = 1;
+  lsi.common.v1.ErrorDetail error = 2;
+}
+
+message InboxChanged {
+  repeated lsi.inbox.v1.InboxEntry entries = 1;
+}
+
+message PeerSeen {
+  lsi.peers.v1.LanPeer peer = 1;
+}

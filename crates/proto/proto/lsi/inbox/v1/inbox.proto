@@ -1,0 +1,20 @@
+syntax = "proto3";
+
+package lsi.inbox.v1;
+
+service InboxService {
+  rpc ListInbox(ListInboxRequest) returns (ListInboxResponse);
+}
+
+message ListInboxRequest {}
+
+message ListInboxResponse {
+  repeated InboxEntry entries = 1;
+}
+
+message InboxEntry {
+  string file_name = 1;
+  string path = 2;
+  uint64 size = 3;
+  int64 modified_unix_seconds = 4;
+}

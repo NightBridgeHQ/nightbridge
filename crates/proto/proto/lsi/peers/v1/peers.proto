@@ -1,0 +1,58 @@
+syntax = "proto3";
+
+package lsi.peers.v1;
+
+import "lsi/common/v1/common.proto";
+
+service PeersService {
+  rpc ListTrusted(ListTrustedPeersRequest) returns (ListTrustedPeersResponse);
+  rpc ListLan(ListLanPeersRequest) returns (ListLanPeersResponse);
+}
+
+message ListTrustedPeersRequest {}
+
+message ListTrustedPeersResponse {
+  repeated TrustedPeer peers = 1;
+}
+
+message ListLanPeersRequest {
+  uint32 timeout_ms = 1;
+}
+
+message ListLanPeersResponse {
+  repeated LanPeer peers = 1;
+}
+
+enum PeerPolicy {
+  PEER_POLICY_UNSPECIFIED = 0;
+  PEER_POLICY_AUTO_ACCEPT = 1;
+  PEER_POLICY_PROMPT = 2;
+  PEER_POLICY_BLOCK = 3;
+}
+
+enum PeerProtocol {
+  PEER_PROTOCOL_UNSPECIFIED = 0;
+  PEER_PROTOCOL_LOCALSEND_V2 = 1;
+  PEER_PROTOCOL_NATIVE_V1 = 2;
+}
+
+message TrustedPeer {
+  lsi.common.v1.Fingerprint fingerprint = 1;
+  bytes pubkey = 2;
+  string label = 3;
+  int64 trusted_at_unix_seconds = 4;
+  optional int64 last_seen_unix_seconds = 5;
+  PeerPolicy policy = 6;
+}
+
+message LanPeer {
+  string alias = 1;
+  string address = 2;
+  uint32 port = 3;
+  PeerProtocol protocol = 4;
+  lsi.common.v1.Fingerprint fingerprint = 5;
+  optional string device_model = 6;
+  optional string device_type = 7;
+  bool download = 8;
+  repeated string extensions = 9;
+}

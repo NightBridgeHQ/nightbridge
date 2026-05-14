@@ -1,0 +1,91 @@
+syntax = "proto3";
+
+package lsi.transfers.v1;
+
+import "lsi/common/v1/common.proto";
+
+service TransfersService {
+  rpc ListActive(ListActiveTransfersRequest) returns (ListActiveTransfersResponse);
+  rpc Send(SendRequest) returns (SendResponse);
+  rpc Resume(ResumeRequest) returns (ResumeResponse);
+  rpc Cancel(CancelRequest) returns (CancelResponse);
+}
+
+message ListActiveTransfersRequest {}
+
+message ListActiveTransfersResponse {
+  repeated ActiveTransfer transfers = 1;
+}
+
+message SendRequest {
+  repeated string paths = 1;
+
+  oneof target {
+    string localsend_url = 2;
+    string native_url = 3;
+    string peer_fingerprint = 4;
+  }
+
+  bool native = 5;
+}
+
+message SendResponse {
+  string transfer_id = 1;
+}
+
+message ResumeRequest {
+  string transfer_id = 1;
+}
+
+message ResumeResponse {
+  string transfer_id = 1;
+  TransferState state = 2;
+}
+
+message CancelRequest {
+  string transfer_id = 1;
+  string reason = 2;
+}
+
+message CancelResponse {
+  string transfer_id = 1;
+  TransferState state = 2;
+}
+
+enum TransferDirection {
+  TRANSFER_DIRECTION_UNSPECIFIED = 0;
+  TRANSFER_DIRECTION_SEND = 1;
+  TRANSFER_DIRECTION_RECEIVE = 2;
+}
+
+enum TransferState {
+  TRANSFER_STATE_UNSPECIFIED = 0;
+  TRANSFER_STATE_PENDING = 1;
+  TRANSFER_STATE_ACTIVE = 2;
+  TRANSFER_STATE_INTERRUPTED = 3;
+  TRANSFER_STATE_COMPLETED = 4;
+  TRANSFER_STATE_CANCELLED = 5;
+  TRANSFER_STATE_FAILED = 6;
+}
+
+message ActiveTransfer {
+  string transfer_id = 1;
+  string peer_fingerprint = 2;
+  TransferDirection direction = 3;
+  TransferState state = 4;
+  uint64 bytes_total = 5;
+  uint64 bytes_done = 6;
+  repeated TransferFile files = 7;
+  int64 created_at_unix_seconds = 8;
+  int64 updated_at_unix_seconds = 9;
+  lsi.common.v1.ErrorDetail last_error = 10;
+}
+
+message TransferFile {
+  string file_id = 1;
+  string file_name = 2;
+  optional string path = 3;
+  uint64 size = 4;
+  uint64 bytes_done = 5;
+  optional string blake3 = 6;
+}

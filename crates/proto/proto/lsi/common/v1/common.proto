@@ -1,0 +1,18 @@
+syntax = "proto3";
+
+package lsi.common.v1;
+
+message Empty {}
+
+message Fingerprint {
+  string value = 1;
+}
+
+message FileRef {
+  string path = 1;
+}
+
+message ErrorDetail {
+  string code = 1;
+  string message = 2;
+}
