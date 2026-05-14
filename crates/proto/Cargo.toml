@@ -8,3 +8,9 @@ rust-version.workspace = true
 description = "Local API protocol definitions (stub; implemented in Sprint 3)"
 
 [dependencies]
+prost.workspace = true
+prost-types.workspace = true
+tonic.workspace = true
+
+[build-dependencies]
+tonic-build.workspace = true

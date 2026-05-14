@@ -13,12 +13,17 @@ path = "src/main.rs"
 
 [dependencies]
 anyhow.workspace = true
+async-stream.workspace = true
+axum.workspace = true
 clap.workspace = true
 lsi-core = { path = "../core" }
+lsi-proto = { path = "../proto" }
 lsi-protocol-localsend-v2 = { path = "../protocol-localsend-v2" }
 lsi-protocol-native-v1 = { path = "../protocol-native-v1" }
 quinn.workspace = true
 tokio.workspace = true
+tokio-stream.workspace = true
+tonic.workspace = true
 tracing.workspace = true
 tracing-subscriber.workspace = true
 

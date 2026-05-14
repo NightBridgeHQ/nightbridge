@@ -8,3 +8,9 @@ rust-version.workspace = true
 description = "Terminal UI (stub; implemented in Sprint 3)"
 
 [dependencies]
+anyhow.workspace = true
+crossterm.workspace = true
+lsi-proto = { path = "../proto" }
+ratatui.workspace = true
+tokio.workspace = true
+tonic.workspace = true
