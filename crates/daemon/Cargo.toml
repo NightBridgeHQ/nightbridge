@@ -16,6 +16,7 @@ anyhow.workspace = true
 clap.workspace = true
 lsi-core = { path = "../core" }
 lsi-protocol-localsend-v2 = { path = "../protocol-localsend-v2" }
+lsi-protocol-native-v1 = { path = "../protocol-native-v1" }
 tokio.workspace = true
 tracing.workspace = true
 tracing-subscriber.workspace = true

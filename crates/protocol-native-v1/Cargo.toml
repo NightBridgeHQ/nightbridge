@@ -8,3 +8,25 @@ rust-version.workspace = true
 description = "Native protocol implementation (stub; implemented in Sprint 2)"
 
 [dependencies]
+lsi-core = { path = "../core" }
+anyhow.workspace = true
+blake3.workspace = true
+bytes.workspace = true
+mdns-sd.workspace = true
+prost.workspace = true
+prost-types.workspace = true
+quinn.workspace = true
+rand.workspace = true
+rcgen.workspace = true
+rustls.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+sha2.workspace = true
+thiserror.workspace = true
+tokio.workspace = true
+tracing.workspace = true
+uuid.workspace = true
+
+[dev-dependencies]
+proptest.workspace = true
+tempfile.workspace = true
