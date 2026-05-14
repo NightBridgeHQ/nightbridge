@@ -13,6 +13,7 @@ use tokio::task::JoinHandle;
 use tokio_stream::wrappers::TcpListenerStream;
 use tonic::{transport::Server, Request, Response, Status};
 
+use crate::api::auth::BearerAuth;
 use crate::state::DaemonState;
 
 pub(crate) struct GrpcApiRuntime {
@@ -63,10 +64,11 @@ pub(crate) async fn start_grpc_runtime(
     let local_addr = listener.local_addr().context("failed to read gRPC API listener address")?;
     let incoming = TcpListenerStream::new(listener);
     let (shutdown_tx, shutdown_rx) = tokio::sync::watch::channel(false);
+    let auth = BearerAuth::new(state.api_token.expose_secret());
 
     let server_task = tokio::spawn(async move {
         Server::builder()
-            .add_service(DaemonServiceServer::new(DaemonApi::new(state)))
+            .add_service(DaemonServiceServer::with_interceptor(DaemonApi::new(state), auth))
             .serve_with_incoming_shutdown(incoming, wait_for_shutdown_signal(shutdown_rx))
             .await
             .map_err(Into::into)
@@ -99,44 +101,101 @@ mod tests {
         identity::{Fingerprint, Keypair},
     };
     use lsi_proto::{common::v1::Empty, daemon::v1::daemon_service_client::DaemonServiceClient};
+    use tonic::metadata::MetadataValue;
 
     use super::*;
     use crate::Args;
 
     #[tokio::test]
     async fn grpc_status_returns_daemon_state() {
-        let temp = tempfile::TempDir::new().unwrap();
-        let args = Args::parse_from([
-            "daemon",
-            "--alias",
-            "api-test",
-            "--inbox",
-            temp.path().join("inbox").to_str().unwrap(),
-            "--localsend-port",
-            "4444",
-            "--native-port",
-            "4445",
-        ]);
-        let identity = Keypair::generate();
-        let fingerprint = Fingerprint::from_pubkey(&identity.public_bytes()).to_string();
-        let state = Arc::new(DaemonState::from_args(
-            &args,
-            identity,
-            fingerprint.clone(),
-            ApiToken::new("test-token").unwrap(),
-        ));
-
-        let runtime = start_grpc_runtime(Arc::clone(&state), 0).await.unwrap();
-        let endpoint = format!("http://{}", runtime.local_addr());
-        let mut client = DaemonServiceClient::connect(endpoint).await.unwrap();
-        let status = client.get_status(Empty {}).await.unwrap().into_inner();
+        let fixture = ApiFixture::start().await;
+        let mut client = fixture.client().await;
+        let status = client
+            .get_status(authenticated_status_request("test-token"))
+            .await
+            .unwrap()
+            .into_inner();
 
         assert_eq!(status.alias, "api-test");
-        assert_eq!(status.fingerprint, fingerprint);
-        assert_eq!(status.inbox_dir, state.inbox_dir.display().to_string());
+        assert_eq!(status.fingerprint, fixture.fingerprint);
+        assert_eq!(status.inbox_dir, fixture.state.inbox_dir.display().to_string());
         assert_eq!(status.localsend_port, 4444);
         assert_eq!(status.native_port, 4445);
 
-        stop_grpc_runtime(runtime).await.unwrap();
+        fixture.stop().await;
+    }
+
+    #[tokio::test]
+    async fn grpc_rejects_missing_bearer_token() {
+        let fixture = ApiFixture::start().await;
+        let mut client = fixture.client().await;
+
+        let error = client.get_status(Empty {}).await.unwrap_err();
+
+        assert_eq!(error.code(), tonic::Code::Unauthenticated);
+        fixture.stop().await;
+    }
+
+    #[tokio::test]
+    async fn grpc_rejects_bad_bearer_token() {
+        let fixture = ApiFixture::start().await;
+        let mut client = fixture.client().await;
+
+        let error =
+            client.get_status(authenticated_status_request("wrong-token")).await.unwrap_err();
+
+        assert_eq!(error.code(), tonic::Code::Unauthenticated);
+        fixture.stop().await;
+    }
+
+    struct ApiFixture {
+        runtime: GrpcApiRuntime,
+        state: Arc<DaemonState>,
+        fingerprint: String,
+    }
+
+    impl ApiFixture {
+        async fn start() -> Self {
+            let temp = tempfile::TempDir::new().unwrap();
+            let args = Args::parse_from([
+                "daemon",
+                "--alias",
+                "api-test",
+                "--inbox",
+                temp.path().join("inbox").to_str().unwrap(),
+                "--localsend-port",
+                "4444",
+                "--native-port",
+                "4445",
+            ]);
+            let identity = Keypair::generate();
+            let fingerprint = Fingerprint::from_pubkey(&identity.public_bytes()).to_string();
+            let state = Arc::new(DaemonState::from_args(
+                &args,
+                identity,
+                fingerprint.clone(),
+                ApiToken::new("test-token").unwrap(),
+            ));
+            let runtime = start_grpc_runtime(Arc::clone(&state), 0).await.unwrap();
+
+            Self { runtime, state, fingerprint }
+        }
+
+        async fn client(&self) -> DaemonServiceClient<tonic::transport::Channel> {
+            DaemonServiceClient::connect(format!("http://{}", self.runtime.local_addr()))
+                .await
+                .unwrap()
+        }
+
+        async fn stop(self) {
+            stop_grpc_runtime(self.runtime).await.unwrap();
+        }
+    }
+
+    fn authenticated_status_request(token: &str) -> Request<Empty> {
+        let mut request = Request::new(Empty {});
+        let value = format!("Bearer {token}");
+        request.metadata_mut().insert("authorization", MetadataValue::try_from(value).unwrap());
+        request
     }
 }
