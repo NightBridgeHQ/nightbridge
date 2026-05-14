@@ -310,6 +310,7 @@ where
 fn rustls_server_config(identity: TlsIdentity) -> Result<rustls::ServerConfig> {
     let cert_chain = vec![CertificateDer::from(identity.cert_der)];
     let private_key = PrivateKeyDer::Pkcs8(PrivatePkcs8KeyDer::from(identity.key_der));
+    let _ = rustls::crypto::ring::default_provider().install_default();
 
     rustls::ServerConfig::builder()
         .with_no_client_auth()
