@@ -4,9 +4,13 @@
 #![warn(missing_docs)]
 
 pub mod chunk;
+pub mod discovery;
 pub mod dto;
 pub mod error;
 pub mod framing;
 pub mod manifest;
+pub mod pairing;
+pub mod tls;
+pub mod transport;
 
 pub use error::{NativeError, Result};
