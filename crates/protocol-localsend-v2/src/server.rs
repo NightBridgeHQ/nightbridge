@@ -349,6 +349,7 @@ fn normalize_legacy_file_type(file_type: &str) -> String {
 #[cfg(test)]
 mod tests {
     use std::collections::BTreeMap;
+    use std::io;
     use std::net::SocketAddr;
     use std::time::Duration;
 
@@ -446,7 +447,19 @@ mod tests {
         stream.write_all(body).await.unwrap();
 
         let mut response = Vec::new();
-        stream.read_to_end(&mut response).await.unwrap();
+        let mut buffer = [0_u8; 8192];
+        loop {
+            match stream.read(&mut buffer).await {
+                Ok(0) => break,
+                Ok(bytes_read) => response.extend_from_slice(&buffer[..bytes_read]),
+                Err(error)
+                    if error.kind() == io::ErrorKind::ConnectionReset && !response.is_empty() =>
+                {
+                    break;
+                }
+                Err(error) => panic!("failed to read test HTTP response: {error}"),
+            }
+        }
         parse_response(&response)
     }
 
