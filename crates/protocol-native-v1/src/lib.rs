@@ -6,5 +6,6 @@
 pub mod dto;
 pub mod error;
 pub mod framing;
+pub mod manifest;
 
 pub use error::{NativeError, Result};
