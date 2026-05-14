@@ -41,6 +41,11 @@ pub fn identity_file() -> PathBuf {
     config_dir().join("identity.key")
 }
 
+/// Path to the local API bearer token file.
+pub fn api_token_file() -> PathBuf {
+    config_dir().join("api.token")
+}
+
 /// Path to the trust store database.
 pub fn trust_db_file() -> PathBuf {
     state_dir().join("trust.db")
@@ -56,7 +61,13 @@ mod tests {
         assert!(state_dir().is_absolute());
         assert!(default_inbox().is_absolute());
         assert!(identity_file().is_absolute());
+        assert!(api_token_file().is_absolute());
         assert!(trust_db_file().is_absolute());
+    }
+
+    #[test]
+    fn api_token_file_is_under_config_dir() {
+        assert_eq!(api_token_file(), config_dir().join("api.token"));
     }
 
     #[test]
