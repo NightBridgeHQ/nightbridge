@@ -1,3 +1,9 @@
-//! Stub for `lsi-protocol-native-v1`. Implemented in Sprint 2.
+//! Native LAN protocol implementation.
 
-#![allow(dead_code)]
+#![forbid(unsafe_code)]
+#![warn(missing_docs)]
+
+pub mod dto;
+pub mod error;
+
+pub use error::{NativeError, Result};
