@@ -815,6 +815,7 @@ mod tests {
                 identity,
                 fingerprint.clone(),
                 ApiToken::new("test-token").unwrap(),
+                lsi_core::config::AppConfig::default(),
             ));
             let runtime = start_http_runtime(Arc::clone(&state), 0).await.unwrap();
             Self { runtime, state, fingerprint }

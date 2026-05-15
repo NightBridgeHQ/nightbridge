@@ -7,6 +7,7 @@ use anyhow::{Context, Result};
 use clap::Parser;
 use lsi_core::{
     api_token::{ApiTokenVault, FsApiTokenVault},
+    config::{load_config_or_default, AppConfig},
     identity::{Fingerprint, FsVault, IdentityVault, Keypair},
     paths,
     trust::TrustStore,
@@ -93,6 +94,10 @@ struct Args {
     #[arg(long = "native-manifest-db")]
     native_manifest_db: Option<PathBuf>,
 
+    /// Path to the daemon configuration file.
+    #[arg(long = "config")]
+    config: Option<PathBuf>,
+
     /// Loopback gRPC API port.
     #[arg(long = "api-grpc-port", default_value_t = DEFAULT_API_GRPC_PORT)]
     api_grpc_port: u16,
@@ -126,6 +131,9 @@ async fn main() -> Result<()> {
     init_tracing();
 
     let args = Args::parse();
+    let config_path = config_path(&args);
+    let config = load_daemon_config(&args)
+        .with_context(|| format!("failed to load daemon config at {}", config_path.display()))?;
     let identity_path = args.identity.clone().unwrap_or_else(paths::identity_file);
 
     let vault = FsVault::new(&identity_path);
@@ -138,7 +146,7 @@ async fn main() -> Result<()> {
         FsApiTokenVault::new(&api_token_path).load_or_generate().with_context(|| {
             format!("failed to load or create API token at {}", api_token_path.display())
         })?;
-    let state = Arc::new(DaemonState::from_args(&args, identity, fingerprint, api_token));
+    let state = Arc::new(DaemonState::from_args(&args, identity, fingerprint, api_token, config));
     let api_auth_enabled = !state.api_token.expose_secret().is_empty();
     let event_subscribers = state.events.subscriber_count();
 
@@ -151,6 +159,7 @@ async fn main() -> Result<()> {
 
     info!(fp = %state.fingerprint, "identity loaded");
     info!(path = %state.trust_db_path.display(), "trust store opened");
+    info!(path = %config_path.display(), "daemon config loaded");
     info!(path = %api_token_path.display(), enabled = api_auth_enabled, "API token loaded");
     info!(
         identity = %identity_path.display(),
@@ -239,6 +248,14 @@ fn ensure_parent_dir(path: &Path) -> Result<()> {
         warn!(path = %path.display(), "trust store path has no parent directory");
     }
     Ok(())
+}
+
+fn config_path(args: &Args) -> PathBuf {
+    args.config.clone().unwrap_or_else(|| paths::config_dir().join("config.toml"))
+}
+
+fn load_daemon_config(args: &Args) -> lsi_core::Result<AppConfig> {
+    load_config_or_default(&config_path(args))
 }
 
 async fn start_localsend_v2(state: &DaemonState) -> Result<LocalSendRuntime> {
@@ -709,6 +726,40 @@ mod tests {
         assert!(args.disable_api);
     }
 
+    #[test]
+    fn args_parse_config_override() {
+        let args = Args::parse_from(["daemon", "--config", "/tmp/lsi-config.toml"]);
+
+        assert_eq!(args.config, Some(PathBuf::from("/tmp/lsi-config.toml")));
+        assert_eq!(config_path(&args), PathBuf::from("/tmp/lsi-config.toml"));
+    }
+
+    #[test]
+    fn missing_config_path_uses_defaults() {
+        let temp = tempfile::TempDir::new().unwrap();
+        let args = Args::parse_from([
+            "daemon",
+            "--config",
+            temp.path().join("missing.toml").to_str().unwrap(),
+        ]);
+
+        let config = load_daemon_config(&args).unwrap();
+
+        assert_eq!(config, AppConfig::default());
+    }
+
+    #[test]
+    fn invalid_config_returns_clear_error() {
+        let temp = tempfile::TempDir::new().unwrap();
+        let path = temp.path().join("config.toml");
+        std::fs::write(&path, "[[hooks]]\ntype = \"exec\"\ncommand = \"\"\n").unwrap();
+        let args = Args::parse_from(["daemon", "--config", path.to_str().unwrap()]);
+
+        let error = load_daemon_config(&args).unwrap_err();
+
+        assert!(error.to_string().contains("exec command is required"), "{error}");
+    }
+
     #[tokio::test]
     async fn native_runtime_accepts_hello_and_receives_file_on_ephemeral_port() {
         let temp = tempfile::TempDir::new().unwrap();
@@ -724,7 +775,8 @@ mod tests {
         let identity = Keypair::generate();
         let fingerprint = Fingerprint::from_pubkey(&identity.public_bytes()).to_string();
         let token = lsi_core::api_token::ApiToken::new("temporary-api-token").unwrap();
-        let state = DaemonState::from_args(&args, identity, fingerprint, token);
+        let state =
+            DaemonState::from_args(&args, identity, fingerprint, token, AppConfig::default());
         let runtime = start_native_runtime(&args, &state).await.unwrap();
         let addr = runtime.local_addr;
 

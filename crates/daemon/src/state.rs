@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use lsi_core::{api_token::ApiToken, identity::Keypair, paths};
+use lsi_core::{api_token::ApiToken, config::AppConfig, identity::Keypair, paths};
 
 use crate::{events::EventBus, Args};
 
@@ -14,6 +14,7 @@ pub(crate) struct DaemonState {
     pub(crate) localsend_port: u16,
     pub(crate) native_port: u16,
     pub(crate) api_token: ApiToken,
+    pub(crate) config: AppConfig,
     pub(crate) events: EventBus,
 }
 
@@ -23,6 +24,7 @@ impl DaemonState {
         identity: Keypair,
         fingerprint: String,
         api_token: ApiToken,
+        config: AppConfig,
     ) -> Self {
         Self {
             alias: args.alias.clone(),
@@ -33,6 +35,7 @@ impl DaemonState {
             localsend_port: args.localsend_port,
             native_port: args.native_port,
             api_token,
+            config,
             events: EventBus::new(),
         }
     }
@@ -45,6 +48,7 @@ mod tests {
     use clap::Parser;
     use lsi_core::{
         api_token::ApiToken,
+        config::AppConfig,
         identity::{Fingerprint, Keypair},
     };
 
@@ -69,7 +73,13 @@ mod tests {
         let fingerprint = Fingerprint::from_pubkey(&identity.public_bytes()).to_string();
         let api_token = ApiToken::new("temporary-token").unwrap();
 
-        let state = DaemonState::from_args(&args, identity, fingerprint.clone(), api_token);
+        let state = DaemonState::from_args(
+            &args,
+            identity,
+            fingerprint.clone(),
+            api_token,
+            AppConfig::default(),
+        );
 
         assert_eq!(state.alias, "workstation");
         assert_eq!(state.fingerprint, fingerprint);
@@ -78,6 +88,7 @@ mod tests {
         assert_eq!(state.localsend_port, 4444);
         assert_eq!(state.native_port, 4445);
         assert_eq!(state.api_token.expose_secret(), "temporary-token");
+        assert_eq!(state.config, AppConfig::default());
         assert_eq!(state.events.subscriber_count(), 0);
     }
 
@@ -87,8 +98,13 @@ mod tests {
         let identity = Keypair::generate();
         let fingerprint = Fingerprint::from_pubkey(&identity.public_bytes()).to_string();
 
-        let state =
-            DaemonState::from_args(&args, identity, fingerprint, ApiToken::new("token").unwrap());
+        let state = DaemonState::from_args(
+            &args,
+            identity,
+            fingerprint,
+            ApiToken::new("token").unwrap(),
+            AppConfig::default(),
+        );
 
         assert_eq!(state.trust_db_path, paths::trust_db_file());
     }

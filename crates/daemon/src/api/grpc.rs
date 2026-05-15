@@ -421,6 +421,7 @@ mod tests {
                 identity,
                 fingerprint.clone(),
                 ApiToken::new("test-token").unwrap(),
+                lsi_core::config::AppConfig::default(),
             ));
             let runtime = start_grpc_runtime(Arc::clone(&state), 0).await.unwrap();
 
