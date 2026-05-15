@@ -8,9 +8,12 @@ Usage: scripts/generate-sdks.sh [python|typescript|go|all]
 Generates SDK protocol bindings from crates/proto/proto.
 
 Required tools by target:
-  python      python3, grpcio-tools, betterproto[compiler]
+  python      python3 or PYTHON_BIN, grpcio-tools, betterproto[compiler]
   typescript  protoc, protoc-gen-es, protoc-gen-connect-es
   go          protoc, protoc-gen-go, protoc-gen-connect-go
+
+Run scripts/setup-python-sdk.sh to create sdks/python/.venv with the Python
+generation and test dependencies.
 EOF
 }
 
@@ -28,14 +31,22 @@ require_command() {
 }
 
 require_python_module() {
-  local module="$1"
+  local python_bin="$1"
+  local module="$2"
 
-  python3 -c "import ${module}" >/dev/null 2>&1 || die "missing required Python module: ${module}"
+  "$python_bin" -c "import ${module}" >/dev/null 2>&1 ||
+    die "missing required Python module: ${module}; run scripts/setup-python-sdk.sh or set PYTHON_BIN"
 }
 
 script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
 repo_root="$(cd -- "$script_dir/.." && pwd -P)"
 proto_root="$repo_root/crates/proto/proto"
+default_python="$repo_root/sdks/python/.venv/bin/python"
+python_bin="${PYTHON_BIN:-python3}"
+
+if [[ -z "${PYTHON_BIN:-}" && -x "$default_python" ]]; then
+  python_bin="$default_python"
+fi
 
 target="${1:-all}"
 
@@ -67,13 +78,13 @@ done
 generate_python() {
   local out_dir="$repo_root/sdks/python/src/localsend_improved/gen"
 
-  require_command python3
-  require_python_module grpc_tools.protoc
-  require_python_module betterproto
+  require_command "$python_bin"
+  require_python_module "$python_bin" grpc_tools.protoc
+  require_python_module "$python_bin" betterproto
   mkdir -p "$out_dir"
 
   info "generating Python betterproto bindings"
-  python3 -m grpc_tools.protoc \
+  PATH="$(dirname "$python_bin"):$PATH" "$python_bin" -m grpc_tools.protoc \
     -I "$proto_root" \
     --python_betterproto_out="$out_dir" \
     "${proto_files[@]}"

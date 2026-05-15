@@ -1,6 +1,8 @@
 /target
 **/node_modules/
 **/__pycache__/
+**/.pytest_cache/
+**/.venv/
 **/*.rs.bk
 Cargo.lock.bak
 .DS_Store
