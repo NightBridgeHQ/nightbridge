@@ -259,8 +259,11 @@ mod tests {
 
     #[test]
     fn candidate_validation_rejects_invalid_socket_address() {
-        let candidate =
-            Candidate { kind: CandidateKind::Local, address: "not-a-socket".to_string(), priority: 1 };
+        let candidate = Candidate {
+            kind: CandidateKind::Local,
+            address: "not-a-socket".to_string(),
+            priority: 1,
+        };
 
         let error = candidate.validate().unwrap_err();
 
