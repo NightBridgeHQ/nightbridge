@@ -1,9 +1,9 @@
 //! `localsend-improved peers ...` subcommands.
 
+use crate::daemon_client::{self, DaemonClientConfig};
 use anyhow::{Context, Result};
 use clap::Subcommand;
-use lsi_core::paths;
-use lsi_core::trust::{PeerPolicy, TrustStore};
+use lsi_proto::peers::v1::{PeerPolicy, TrustedPeer};
 use lsi_protocol_localsend_v2::discovery::DiscoveryBrowser;
 use std::time::Duration;
 
@@ -19,25 +19,23 @@ pub enum Cmd {
     },
 }
 
-pub fn run(command: Cmd) -> Result<()> {
+pub fn run(command: Cmd, daemon_config: &DaemonClientConfig) -> Result<()> {
     if let Cmd::ListLan { timeout_ms } = command {
         return list_lan(timeout_ms);
     }
 
-    let trust_db_path = paths::trust_db_file();
-    if let Some(parent) = trust_db_path.parent() {
-        std::fs::create_dir_all(parent).context("creating state dir")?;
-    }
-
-    let store = TrustStore::open(&trust_db_path).context("opening trust store")?;
     match command {
-        Cmd::List => list(&store),
-        Cmd::ListLan { .. } => unreachable!("list-lan is handled before opening trust store"),
+        Cmd::List => list(daemon_config),
+        Cmd::ListLan { .. } => unreachable!("list-lan is handled before connecting to daemon"),
     }
 }
 
-fn list(store: &TrustStore) -> Result<()> {
-    let peers = store.list()?;
+fn list(config: &DaemonClientConfig) -> Result<()> {
+    let runtime = tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()
+        .context("creating async runtime")?;
+    let peers = runtime.block_on(daemon_client::list_trusted_peers(config))?;
     if peers.is_empty() {
         println!("no trusted peers (run `pair` to add some; Sprint 2)");
         return Ok(());
@@ -45,16 +43,22 @@ fn list(store: &TrustStore) -> Result<()> {
 
     println!("{:<22} {:<24} {:<11} {:<19}", "FINGERPRINT", "LABEL", "POLICY", "LAST SEEN");
     for peer in peers {
-        let policy = match peer.policy {
-            PeerPolicy::AutoAccept => "auto_accept",
-            PeerPolicy::Prompt => "prompt",
-            PeerPolicy::Block => "block",
-        };
-        let last_seen =
-            peer.last_seen.map(|timestamp| format!("{timestamp}")).unwrap_or("-".into());
-        println!("{:<22} {:<24} {:<11} {:<19}", peer.fingerprint, peer.label, policy, last_seen);
+        print_trusted_peer(peer);
     }
     Ok(())
+}
+
+fn print_trusted_peer(peer: TrustedPeer) {
+    let fingerprint = peer.fingerprint.map(|value| value.value).unwrap_or_else(|| "-".into());
+    let policy = match PeerPolicy::try_from(peer.policy).unwrap_or(PeerPolicy::Unspecified) {
+        PeerPolicy::AutoAccept => "auto_accept",
+        PeerPolicy::Prompt => "prompt",
+        PeerPolicy::Block => "block",
+        PeerPolicy::Unspecified => "unspecified",
+    };
+    let last_seen =
+        peer.last_seen_unix_seconds.map(|timestamp| format!("{timestamp}")).unwrap_or("-".into());
+    println!("{:<22} {:<24} {:<11} {:<19}", fingerprint, peer.label, policy, last_seen);
 }
 
 fn list_lan(timeout_ms: u64) -> Result<()> {

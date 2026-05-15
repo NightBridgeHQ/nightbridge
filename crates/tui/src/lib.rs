@@ -1,3 +1,5 @@
-//! Stub for `lsi-tui`. Implemented in Sprint 3.
+//! Terminal dashboard for the LocalSend Improved daemon API.
 
-#![allow(dead_code)]
+pub mod app;
+pub mod client;
+pub mod ui;

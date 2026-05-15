@@ -1,4 +1,6 @@
 /target
+**/node_modules/
+**/__pycache__/
 **/*.rs.bk
 Cargo.lock.bak
 .DS_Store

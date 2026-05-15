@@ -44,6 +44,7 @@ use state::DaemonState;
 const DEFAULT_LOCALSEND_PORT: u16 = 53317;
 const DEFAULT_NATIVE_PORT: u16 = 53400;
 const DEFAULT_API_GRPC_PORT: u16 = 53500;
+const DEFAULT_API_HTTP_PORT: u16 = 53501;
 const DEFAULT_ALIAS: &str = "localsend-improved";
 const LOCALSEND_VERSION: &str = "2.0";
 const LOCALSEND_SESSION_TTL: Duration = Duration::from_secs(60 * 60);
@@ -95,6 +96,10 @@ struct Args {
     /// Loopback gRPC API port.
     #[arg(long = "api-grpc-port", default_value_t = DEFAULT_API_GRPC_PORT)]
     api_grpc_port: u16,
+
+    /// Loopback HTTP+SSE API port.
+    #[arg(long = "api-http-port", default_value_t = DEFAULT_API_HTTP_PORT)]
+    api_http_port: u16,
 
     /// Disable the local daemon API.
     #[arg(long = "disable-api")]
@@ -158,11 +163,15 @@ async fn main() -> Result<()> {
         info!("local daemon API disabled");
         None
     } else {
-        let runtime = api::grpc::start_grpc_runtime(Arc::clone(&state), args.api_grpc_port)
+        let grpc_runtime = api::grpc::start_grpc_runtime(Arc::clone(&state), args.api_grpc_port)
             .await
             .with_context(|| "failed to start gRPC API")?;
-        info!(addr = %runtime.local_addr(), "gRPC API started");
-        Some(runtime)
+        let http_runtime = api::http::start_http_runtime(Arc::clone(&state), args.api_http_port)
+            .await
+            .with_context(|| "failed to start HTTP API")?;
+        info!(addr = %grpc_runtime.local_addr(), "gRPC API started");
+        info!(addr = %http_runtime.local_addr(), "HTTP API started");
+        Some((grpc_runtime, http_runtime))
     };
 
     let localsend_runtime = if args.disable_localsend_v2 {
@@ -197,8 +206,9 @@ async fn main() -> Result<()> {
         stop_localsend_v2(runtime).await?;
     }
 
-    if let Some(runtime) = api_runtime {
-        api::grpc::stop_grpc_runtime(runtime).await?;
+    if let Some((grpc_runtime, http_runtime)) = api_runtime {
+        api::http::stop_http_runtime(http_runtime).await?;
+        api::grpc::stop_grpc_runtime(grpc_runtime).await?;
     }
 
     info!("shutdown");
@@ -611,6 +621,7 @@ mod tests {
         let args = Args::parse_from(["daemon"]);
 
         assert_eq!(args.api_grpc_port, DEFAULT_API_GRPC_PORT);
+        assert_eq!(args.api_http_port, DEFAULT_API_HTTP_PORT);
         assert!(!args.disable_api);
     }
 
@@ -650,9 +661,17 @@ mod tests {
 
     #[test]
     fn args_parse_api_overrides() {
-        let args = Args::parse_from(["daemon", "--api-grpc-port", "53555", "--disable-api"]);
+        let args = Args::parse_from([
+            "daemon",
+            "--api-grpc-port",
+            "53555",
+            "--api-http-port",
+            "53556",
+            "--disable-api",
+        ]);
 
         assert_eq!(args.api_grpc_port, 53555);
+        assert_eq!(args.api_http_port, 53556);
         assert!(args.disable_api);
     }
 

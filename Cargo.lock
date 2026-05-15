@@ -1228,18 +1228,24 @@ dependencies = [
  "async-stream",
  "axum",
  "clap",
+ "futures-util",
  "lsi-core",
  "lsi-proto",
  "lsi-protocol-localsend-v2",
  "lsi-protocol-native-v1",
+ "lsi-webui",
  "quinn",
+ "reqwest",
  "rustls 0.23.5",
+ "serde",
+ "serde_json",
  "tempfile",
  "tokio",
  "tokio-stream",
  "tonic",
  "tracing",
  "tracing-subscriber",
+ "uuid",
 ]
 
 [[package]]
@@ -1326,6 +1332,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "crossterm",
+ "lsi-core",
  "lsi-proto",
  "ratatui",
  "tokio",

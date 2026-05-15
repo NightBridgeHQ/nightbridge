@@ -1,0 +1,23 @@
+{
+  "name": "@localsend-improved/sdk",
+  "version": "0.1.0",
+  "description": "TypeScript SDK skeleton for the LocalSend Improved local API.",
+  "license": "AGPL-3.0-only",
+  "type": "module",
+  "private": true,
+  "files": [
+    "src",
+    "gen"
+  ],
+  "scripts": {
+    "generate": "../../scripts/generate-sdks.sh typescript"
+  },
+  "dependencies": {
+    "@bufbuild/protobuf": "^2.2.0",
+    "@connectrpc/connect": "^2.0.0"
+  },
+  "devDependencies": {
+    "@bufbuild/protoc-gen-es": "^2.2.0",
+    "@connectrpc/protoc-gen-connect-es": "^2.0.0"
+  }
+}

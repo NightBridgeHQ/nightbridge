@@ -89,15 +89,18 @@ fn identity_rotate_with_yes_changes_fingerprint() {
 }
 
 #[test]
-fn peers_list_empty_on_fresh_install() {
+fn peers_list_requires_daemon() {
     let dir = TempDir::new().unwrap();
     let mut cmd = Command::cargo_bin("localsend-improved").unwrap();
     set_isolated_dirs(&mut cmd, &dir);
 
-    cmd.args(["peers", "list"])
+    cmd.args(["--daemon-grpc", "http://127.0.0.1:9", "--api-token", "test-token", "peers", "list"])
         .assert()
-        .success()
-        .stdout(predicate::str::contains("no trusted peers"));
+        .failure()
+        .stderr(
+            predicate::str::contains("daemon API unavailable")
+                .and(predicate::str::contains("http://127.0.0.1:9")),
+        );
 }
 
 #[test]
@@ -118,10 +121,33 @@ fn send_rejects_missing_file() {
     let mut cmd = Command::cargo_bin("localsend-improved").unwrap();
     set_isolated_dirs(&mut cmd, &dir);
 
-    cmd.args(["send", "--url", "http://127.0.0.1:9", "missing.txt"])
+    cmd.args(["send", "--direct", "--url", "http://127.0.0.1:9", "missing.txt"])
         .assert()
         .failure()
         .stderr(predicate::str::contains("sending files"));
+}
+
+#[test]
+fn send_defaults_to_daemon_api() {
+    let dir = TempDir::new().unwrap();
+    let file = dir.path().join("file.bin");
+    std::fs::write(&file, b"payload").unwrap();
+    let mut cmd = Command::cargo_bin("localsend-improved").unwrap();
+    set_isolated_dirs(&mut cmd, &dir);
+
+    cmd.args([
+        "--daemon-grpc",
+        "http://127.0.0.1:9",
+        "--api-token",
+        "test-token",
+        "send",
+        "--url",
+        "http://127.0.0.1:9",
+        file.to_str().unwrap(),
+    ])
+    .assert()
+    .failure()
+    .stderr(predicate::str::contains("daemon API unavailable"));
 }
 
 #[test]
@@ -139,15 +165,25 @@ fn send_native_requires_url_or_peer() {
 }
 
 #[test]
-fn transfers_list_active_empty() {
+fn transfers_list_active_requires_daemon() {
     let dir = TempDir::new().unwrap();
     let mut cmd = Command::cargo_bin("localsend-improved").unwrap();
     set_isolated_dirs(&mut cmd, &dir);
 
-    cmd.args(["transfers", "list-active"])
-        .assert()
-        .success()
-        .stdout(predicate::str::contains("no active transfers"));
+    cmd.args([
+        "--daemon-grpc",
+        "http://127.0.0.1:9",
+        "--api-token",
+        "test-token",
+        "transfers",
+        "list-active",
+    ])
+    .assert()
+    .failure()
+    .stderr(
+        predicate::str::contains("daemon API unavailable")
+            .and(predicate::str::contains("http://127.0.0.1:9")),
+    );
 }
 
 #[test]
@@ -160,4 +196,62 @@ fn transfers_resume_requires_transfer_id() {
         .assert()
         .failure()
         .stderr(predicate::str::contains("<TRANSFER_ID>"));
+}
+
+#[test]
+fn transfers_resume_requires_daemon() {
+    let dir = TempDir::new().unwrap();
+    let mut cmd = Command::cargo_bin("localsend-improved").unwrap();
+    set_isolated_dirs(&mut cmd, &dir);
+
+    cmd.args([
+        "--daemon-grpc",
+        "http://127.0.0.1:9",
+        "--api-token",
+        "test-token",
+        "transfers",
+        "resume",
+        "transfer-123",
+    ])
+    .assert()
+    .failure()
+    .stderr(
+        predicate::str::contains("daemon API unavailable")
+            .and(predicate::str::contains("http://127.0.0.1:9")),
+    );
+}
+
+#[test]
+fn daemon_status_rejects_missing_api_token_file() {
+    let dir = TempDir::new().unwrap();
+    let mut cmd = Command::cargo_bin("localsend-improved").unwrap();
+    set_isolated_dirs(&mut cmd, &dir);
+
+    cmd.args(["daemon", "status"]).assert().failure().stderr(
+        predicate::str::contains("api token not found")
+            .and(predicate::str::contains("--api-token"))
+            .and(predicate::str::contains("api.token")),
+    );
+}
+
+#[test]
+fn daemon_status_fails_clearly_when_daemon_unavailable() {
+    let dir = TempDir::new().unwrap();
+    let mut cmd = Command::cargo_bin("localsend-improved").unwrap();
+    set_isolated_dirs(&mut cmd, &dir);
+
+    cmd.args([
+        "--daemon-grpc",
+        "http://127.0.0.1:9",
+        "--api-token",
+        "test-token",
+        "daemon",
+        "status",
+    ])
+    .assert()
+    .failure()
+    .stderr(
+        predicate::str::contains("daemon API unavailable")
+            .and(predicate::str::contains("http://127.0.0.1:9")),
+    );
 }

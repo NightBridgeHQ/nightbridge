@@ -4,6 +4,7 @@
 #![warn(missing_docs)]
 
 pub mod chunk;
+pub mod client;
 pub mod discovery;
 pub mod dto;
 pub mod error;
