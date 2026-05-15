@@ -1,0 +1,277 @@
+//! Daemon configuration loading and validation.
+
+use std::path::Path;
+
+use serde::Deserialize;
+
+use crate::{CoreError, Result};
+
+/// Root application configuration loaded from `config.toml`.
+#[derive(Clone, Debug, Deserialize, PartialEq, Eq)]
+pub struct AppConfig {
+    /// Hook sinks that receive daemon events.
+    #[serde(default)]
+    pub hooks: Vec<HookConfig>,
+    /// Metrics endpoint settings.
+    #[serde(default)]
+    pub metrics: MetricsConfig,
+    /// Logging settings.
+    #[serde(default)]
+    pub logging: LoggingConfig,
+}
+
+impl Default for AppConfig {
+    fn default() -> Self {
+        Self {
+            hooks: Vec::new(),
+            metrics: MetricsConfig::default(),
+            logging: LoggingConfig::default(),
+        }
+    }
+}
+
+impl AppConfig {
+    /// Validate semantic constraints after TOML deserialization.
+    pub fn validate(&self) -> Result<()> {
+        for hook in &self.hooks {
+            hook.validate()?;
+        }
+        self.metrics.validate()?;
+        self.logging.validate()?;
+        Ok(())
+    }
+}
+
+/// Hook sink configuration.
+#[derive(Clone, Debug, Deserialize, PartialEq, Eq)]
+#[serde(tag = "type", rename_all = "snake_case")]
+pub enum HookConfig {
+    /// HTTP webhook sink.
+    Webhook {
+        /// Destination URL.
+        url: String,
+        /// HMAC signing secret.
+        secret: String,
+        /// Maximum delivery attempts for retryable failures.
+        #[serde(default = "default_webhook_max_attempts")]
+        max_attempts: u8,
+    },
+    /// Local process execution sink.
+    Exec {
+        /// Executable path or command name.
+        command: String,
+        /// Timeout for each hook invocation.
+        #[serde(default = "default_exec_timeout_seconds")]
+        timeout_seconds: u64,
+    },
+}
+
+impl HookConfig {
+    fn validate(&self) -> Result<()> {
+        match self {
+            Self::Webhook { url, secret, max_attempts } => {
+                require_nonblank("webhook url", url)?;
+                require_nonblank("webhook secret", secret)?;
+                if *max_attempts == 0 {
+                    return Err(CoreError::Config(
+                        "webhook max_attempts must be greater than zero".to_string(),
+                    ));
+                }
+            }
+            Self::Exec { command, timeout_seconds } => {
+                require_nonblank("exec command", command)?;
+                if *timeout_seconds == 0 {
+                    return Err(CoreError::Config(
+                        "exec timeout_seconds must be greater than zero".to_string(),
+                    ));
+                }
+            }
+        }
+        Ok(())
+    }
+}
+
+/// Metrics endpoint configuration.
+#[derive(Clone, Debug, Deserialize, PartialEq, Eq)]
+pub struct MetricsConfig {
+    /// Whether the Prometheus metrics endpoint is enabled.
+    #[serde(default)]
+    pub enabled: bool,
+    /// Metrics bind host.
+    #[serde(default = "default_metrics_host")]
+    pub host: String,
+    /// Metrics bind port.
+    #[serde(default = "default_metrics_port")]
+    pub port: u16,
+}
+
+impl Default for MetricsConfig {
+    fn default() -> Self {
+        Self { enabled: false, host: default_metrics_host(), port: default_metrics_port() }
+    }
+}
+
+impl MetricsConfig {
+    fn validate(&self) -> Result<()> {
+        require_nonblank("metrics host", &self.host)?;
+        Ok(())
+    }
+}
+
+/// Logging configuration.
+#[derive(Clone, Debug, Deserialize, PartialEq, Eq)]
+pub struct LoggingConfig {
+    /// Log format: `json`, `pretty`, or `compact`.
+    #[serde(default = "default_logging_format")]
+    pub format: String,
+    /// Default log level used when `RUST_LOG` is not set.
+    #[serde(default = "default_logging_level")]
+    pub level: String,
+}
+
+impl Default for LoggingConfig {
+    fn default() -> Self {
+        Self { format: default_logging_format(), level: default_logging_level() }
+    }
+}
+
+impl LoggingConfig {
+    fn validate(&self) -> Result<()> {
+        require_nonblank("logging level", &self.level)?;
+        match self.format.as_str() {
+            "json" | "pretty" | "compact" => Ok(()),
+            other => Err(CoreError::Config(format!(
+                "unsupported logging format {other:?}; expected json, pretty, or compact"
+            ))),
+        }
+    }
+}
+
+/// Load and validate configuration from an existing path.
+pub fn load_config(path: &Path) -> Result<AppConfig> {
+    let contents = std::fs::read_to_string(path)?;
+    let config: AppConfig =
+        toml::from_str(&contents).map_err(|error| CoreError::Config(error.to_string()))?;
+    config.validate()?;
+    Ok(config)
+}
+
+/// Load configuration or return defaults when the file is absent.
+pub fn load_config_or_default(path: &Path) -> Result<AppConfig> {
+    match load_config(path) {
+        Ok(config) => Ok(config),
+        Err(CoreError::Io(error)) if error.kind() == std::io::ErrorKind::NotFound => {
+            Ok(AppConfig::default())
+        }
+        Err(error) => Err(error),
+    }
+}
+
+fn require_nonblank(name: &str, value: &str) -> Result<()> {
+    if value.trim().is_empty() {
+        return Err(CoreError::Config(format!("{name} is required")));
+    }
+    Ok(())
+}
+
+fn default_webhook_max_attempts() -> u8 {
+    3
+}
+
+fn default_exec_timeout_seconds() -> u64 {
+    10
+}
+
+fn default_metrics_host() -> String {
+    "127.0.0.1".to_string()
+}
+
+fn default_metrics_port() -> u16 {
+    53502
+}
+
+fn default_logging_format() -> String {
+    "json".to_string()
+}
+
+fn default_logging_level() -> String {
+    "info".to_string()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn missing_config_returns_defaults() {
+        let dir = tempfile::TempDir::new().unwrap();
+        let config = load_config_or_default(&dir.path().join("missing.toml")).unwrap();
+
+        assert_eq!(config, AppConfig::default());
+    }
+
+    #[test]
+    fn webhook_hook_requires_url_and_secret() {
+        let error =
+            parse("[[hooks]]\ntype = \"webhook\"\nurl = \"\"\nsecret = \"secret\"\n").unwrap_err();
+        assert!(error.to_string().contains("webhook url is required"), "{error}");
+
+        let error =
+            parse("[[hooks]]\ntype = \"webhook\"\nurl = \"http://127.0.0.1\"\nsecret = \"\"\n")
+                .unwrap_err();
+        assert!(error.to_string().contains("webhook secret is required"), "{error}");
+    }
+
+    #[test]
+    fn exec_hook_requires_command() {
+        let error = parse("[[hooks]]\ntype = \"exec\"\ncommand = \"\"\n").unwrap_err();
+
+        assert!(error.to_string().contains("exec command is required"), "{error}");
+    }
+
+    #[test]
+    fn metrics_bind_defaults_to_disabled_loopback_config() {
+        let config = parse("").unwrap();
+
+        assert!(!config.metrics.enabled);
+        assert_eq!(config.metrics.host, "127.0.0.1");
+        assert_eq!(config.metrics.port, 53502);
+    }
+
+    #[test]
+    fn unknown_hook_kind_fails_clearly() {
+        let error = parse("[[hooks]]\ntype = \"smtp\"\n").unwrap_err();
+
+        assert!(error.to_string().contains("unknown variant `smtp`"), "{error}");
+    }
+
+    #[test]
+    fn parses_valid_hooks() {
+        let config = parse(
+            r#"
+[[hooks]]
+type = "webhook"
+url = "http://127.0.0.1:8080/hook"
+secret = "secret"
+
+[[hooks]]
+type = "exec"
+command = "/usr/local/bin/hook"
+
+[metrics]
+enabled = true
+"#,
+        )
+        .unwrap();
+
+        assert_eq!(config.hooks.len(), 2);
+        assert!(config.metrics.enabled);
+    }
+
+    fn parse(contents: &str) -> Result<AppConfig> {
+        let config: AppConfig =
+            toml::from_str(contents).map_err(|error| CoreError::Config(error.to_string()))?;
+        config.validate()?;
+        Ok(config)
+    }
+}

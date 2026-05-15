@@ -21,6 +21,10 @@ pub enum CoreError {
     #[error("trust store: {0}")]
     TrustStore(String),
 
+    /// Configuration error.
+    #[error("config: {0}")]
+    Config(String),
+
     /// Cryptographic failure (signature, key parsing, etc.).
     #[error("crypto: {0}")]
     Crypto(String),

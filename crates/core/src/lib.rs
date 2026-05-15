@@ -7,6 +7,7 @@
 #![warn(missing_docs)]
 
 pub mod api_token;
+pub mod config;
 pub mod error;
 pub mod identity;
 pub mod paths;
