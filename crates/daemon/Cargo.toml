@@ -22,6 +22,8 @@ lsi-proto = { path = "../proto" }
 lsi-protocol-localsend-v2 = { path = "../protocol-localsend-v2" }
 lsi-protocol-native-v1 = { path = "../protocol-native-v1" }
 lsi-webui = { path = "../webui" }
+metrics.workspace = true
+metrics-exporter-prometheus.workspace = true
 quinn.workspace = true
 reqwest.workspace = true
 serde.workspace = true

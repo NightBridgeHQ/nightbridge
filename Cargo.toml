@@ -64,6 +64,9 @@ mime_guess = "=2.0.4"
 # Logging
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
+# Metrics
+metrics = "=0.22.3"
+metrics-exporter-prometheus = { version = "=0.14.0", default-features = false }
 # Network helpers
 socket2 = "=0.5.7"
 quinn = { version = "=0.11.9", default-features = false, features = ["runtime-tokio", "rustls-ring", "log"] }
