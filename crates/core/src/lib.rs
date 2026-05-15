@@ -9,6 +9,7 @@
 pub mod api_token;
 pub mod config;
 pub mod error;
+pub mod hooks;
 pub mod identity;
 pub mod paths;
 pub mod trust;
