@@ -44,7 +44,8 @@ thiserror = "1.0"
 anyhow = "1.0"
 # Crypto
 ed25519-dalek = { version = "=2.1.1", features = ["rand_core", "serde"] }
-sha2 = "0.10"
+hmac = "=0.12.1"
+sha2 = "=0.10.9"
 hkdf = "0.12"
 rand = "0.8"
 blake3 = "=1.5.1"

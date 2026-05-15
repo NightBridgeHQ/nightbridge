@@ -2,6 +2,8 @@
 
 use std::time::{SystemTime, UNIX_EPOCH};
 
+pub(crate) mod webhook;
+
 use lsi_core::hooks::{HookEvent, HookEventType};
 use serde_json::json;
 use uuid::Uuid;
