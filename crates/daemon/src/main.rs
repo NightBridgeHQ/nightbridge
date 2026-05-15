@@ -169,6 +169,9 @@ async fn main() -> Result<()> {
         "daemon initialized"
     );
 
+    let hook_runtime = hooks::start_hook_dispatcher(&state.config, &state.events);
+    info!(hooks = state.config.hooks.len(), "hook dispatcher started");
+
     let api_runtime = if args.disable_api {
         info!("local daemon API disabled");
         None
@@ -220,6 +223,8 @@ async fn main() -> Result<()> {
         api::http::stop_http_runtime(http_runtime).await?;
         api::grpc::stop_grpc_runtime(grpc_runtime).await?;
     }
+
+    hooks::stop_hook_dispatcher(hook_runtime).await;
 
     info!("shutdown");
     Ok(())

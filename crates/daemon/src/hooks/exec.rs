@@ -8,6 +8,7 @@ use tokio::{process::Command, time::timeout};
 
 const OUTPUT_ERROR_CAP_BYTES: usize = 4096;
 
+#[derive(Clone, Debug)]
 pub(crate) struct ExecSink {
     command: String,
     timeout: Duration,

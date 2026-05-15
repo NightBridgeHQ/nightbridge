@@ -36,6 +36,18 @@ pub(crate) struct DaemonEventEnvelope {
 }
 
 impl DaemonEventEnvelope {
+    pub(crate) fn event_id(&self) -> &str {
+        &self.event_id
+    }
+
+    pub(crate) fn occurred_at_unix_seconds(&self) -> i64 {
+        self.occurred_at_unix_seconds
+    }
+
+    pub(crate) fn event(&self) -> &DaemonEvent {
+        &self.event
+    }
+
     pub(crate) fn to_proto(&self) -> ProtoDaemonEvent {
         match &self.event {
             DaemonEvent::TransferStarted { transfer_id } => self.proto(
