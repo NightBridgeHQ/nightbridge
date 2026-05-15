@@ -1,0 +1,6 @@
+[metrics]
+enabled = true
+
+[logging]
+format = "json"
+level = "info"
