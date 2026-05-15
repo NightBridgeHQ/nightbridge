@@ -239,6 +239,32 @@ mod tests {
     }
 
     #[test]
+    fn config_logging_defaults_to_json_info() {
+        let config = parse("").unwrap();
+
+        assert_eq!(config.logging.format, "json");
+        assert_eq!(config.logging.level, "info");
+    }
+
+    #[test]
+    fn config_logging_accepts_supported_formats() {
+        for format in ["json", "pretty", "compact"] {
+            let config =
+                parse(&format!("[logging]\nformat = \"{format}\"\nlevel = \"debug\"\n")).unwrap();
+
+            assert_eq!(config.logging.format, format);
+            assert_eq!(config.logging.level, "debug");
+        }
+    }
+
+    #[test]
+    fn config_logging_rejects_invalid_format() {
+        let error = parse("[logging]\nformat = \"plain\"\n").unwrap_err();
+
+        assert!(error.to_string().contains("unsupported logging format"), "{error}");
+    }
+
+    #[test]
     fn unknown_hook_kind_fails_clearly() {
         let error = parse("[[hooks]]\ntype = \"smtp\"\n").unwrap_err();
 

@@ -7,7 +7,7 @@ use anyhow::{Context, Result};
 use clap::Parser;
 use lsi_core::{
     api_token::{ApiTokenVault, FsApiTokenVault},
-    config::{load_config_or_default, AppConfig},
+    config::{load_config_or_default, AppConfig, LoggingConfig},
     identity::{Fingerprint, FsVault, IdentityVault, Keypair},
     paths,
     trust::TrustStore,
@@ -130,12 +130,11 @@ struct NativeRuntime {
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    init_tracing();
-
     let args = Args::parse();
     let config_path = config_path(&args);
     let config = load_daemon_config(&args)
         .with_context(|| format!("failed to load daemon config at {}", config_path.display()))?;
+    init_tracing(&config.logging);
     let identity_path = args.identity.clone().unwrap_or_else(paths::identity_file);
 
     let vault = FsVault::new(&identity_path);
@@ -243,9 +242,16 @@ async fn main() -> Result<()> {
     Ok(())
 }
 
-fn init_tracing() {
-    let filter = EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info"));
-    fmt().json().with_env_filter(filter).with_writer(std::io::stderr).init();
+fn init_tracing(logging: &LoggingConfig) {
+    let filter =
+        EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new(logging.level.clone()));
+    let subscriber = fmt().with_env_filter(filter).with_writer(std::io::stderr);
+
+    match logging.format.as_str() {
+        "pretty" => subscriber.pretty().init(),
+        "compact" => subscriber.compact().init(),
+        _ => subscriber.json().init(),
+    }
 }
 
 fn load_or_create_identity(vault: &FsVault) -> Result<Keypair> {
