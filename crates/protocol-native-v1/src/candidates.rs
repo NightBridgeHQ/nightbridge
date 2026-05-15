@@ -3,6 +3,8 @@
 use std::cmp::Reverse;
 use std::collections::HashSet;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr, UdpSocket};
+use std::time::Duration;
+use tracing::warn;
 
 use crate::{NativeError, Result};
 
@@ -46,6 +48,41 @@ pub fn local_candidates(native_port: u16) -> Result<Vec<NativeCandidate>> {
             address: SocketAddr::new(IpAddr::V4(address), native_port),
             priority: 90,
         });
+    }
+
+    let mut candidates = dedupe_candidates(candidates);
+    sort_candidates(&mut candidates);
+    Ok(candidates)
+}
+
+/// Gathers local and STUN-reflexive native QUIC candidates.
+pub async fn gather_candidates(
+    native_port: u16,
+    stun_servers: &[SocketAddr],
+) -> Result<Vec<NativeCandidate>> {
+    gather_candidates_with_timeout(native_port, stun_servers, Duration::from_secs(3)).await
+}
+
+async fn gather_candidates_with_timeout(
+    native_port: u16,
+    stun_servers: &[SocketAddr],
+    timeout: Duration,
+) -> Result<Vec<NativeCandidate>> {
+    let mut candidates = local_candidates(native_port)?;
+
+    for stun_server in stun_servers {
+        match crate::stun::discover_server_reflexive_candidate(*stun_server, native_port, timeout)
+            .await
+        {
+            Ok(address) => candidates.push(NativeCandidate {
+                kind: CandidateKind::ServerReflexive,
+                address,
+                priority: 80,
+            }),
+            Err(error) => {
+                warn!(%error, server = %stun_server, "failed to discover STUN candidate");
+            }
+        }
     }
 
     let mut candidates = dedupe_candidates(candidates);
@@ -157,5 +194,26 @@ mod tests {
 
         assert_eq!(candidates, sorted);
         assert_eq!(candidates.len(), dedupe_candidates(candidates.clone()).len());
+    }
+
+    #[tokio::test]
+    async fn gather_candidates_returns_local_candidates_when_stun_is_empty() {
+        let candidates = gather_candidates(53400, &[]).await.unwrap();
+
+        assert!(candidates.iter().any(|candidate| {
+            candidate.kind == CandidateKind::Local
+                && candidate.address == SocketAddr::from((Ipv4Addr::LOCALHOST, 53400))
+        }));
+    }
+
+    #[tokio::test]
+    async fn gather_candidates_tolerates_stun_failure() {
+        let stun_server = SocketAddr::from((Ipv4Addr::LOCALHOST, 9));
+        let candidates =
+            gather_candidates_with_timeout(53400, &[stun_server], Duration::from_millis(10))
+                .await
+                .unwrap();
+
+        assert!(candidates.iter().any(|candidate| candidate.kind == CandidateKind::Local));
     }
 }

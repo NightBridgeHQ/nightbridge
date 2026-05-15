@@ -12,6 +12,7 @@ pub mod error;
 pub mod framing;
 pub mod manifest;
 pub mod pairing;
+pub mod stun;
 pub mod tls;
 pub mod transfer;
 pub mod transport;
