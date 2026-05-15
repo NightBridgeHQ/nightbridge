@@ -367,6 +367,25 @@ fn native_peer_info(alias: &str, identity: &Keypair, quic_port: u16) -> NativePe
     }
 }
 
+fn mdns_hostname(alias: &str) -> String {
+    let trimmed = alias.trim();
+    let base = trimmed
+        .strip_suffix(".local.")
+        .or_else(|| trimmed.strip_suffix(".local"))
+        .unwrap_or(trimmed);
+    let mut host = base
+        .trim()
+        .chars()
+        .map(|ch| if ch.is_ascii_alphanumeric() || ch == '-' { ch } else { '-' })
+        .collect::<String>()
+        .trim_matches('-')
+        .to_string();
+    if host.is_empty() {
+        host = DEFAULT_ALIAS.to_string();
+    }
+    format!("{host}.local.")
+}
+
 fn start_native_discovery(
     args: &Args,
     peer_info: &NativePeerInfo,
@@ -378,7 +397,7 @@ fn start_native_discovery(
     match NativeDiscoveryAnnouncer::register(
         peer_info,
         &args.alias,
-        "localhost",
+        &mdns_hostname(&args.alias),
         IpAddr::V4(Ipv4Addr::UNSPECIFIED),
     ) {
         Ok(announcer) => Some(announcer),
@@ -596,6 +615,21 @@ async fn wait_for_shutdown() -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn mdns_hostname_adds_local_suffix() {
+        assert_eq!(mdns_hostname("localhost"), "localhost.local.");
+    }
+
+    #[test]
+    fn mdns_hostname_preserves_existing_local_suffix() {
+        assert_eq!(mdns_hostname("server.local."), "server.local.");
+    }
+
+    #[test]
+    fn mdns_hostname_sanitizes_alias_fallback() {
+        assert_eq!(mdns_hostname("my server"), "my-server.local.");
+    }
 
     #[test]
     fn args_default_localsend_receive_options() {
