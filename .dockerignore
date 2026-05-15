@@ -1,0 +1,12 @@
+.git
+.gitignore
+target
+**/target
+.DS_Store
+*.swp
+*.swo
+*.tmp
+tmp
+dist
+node_modules
+packaging/docker/*.log
