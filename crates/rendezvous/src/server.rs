@@ -14,7 +14,7 @@ use crate::registry::{Registry, RegistryError};
 /// ALPN identifier for the LocalSend Improved rendezvous protocol.
 pub const RENDEZVOUS_ALPN: &[u8] = b"lsi-rendezvous-v1";
 
-const MAX_FRAME_BYTES: usize = 1024 * 1024;
+pub(crate) const MAX_FRAME_BYTES: usize = 1024 * 1024;
 
 /// Runtime configuration for a rendezvous server.
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -181,29 +181,33 @@ fn registry_error_response(error: RegistryError) -> ServerMessage {
     })
 }
 
-async fn read_client_message(recv: &mut quinn::RecvStream) -> Result<ClientMessage> {
+pub(crate) async fn read_client_message(recv: &mut quinn::RecvStream) -> Result<ClientMessage> {
     let bytes = read_frame(recv).await?;
     serde_json::from_slice(&bytes).context("decode rendezvous client message")
 }
 
-async fn write_server_message(send: &mut quinn::SendStream, message: &ServerMessage) -> Result<()> {
+pub(crate) async fn write_server_message(
+    send: &mut quinn::SendStream,
+    message: &ServerMessage,
+) -> Result<()> {
     let bytes = serde_json::to_vec(message).context("encode rendezvous server message")?;
     write_frame(send, &bytes).await
 }
 
-#[cfg(test)]
-async fn write_client_message(send: &mut quinn::SendStream, message: &ClientMessage) -> Result<()> {
+pub(crate) async fn write_client_message(
+    send: &mut quinn::SendStream,
+    message: &ClientMessage,
+) -> Result<()> {
     let bytes = serde_json::to_vec(message).context("encode rendezvous client message")?;
     write_frame(send, &bytes).await
 }
 
-#[cfg(test)]
-async fn read_server_message(recv: &mut quinn::RecvStream) -> Result<ServerMessage> {
+pub(crate) async fn read_server_message(recv: &mut quinn::RecvStream) -> Result<ServerMessage> {
     let bytes = read_frame(recv).await?;
     serde_json::from_slice(&bytes).context("decode rendezvous server message")
 }
 
-async fn read_frame(recv: &mut quinn::RecvStream) -> Result<Vec<u8>> {
+pub(crate) async fn read_frame(recv: &mut quinn::RecvStream) -> Result<Vec<u8>> {
     let mut len = [0_u8; 4];
     recv.read_exact(&mut len).await.context("read rendezvous frame length")?;
     let len = u32::from_be_bytes(len) as usize;
@@ -216,7 +220,7 @@ async fn read_frame(recv: &mut quinn::RecvStream) -> Result<Vec<u8>> {
     Ok(bytes)
 }
 
-async fn write_frame(send: &mut quinn::SendStream, bytes: &[u8]) -> Result<()> {
+pub(crate) async fn write_frame(send: &mut quinn::SendStream, bytes: &[u8]) -> Result<()> {
     if bytes.len() > MAX_FRAME_BYTES {
         anyhow::bail!("rendezvous frame exceeds {MAX_FRAME_BYTES} bytes");
     }
@@ -243,7 +247,7 @@ fn rendezvous_server_config() -> Result<quinn::ServerConfig> {
     Ok(quinn::ServerConfig::with_crypto(Arc::new(quic_crypto)))
 }
 
-fn ensure_ring_crypto_provider() {
+pub(crate) fn ensure_ring_crypto_provider() {
     if rustls::crypto::CryptoProvider::get_default().is_none() {
         let _ = rustls::crypto::ring::default_provider().install_default();
     }
