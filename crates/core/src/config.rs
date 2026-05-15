@@ -18,6 +18,9 @@ pub struct AppConfig {
     /// Logging settings.
     #[serde(default)]
     pub logging: LoggingConfig,
+    /// WAN rendezvous settings.
+    #[serde(default)]
+    pub wan: WanConfig,
 }
 
 impl AppConfig {
@@ -28,6 +31,7 @@ impl AppConfig {
         }
         self.metrics.validate()?;
         self.logging.validate()?;
+        self.wan.validate()?;
         Ok(())
     }
 }
@@ -137,6 +141,57 @@ impl LoggingConfig {
     }
 }
 
+/// WAN rendezvous configuration.
+#[derive(Clone, Debug, Deserialize, PartialEq, Eq)]
+pub struct WanConfig {
+    /// Whether WAN rendezvous registration and lookup are enabled.
+    #[serde(default)]
+    pub enabled: bool,
+    /// Rendezvous server URL, such as `quic://rendezvous.example.net:53410`.
+    #[serde(default)]
+    pub rendezvous_url: Option<String>,
+    /// Interval between daemon registration refreshes.
+    #[serde(default = "default_wan_register_interval_seconds")]
+    pub register_interval_seconds: u64,
+    /// STUN servers used to discover server-reflexive candidates.
+    #[serde(default)]
+    pub stun_servers: Vec<String>,
+}
+
+impl Default for WanConfig {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            rendezvous_url: None,
+            register_interval_seconds: default_wan_register_interval_seconds(),
+            stun_servers: Vec::new(),
+        }
+    }
+}
+
+impl WanConfig {
+    fn validate(&self) -> Result<()> {
+        if self.enabled {
+            match &self.rendezvous_url {
+                Some(url) => require_nonblank("rendezvous_url", url)?,
+                None => return Err(CoreError::Config("rendezvous_url is required".to_string())),
+            }
+        }
+        if let Some(url) = &self.rendezvous_url {
+            require_nonblank("rendezvous_url", url)?;
+        }
+        if self.register_interval_seconds == 0 {
+            return Err(CoreError::Config(
+                "wan register_interval_seconds must be greater than zero".to_string(),
+            ));
+        }
+        for stun_server in &self.stun_servers {
+            require_nonblank("stun server", stun_server)?;
+        }
+        Ok(())
+    }
+}
+
 /// Load and validate configuration from an existing path.
 pub fn load_config(path: &Path) -> Result<AppConfig> {
     let contents = std::fs::read_to_string(path)?;
@@ -188,6 +243,10 @@ fn default_logging_level() -> String {
     "info".to_string()
 }
 
+fn default_wan_register_interval_seconds() -> u64 {
+    60
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -226,6 +285,57 @@ mod tests {
         assert!(!config.metrics.enabled);
         assert_eq!(config.metrics.host, "127.0.0.1");
         assert_eq!(config.metrics.port, 53502);
+    }
+
+    #[test]
+    fn wan_config_defaults_to_disabled() {
+        let config = parse("").unwrap();
+
+        assert!(!config.wan.enabled);
+        assert!(config.wan.rendezvous_url.is_none());
+    }
+
+    #[test]
+    fn wan_enabled_requires_rendezvous_url() {
+        let error = parse("[wan]\nenabled = true\n").unwrap_err();
+
+        assert!(error.to_string().contains("rendezvous_url is required"), "{error}");
+    }
+
+    #[test]
+    fn wan_config_accepts_rendezvous_and_stun_servers() {
+        let config = parse(
+            r#"
+[wan]
+enabled = true
+rendezvous_url = "quic://127.0.0.1:53410"
+register_interval_seconds = 30
+stun_servers = ["stun.example.net:3478"]
+"#,
+        )
+        .unwrap();
+
+        assert!(config.wan.enabled);
+        assert_eq!(config.wan.rendezvous_url.as_deref(), Some("quic://127.0.0.1:53410"));
+        assert_eq!(config.wan.register_interval_seconds, 30);
+        assert_eq!(config.wan.stun_servers, vec!["stun.example.net:3478"]);
+    }
+
+    #[test]
+    fn wan_config_rejects_zero_register_interval() {
+        let error = parse("[wan]\nregister_interval_seconds = 0\n").unwrap_err();
+
+        assert!(
+            error.to_string().contains("wan register_interval_seconds must be greater than zero"),
+            "{error}"
+        );
+    }
+
+    #[test]
+    fn wan_config_rejects_blank_stun_server() {
+        let error = parse("[wan]\nstun_servers = [\"\"]\n").unwrap_err();
+
+        assert!(error.to_string().contains("stun server is required"), "{error}");
     }
 
     #[test]

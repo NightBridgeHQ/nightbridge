@@ -100,6 +100,10 @@ struct Args {
     #[arg(long = "config")]
     config: Option<PathBuf>,
 
+    /// WAN rendezvous server URL, such as quic://host:53410.
+    #[arg(long = "rendezvous")]
+    rendezvous: Option<String>,
+
     /// Loopback gRPC API port.
     #[arg(long = "api-grpc-port", default_value_t = DEFAULT_API_GRPC_PORT)]
     api_grpc_port: u16,
@@ -280,7 +284,13 @@ fn config_path(args: &Args) -> PathBuf {
 }
 
 fn load_daemon_config(args: &Args) -> lsi_core::Result<AppConfig> {
-    load_config_or_default(&config_path(args))
+    let mut config = load_config_or_default(&config_path(args))?;
+    if let Some(url) = &args.rendezvous {
+        config.wan.enabled = true;
+        config.wan.rendezvous_url = Some(url.clone());
+        config.validate()?;
+    }
+    Ok(config)
 }
 
 async fn start_localsend_v2(state: &DaemonState) -> Result<LocalSendRuntime> {
@@ -757,6 +767,36 @@ mod tests {
 
         assert_eq!(args.config, Some(PathBuf::from("/tmp/lsi-config.toml")));
         assert_eq!(config_path(&args), PathBuf::from("/tmp/lsi-config.toml"));
+    }
+
+    #[test]
+    fn args_parse_rendezvous_override() {
+        let args = Args::parse_from(["daemon", "--rendezvous", "quic://127.0.0.1:53410"]);
+
+        assert_eq!(args.rendezvous.as_deref(), Some("quic://127.0.0.1:53410"));
+    }
+
+    #[test]
+    fn rendezvous_arg_enables_and_overrides_config() {
+        let temp = tempfile::TempDir::new().unwrap();
+        let path = temp.path().join("config.toml");
+        std::fs::write(
+            &path,
+            "[wan]\nenabled = false\nrendezvous_url = \"quic://old.example:53410\"\n",
+        )
+        .unwrap();
+        let args = Args::parse_from([
+            "daemon",
+            "--config",
+            path.to_str().unwrap(),
+            "--rendezvous",
+            "quic://127.0.0.1:53410",
+        ]);
+
+        let config = load_daemon_config(&args).unwrap();
+
+        assert!(config.wan.enabled);
+        assert_eq!(config.wan.rendezvous_url.as_deref(), Some("quic://127.0.0.1:53410"));
     }
 
     #[test]
