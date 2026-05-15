@@ -1,0 +1,29 @@
+[Unit]
+Description=LocalSend Improved daemon
+Documentation=https://github.com/<owner>/localsend-improvements
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+DynamicUser=yes
+StateDirectory=localsend-improved
+ConfigurationDirectory=localsend-improved
+Environment=XDG_CONFIG_HOME=/var/lib/localsend-improved/config
+Environment=XDG_DATA_HOME=/var/lib/localsend-improved/data
+ExecStart=/usr/bin/localsend-improved-daemon \
+  --config /etc/localsend-improved/config.toml \
+  --identity /var/lib/localsend-improved/identity.key \
+  --trust-db /var/lib/localsend-improved/trust.db \
+  --inbox /var/lib/localsend-improved/inbox
+Restart=on-failure
+RestartSec=5s
+
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=yes
+ReadWritePaths=/var/lib/localsend-improved
+
+[Install]
+WantedBy=multi-user.target
