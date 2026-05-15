@@ -148,7 +148,19 @@ async fn main() -> Result<()> {
         FsApiTokenVault::new(&api_token_path).load_or_generate().with_context(|| {
             format!("failed to load or create API token at {}", api_token_path.display())
         })?;
-    let state = Arc::new(DaemonState::from_args(&args, identity, fingerprint, api_token, config));
+    let metrics = if config.metrics.enabled {
+        Some(metrics::install().with_context(|| "failed to install Prometheus recorder")?.handle)
+    } else {
+        None
+    };
+    let state = Arc::new(DaemonState::from_args_with_metrics(
+        &args,
+        identity,
+        fingerprint,
+        api_token,
+        config,
+        metrics,
+    ));
     let api_auth_enabled = !state.api_token.expose_secret().is_empty();
     let event_subscribers = state.events.subscriber_count();
 

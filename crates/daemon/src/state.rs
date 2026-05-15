@@ -1,6 +1,7 @@
 use std::path::PathBuf;
 
 use lsi_core::{api_token::ApiToken, config::AppConfig, identity::Keypair, paths};
+use metrics_exporter_prometheus::PrometheusHandle;
 
 use crate::{events::EventBus, Args};
 
@@ -15,6 +16,7 @@ pub(crate) struct DaemonState {
     pub(crate) native_port: u16,
     pub(crate) api_token: ApiToken,
     pub(crate) config: AppConfig,
+    pub(crate) metrics: Option<PrometheusHandle>,
     pub(crate) events: EventBus,
 }
 
@@ -26,6 +28,17 @@ impl DaemonState {
         api_token: ApiToken,
         config: AppConfig,
     ) -> Self {
+        Self::from_args_with_metrics(args, identity, fingerprint, api_token, config, None)
+    }
+
+    pub(crate) fn from_args_with_metrics(
+        args: &Args,
+        identity: Keypair,
+        fingerprint: String,
+        api_token: ApiToken,
+        config: AppConfig,
+        metrics: Option<PrometheusHandle>,
+    ) -> Self {
         Self {
             alias: args.alias.clone(),
             identity,
@@ -36,6 +49,7 @@ impl DaemonState {
             native_port: args.native_port,
             api_token,
             config,
+            metrics,
             events: EventBus::new(),
         }
     }

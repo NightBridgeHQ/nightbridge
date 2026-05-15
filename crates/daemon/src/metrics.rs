@@ -23,14 +23,12 @@ pub(crate) struct MetricsRuntime {
     pub(crate) handle: PrometheusHandle,
 }
 
-#[allow(dead_code)]
 pub(crate) fn install() -> Result<MetricsRuntime> {
     describe_metrics();
     let handle = PrometheusBuilder::new().install_recorder()?;
     Ok(MetricsRuntime { handle })
 }
 
-#[allow(dead_code)]
 fn describe_metrics() {
     describe_counter!(TRANSFERS_STARTED_TOTAL, "Transfers started by the daemon.");
     describe_counter!(TRANSFERS_COMPLETED_TOTAL, "Transfers completed by the daemon.");

@@ -75,6 +75,9 @@ pub(crate) async fn stop_http_runtime(runtime: HttpApiRuntime) -> Result<()> {
 
 fn router(state: HttpState) -> Router {
     Router::new()
+        .route("/healthz", get(healthz))
+        .route("/readyz", get(readyz))
+        .route("/metrics", get(metrics))
         .route("/api/v1/status", get(status))
         .route("/api/v1/peers/trusted", get(list_trusted))
         .route("/api/v1/peers/lan", get(list_lan))
@@ -88,6 +91,23 @@ fn router(state: HttpState) -> Router {
         .route("/assets/*path", get(webui_asset))
         .fallback(webui_fallback)
         .with_state(state)
+}
+
+async fn healthz() -> StatusCode {
+    StatusCode::OK
+}
+
+async fn readyz(State(_state): State<HttpState>) -> StatusCode {
+    StatusCode::OK
+}
+
+async fn metrics(State(state): State<HttpState>) -> Result<Response, StatusCode> {
+    let Some(metrics) = &state.daemon.metrics else {
+        return Err(StatusCode::NOT_FOUND);
+    };
+
+    Ok(([(header::CONTENT_TYPE, "text/plain; version=0.0.4; charset=utf-8")], metrics.render())
+        .into_response())
 }
 
 async fn webui_index() -> Result<Response, StatusCode> {
@@ -613,8 +633,10 @@ mod tests {
     use futures_util::StreamExt;
     use lsi_core::{
         api_token::ApiToken,
+        config::{AppConfig, MetricsConfig},
         identity::{Fingerprint, Keypair},
     };
+    use metrics_exporter_prometheus::PrometheusBuilder;
     use reqwest::StatusCode;
 
     use super::*;
@@ -665,6 +687,53 @@ mod tests {
 
         assert_eq!(body["alias"], "http-test");
         assert_eq!(body["fingerprint"], fixture.fingerprint);
+        fixture.stop().await;
+    }
+
+    #[tokio::test]
+    async fn healthz_returns_ok_without_bearer_token() {
+        let fixture = HttpFixture::start().await;
+        let response =
+            reqwest::get(format!("http://{}/healthz", fixture.runtime.local_addr())).await.unwrap();
+
+        assert_eq!(response.status(), StatusCode::OK);
+        fixture.stop().await;
+    }
+
+    #[tokio::test]
+    async fn readyz_returns_ok_without_bearer_token() {
+        let fixture = HttpFixture::start().await;
+        let response =
+            reqwest::get(format!("http://{}/readyz", fixture.runtime.local_addr())).await.unwrap();
+
+        assert_eq!(response.status(), StatusCode::OK);
+        fixture.stop().await;
+    }
+
+    #[tokio::test]
+    async fn metrics_returns_prometheus_text_without_bearer_token_when_enabled() {
+        let fixture = HttpFixture::start_with_metrics().await;
+        let response =
+            reqwest::get(format!("http://{}/metrics", fixture.runtime.local_addr())).await.unwrap();
+
+        assert_eq!(response.status(), StatusCode::OK);
+        assert!(response
+            .headers()
+            .get(reqwest::header::CONTENT_TYPE)
+            .unwrap()
+            .to_str()
+            .unwrap()
+            .starts_with("text/plain"));
+        fixture.stop().await;
+    }
+
+    #[tokio::test]
+    async fn metrics_returns_not_found_without_bearer_token_when_disabled() {
+        let fixture = HttpFixture::start().await;
+        let response =
+            reqwest::get(format!("http://{}/metrics", fixture.runtime.local_addr())).await.unwrap();
+
+        assert_eq!(response.status(), StatusCode::NOT_FOUND);
         fixture.stop().await;
     }
 
@@ -800,6 +869,21 @@ mod tests {
 
     impl HttpFixture {
         async fn start() -> Self {
+            Self::start_with_config(AppConfig::default(), None).await
+        }
+
+        async fn start_with_metrics() -> Self {
+            let mut config = AppConfig::default();
+            config.metrics = MetricsConfig { enabled: true, ..MetricsConfig::default() };
+            let handle = PrometheusBuilder::new().build_recorder().handle();
+
+            Self::start_with_config(config, Some(handle)).await
+        }
+
+        async fn start_with_config(
+            config: AppConfig,
+            metrics: Option<metrics_exporter_prometheus::PrometheusHandle>,
+        ) -> Self {
             let temp = tempfile::TempDir::new().unwrap();
             let args = Args::parse_from([
                 "daemon",
@@ -810,12 +894,13 @@ mod tests {
             ]);
             let identity = Keypair::generate();
             let fingerprint = Fingerprint::from_pubkey(&identity.public_bytes()).to_string();
-            let state = Arc::new(DaemonState::from_args(
+            let state = Arc::new(DaemonState::from_args_with_metrics(
                 &args,
                 identity,
                 fingerprint.clone(),
                 ApiToken::new("test-token").unwrap(),
-                lsi_core::config::AppConfig::default(),
+                config,
+                metrics,
             ));
             let runtime = start_http_runtime(Arc::clone(&state), 0).await.unwrap();
             Self { runtime, state, fingerprint }
