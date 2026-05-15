@@ -41,6 +41,7 @@ mod events;
 mod hooks;
 mod metrics;
 mod state;
+mod wan;
 
 use state::DaemonState;
 
@@ -224,8 +225,22 @@ async fn main() -> Result<()> {
                 .with_context(|| "failed to start native LAN listener")?,
         )
     };
+    let wan_runtime = if let Some(runtime) = &native_runtime {
+        wan::start_wan_runtime(Arc::clone(&state), runtime.local_addr.port())
+            .await
+            .with_context(|| "failed to start WAN rendezvous runtime")?
+    } else {
+        if state.config.wan.enabled {
+            warn!("WAN rendezvous disabled because native listener is disabled");
+        }
+        None
+    };
 
     wait_for_shutdown().await?;
+
+    if let Some(runtime) = wan_runtime {
+        wan::stop_wan_runtime(runtime).await?;
+    }
 
     if let Some(runtime) = native_runtime {
         stop_native_runtime(runtime).await?;

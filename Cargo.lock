@@ -1257,6 +1257,7 @@ dependencies = [
  "lsi-proto",
  "lsi-protocol-localsend-v2",
  "lsi-protocol-native-v1",
+ "lsi-rendezvous",
  "lsi-webui",
  "metrics",
  "metrics-exporter-prometheus",
