@@ -21,6 +21,7 @@ pub(crate) struct DaemonState {
 }
 
 impl DaemonState {
+    #[cfg(test)]
     pub(crate) fn from_args(
         args: &Args,
         identity: Keypair,

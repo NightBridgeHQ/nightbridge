@@ -7,7 +7,7 @@ use serde::Deserialize;
 use crate::{CoreError, Result};
 
 /// Root application configuration loaded from `config.toml`.
-#[derive(Clone, Debug, Deserialize, PartialEq, Eq)]
+#[derive(Clone, Debug, Default, Deserialize, PartialEq, Eq)]
 pub struct AppConfig {
     /// Hook sinks that receive daemon events.
     #[serde(default)]
@@ -18,16 +18,6 @@ pub struct AppConfig {
     /// Logging settings.
     #[serde(default)]
     pub logging: LoggingConfig,
-}
-
-impl Default for AppConfig {
-    fn default() -> Self {
-        Self {
-            hooks: Vec::new(),
-            metrics: MetricsConfig::default(),
-            logging: LoggingConfig::default(),
-        }
-    }
 }
 
 impl AppConfig {

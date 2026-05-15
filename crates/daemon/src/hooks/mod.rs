@@ -1,9 +1,8 @@
 //! Hook event adapters, delivery sinks, and dispatcher runtime.
 
-use std::{
-    sync::Arc,
-    time::{Duration, SystemTime, UNIX_EPOCH},
-};
+#[cfg(test)]
+use std::time::{SystemTime, UNIX_EPOCH};
+use std::{sync::Arc, time::Duration};
 
 pub(crate) mod exec;
 pub(crate) mod webhook;
@@ -16,6 +15,7 @@ use lsi_core::{
 use serde_json::json;
 use tokio::{sync::watch, task::JoinHandle};
 use tracing::warn;
+#[cfg(test)]
 use uuid::Uuid;
 
 use crate::events::{DaemonEvent, DaemonEventEnvelope, EventBus};
@@ -48,6 +48,7 @@ pub(crate) async fn stop_hook_dispatcher(runtime: HookDispatcherRuntime) {
     }
 }
 
+#[cfg(test)]
 pub(crate) fn hook_event_from_daemon(event: DaemonEvent) -> HookEvent {
     HookEvent {
         event_id: Uuid::new_v4().to_string(),
@@ -116,7 +117,8 @@ impl HookSinks {
     }
 
     fn dispatch(&self, event: HookEvent) {
-        for sink in self.sinks.iter().cloned() {
+        for sink in self.sinks.iter() {
+            let sink = sink.clone();
             let event = event.clone();
             tokio::spawn(async move {
                 if let Err(error) =
@@ -191,6 +193,7 @@ fn hook_payload(event: &DaemonEvent) -> serde_json::Value {
     }
 }
 
+#[cfg(test)]
 fn current_unix_seconds() -> i64 {
     SystemTime::now()
         .duration_since(UNIX_EPOCH)

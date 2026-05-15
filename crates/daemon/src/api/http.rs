@@ -873,8 +873,10 @@ mod tests {
         }
 
         async fn start_with_metrics() -> Self {
-            let mut config = AppConfig::default();
-            config.metrics = MetricsConfig { enabled: true, ..MetricsConfig::default() };
+            let config = AppConfig {
+                metrics: MetricsConfig { enabled: true, ..MetricsConfig::default() },
+                ..AppConfig::default()
+            };
             let handle = PrometheusBuilder::new().build_recorder().handle();
 
             Self::start_with_config(config, Some(handle)).await

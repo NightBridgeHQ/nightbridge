@@ -10,6 +10,7 @@ pub(crate) const TRANSFER_BYTES_TOTAL: &str = "lsi_transfer_bytes_total";
 pub(crate) const HOOK_DELIVERY_FAILURES_TOTAL: &str = "lsi_hook_delivery_failures_total";
 pub(crate) const PEERS_TRUSTED: &str = "lsi_peers_trusted";
 
+#[cfg(test)]
 pub(crate) const METRIC_NAMES: &[&str] = &[
     TRANSFERS_STARTED_TOTAL,
     TRANSFERS_COMPLETED_TOTAL,
