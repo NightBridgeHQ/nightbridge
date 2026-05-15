@@ -38,6 +38,7 @@ use tracing_subscriber::{fmt, EnvFilter};
 
 mod api;
 mod events;
+mod hooks;
 mod state;
 
 use state::DaemonState;
