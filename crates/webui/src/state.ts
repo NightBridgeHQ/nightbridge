@@ -76,6 +76,21 @@ function setGuiMode(mode: GuiMode): void {
   appState.update((state) => ({ ...state, guiMode: mode, error: null }));
 }
 
+function endpointError(endpoint: string): string | null {
+  if (!endpoint) {
+    return null;
+  }
+  try {
+    const url = new URL(endpoint);
+    if (url.protocol !== "http:" && url.protocol !== "https:") {
+      return "Remote daemon endpoint must start with http:// or https://";
+    }
+  } catch {
+    return "Remote daemon endpoint must be a valid URL";
+  }
+  return null;
+}
+
 export async function loadDesktopSettings(): Promise<void> {
   if (!isTauri) {
     return;
@@ -97,11 +112,12 @@ export async function loadDesktopSettings(): Promise<void> {
 export async function saveDesktopSettings(mode: GuiMode, endpoint: string, token: string): Promise<void> {
   const trimmedEndpoint = endpoint.trim().replace(/\/+$/, "");
   const trimmedToken = token.trim();
-  if (mode === "remote" && trimmedEndpoint && !/^https?:\/\//.test(trimmedEndpoint)) {
+  const invalidEndpoint = mode === "remote" ? endpointError(trimmedEndpoint) : null;
+  if (invalidEndpoint) {
     appState.update((state) => ({
       ...state,
       connection: "error",
-      error: "Remote daemon endpoint must start with http:// or https://"
+      error: invalidEndpoint
     }));
     return;
   }
@@ -122,13 +138,24 @@ export async function saveDesktopSettings(mode: GuiMode, endpoint: string, token
 }
 
 export async function refreshSnapshot(): Promise<void> {
-  const token = get(appState).token;
+  const current = get(appState);
+  const token = current.token;
   if (!token) {
     appState.update((state) => ({
       ...state,
       connection: "disconnected",
       snapshot: null,
       error: "API token required"
+    }));
+    return;
+  }
+  const invalidEndpoint = current.guiMode === "remote" ? endpointError(current.apiBase) : null;
+  if (invalidEndpoint) {
+    appState.update((state) => ({
+      ...state,
+      connection: "error",
+      snapshot: null,
+      error: invalidEndpoint
     }));
     return;
   }
