@@ -51,13 +51,26 @@ export type DaemonEvent = {
   [key: string]: unknown;
 };
 
+let apiBase = "";
+
+export function setApiBase(base: string): void {
+  apiBase = base.replace(/\/+$/, "");
+}
+
+export function resolveApiPath(path: string): string {
+  if (!path.startsWith("/")) {
+    throw new Error("API path must start with /");
+  }
+  return `${apiBase}${path}`;
+}
+
 const jsonHeaders = (token: string): HeadersInit => ({
   Authorization: `Bearer ${token}`,
   Accept: "application/json"
 });
 
 async function requestJson<T>(path: string, token: string): Promise<T> {
-  const response = await fetch(path, { headers: jsonHeaders(token) });
+  const response = await fetch(resolveApiPath(path), { headers: jsonHeaders(token) });
   if (!response.ok) {
     throw new Error(`${response.status} ${response.statusText || "API request failed"}`);
   }
@@ -87,7 +100,7 @@ export async function streamEvents(
   signal: AbortSignal,
   onEvent: (event: DaemonEvent) => void
 ): Promise<void> {
-  const response = await fetch("/api/v1/events", {
+  const response = await fetch(resolveApiPath("/api/v1/events"), {
     headers: { Authorization: `Bearer ${token}`, Accept: "text/event-stream" },
     signal
   });
