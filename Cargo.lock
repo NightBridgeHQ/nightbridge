@@ -2425,8 +2425,14 @@ dependencies = [
 name = "lsi-gui"
 version = "0.1.0"
 dependencies = [
+ "directories",
+ "serde",
+ "serde_json",
  "tauri",
  "tauri-build",
+ "tempfile",
+ "thiserror 1.0.69",
+ "url",
 ]
 
 [[package]]

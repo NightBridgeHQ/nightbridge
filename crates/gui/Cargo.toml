@@ -12,7 +12,15 @@ name = "localsend-improved-gui"
 path = "src/main.rs"
 
 [dependencies]
+directories.workspace = true
+serde.workspace = true
+serde_json.workspace = true
 tauri = { version = "=2.0.0", features = [] }
+thiserror.workspace = true
+url.workspace = true
 
 [build-dependencies]
 tauri-build = { version = "=2.0.0", features = [] }
+
+[dev-dependencies]
+tempfile.workspace = true
