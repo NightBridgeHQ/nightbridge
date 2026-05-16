@@ -16,6 +16,7 @@ lsi-core = { path = "../core" }
 lsi-proto = { path = "../proto" }
 lsi-protocol-localsend-v2 = { path = "../protocol-localsend-v2" }
 lsi-protocol-native-v1 = { path = "../protocol-native-v1" }
+lsi-rendezvous = { path = "../rendezvous" }
 clap.workspace = true
 anyhow.workspace = true
 quinn.workspace = true

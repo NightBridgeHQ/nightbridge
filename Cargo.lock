@@ -1214,6 +1214,7 @@ dependencies = [
  "lsi-proto",
  "lsi-protocol-localsend-v2",
  "lsi-protocol-native-v1",
+ "lsi-rendezvous",
  "predicates",
  "quinn",
  "rustls 0.23.5",

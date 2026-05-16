@@ -8,11 +8,15 @@ use lsi_protocol_native_v1::candidates::{
     gather_candidates, CandidateKind as NativeCandidateKind, NativeCandidate,
 };
 use lsi_rendezvous::client::RendezvousClient;
-use lsi_rendezvous::protocol::{Candidate, CandidateKind, RegisterRequest, RegisteredResponse};
+use lsi_rendezvous::protocol::{
+    Candidate, CandidateKind, LookupRequest, NotifyRequest, RegisterRequest, RegisteredResponse,
+};
 use tokio::task::JoinHandle;
 use tracing::{info, warn};
 
 use crate::state::DaemonState;
+use lsi_core::config::WanConfig;
+use lsi_core::identity::Keypair;
 
 /// Background WAN rendezvous registration task.
 pub(crate) struct WanRuntime {
@@ -59,6 +63,45 @@ pub(crate) async fn start_wan_runtime(
 pub(crate) async fn stop_wan_runtime(runtime: WanRuntime) -> Result<()> {
     let _ = runtime.shutdown_tx.send(true);
     runtime.task.await.context("WAN rendezvous task panicked")?
+}
+
+/// Looks up a registered peer's WAN candidates through rendezvous.
+#[allow(dead_code)]
+pub async fn lookup_peer_candidates(
+    config: &WanConfig,
+    identity: &Keypair,
+    target_pubkey: [u8; 32],
+) -> Result<Vec<NativeCandidate>> {
+    let client = connect_client(config).await?;
+    let response = client
+        .lookup(LookupRequest { requester_pubkey: identity.public_bytes(), target_pubkey })
+        .await;
+    client.close().await;
+
+    let peer = response?.peer.context("WAN peer is not registered with rendezvous")?;
+    peer.candidates.iter().map(candidate_from_rendezvous).collect::<Result<Vec<_>>>()
+}
+
+/// Queues a rendezvous notification for a target peer.
+#[allow(dead_code)]
+pub async fn notify_peer(
+    config: &WanConfig,
+    identity: &Keypair,
+    target_pubkey: [u8; 32],
+) -> Result<()> {
+    let client = connect_client(config).await?;
+    let response = client
+        .notify(NotifyRequest { requester_pubkey: identity.public_bytes(), target_pubkey })
+        .await;
+    client.close().await;
+    response.map(|_| ())
+}
+
+#[allow(dead_code)]
+async fn connect_client(config: &WanConfig) -> Result<RendezvousClient> {
+    let rendezvous_url =
+        config.rendezvous_url.as_deref().context("rendezvous_url is required for WAN lookup")?;
+    RendezvousClient::connect(rendezvous_url).await
 }
 
 async fn resolve_stun_servers(servers: &[String]) -> Result<Vec<SocketAddr>> {
@@ -183,6 +226,20 @@ fn candidate_to_rendezvous(candidate: &NativeCandidate) -> Candidate {
     }
 }
 
+#[allow(dead_code)]
+fn candidate_from_rendezvous(candidate: &Candidate) -> Result<NativeCandidate> {
+    Ok(NativeCandidate {
+        kind: match candidate.kind {
+            CandidateKind::Local => NativeCandidateKind::Local,
+            CandidateKind::ServerReflexive => NativeCandidateKind::ServerReflexive,
+        },
+        address: candidate.address.parse::<SocketAddr>().with_context(|| {
+            format!("invalid rendezvous candidate address {}", candidate.address)
+        })?,
+        priority: candidate.priority,
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use std::net::Ipv4Addr;
@@ -193,6 +250,7 @@ mod tests {
     use lsi_core::api_token::ApiToken;
     use lsi_core::config::{AppConfig, WanConfig};
     use lsi_core::identity::{Fingerprint, Keypair};
+    use lsi_rendezvous::server::{RendezvousServer, RendezvousServerConfig};
 
     use crate::Args;
 
@@ -298,6 +356,56 @@ mod tests {
         assert_eq!(attempts.load(Ordering::SeqCst), 0);
     }
 
+    #[tokio::test]
+    async fn wan_lookup_trusted_peer_returns_candidates() {
+        let server = bind_test_rendezvous().await;
+        let local_identity = Keypair::generate();
+        let target_identity = Keypair::generate();
+        let config = enabled_config_for_server(server.local_addr());
+        register_target(&config, &target_identity).await;
+
+        let candidates =
+            lookup_peer_candidates(&config.wan, &local_identity, target_identity.public_bytes())
+                .await
+                .unwrap();
+
+        assert_eq!(candidates.len(), 1);
+        assert_eq!(candidates[0].kind, NativeCandidateKind::Local);
+        assert_eq!(candidates[0].address, SocketAddr::from((Ipv4Addr::LOCALHOST, 53400)));
+
+        server.stop().await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn wan_lookup_missing_peer_returns_clear_error() {
+        let server = bind_test_rendezvous().await;
+        let local_identity = Keypair::generate();
+        let missing_identity = Keypair::generate();
+        let config = enabled_config_for_server(server.local_addr());
+
+        let error =
+            lookup_peer_candidates(&config.wan, &local_identity, missing_identity.public_bytes())
+                .await
+                .unwrap_err();
+
+        assert!(error.to_string().contains("WAN peer is not registered"), "{error}");
+
+        server.stop().await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn wan_lookup_notify_queues_request_for_target_peer() {
+        let server = bind_test_rendezvous().await;
+        let local_identity = Keypair::generate();
+        let target_identity = Keypair::generate();
+        let config = enabled_config_for_server(server.local_addr());
+        register_target(&config, &target_identity).await;
+
+        notify_peer(&config.wan, &local_identity, target_identity.public_bytes()).await.unwrap();
+
+        server.stop().await.unwrap();
+    }
+
     fn enabled_config() -> AppConfig {
         AppConfig {
             wan: WanConfig {
@@ -308,6 +416,47 @@ mod tests {
             },
             ..AppConfig::default()
         }
+    }
+
+    fn enabled_config_for_server(addr: SocketAddr) -> AppConfig {
+        AppConfig {
+            wan: WanConfig {
+                enabled: true,
+                rendezvous_url: Some(format!("quic://{addr}")),
+                register_interval_seconds: 60,
+                stun_servers: Vec::new(),
+            },
+            ..AppConfig::default()
+        }
+    }
+
+    async fn register_target(config: &AppConfig, identity: &Keypair) {
+        let client =
+            RendezvousClient::connect(config.wan.rendezvous_url.as_deref().unwrap()).await.unwrap();
+        client
+            .register(RegisterRequest {
+                alias: "target".to_string(),
+                pubkey: identity.public_bytes(),
+                candidates: vec![Candidate {
+                    kind: CandidateKind::Local,
+                    address: SocketAddr::from((Ipv4Addr::LOCALHOST, 53400)).to_string(),
+                    priority: 100,
+                }],
+                ttl_seconds: 60,
+            })
+            .await
+            .unwrap();
+        client.close().await;
+    }
+
+    async fn bind_test_rendezvous() -> RendezvousServer {
+        RendezvousServer::bind(RendezvousServerConfig {
+            bind_addr: SocketAddr::from((Ipv4Addr::LOCALHOST, 0)),
+            max_ttl: Duration::from_secs(120),
+            prune_interval: Duration::from_millis(50),
+        })
+        .await
+        .unwrap()
     }
 
     fn test_state(config: AppConfig) -> DaemonState {

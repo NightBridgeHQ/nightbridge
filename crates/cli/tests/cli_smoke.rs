@@ -116,6 +116,18 @@ fn peers_list_lan_empty_with_short_timeout() {
 }
 
 #[test]
+fn lookup_wan_command_is_available() {
+    let dir = TempDir::new().unwrap();
+    let mut cmd = Command::cargo_bin("localsend-improved").unwrap();
+    set_isolated_dirs(&mut cmd, &dir);
+
+    cmd.args(["peers", "lookup-wan", "--help"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("--rendezvous"));
+}
+
+#[test]
 fn send_rejects_missing_file() {
     let dir = TempDir::new().unwrap();
     let mut cmd = Command::cargo_bin("localsend-improved").unwrap();
