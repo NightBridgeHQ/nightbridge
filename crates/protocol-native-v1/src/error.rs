@@ -20,6 +20,9 @@ pub enum NativeError {
     /// Transport failure.
     #[error("transport: {0}")]
     Transport(String),
+    /// No direct WAN route could be established.
+    #[error("no direct path: {0}")]
+    NoDirectPath(String),
     /// Manifest persistence failure.
     #[error("manifest: {0}")]
     Manifest(String),

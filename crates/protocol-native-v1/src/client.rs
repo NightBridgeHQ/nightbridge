@@ -11,9 +11,11 @@ use rustls::pki_types::{CertificateDer, ServerName, UnixTime};
 use rustls::{DigitallySignedStruct, SignatureScheme};
 use tokio::io::{AsyncReadExt, AsyncSeekExt};
 
+use crate::candidates::{CandidateKind, NativeCandidate};
 use crate::chunk::{blake3_hex, plan_chunks};
 use crate::dto::{default_extensions, DoneTransfer, Hello, PROTOCOL_VERSION};
 use crate::framing::{read_control, write_control, ControlMessage};
+use crate::hole_punch::dial_candidates;
 use crate::tls::ensure_ring_crypto_provider;
 use crate::transfer::{write_chunk_frame, NativeTransferSender, TransferChunk};
 
@@ -31,6 +33,33 @@ impl NativeTransferClient {
         }
 
         send_native_files(target, paths, keypair).await.context("sending native files")
+    }
+
+    /// Sends files to a peer using a resolved WAN candidate list.
+    pub async fn send_files_to_candidates(
+        remote_candidates: Vec<NativeCandidate>,
+        paths: Vec<PathBuf>,
+        keypair: Keypair,
+    ) -> Result<()> {
+        for path in &paths {
+            if !path.is_file() {
+                bail!("native send file does not exist: {}", path.display());
+            }
+        }
+
+        let local_candidates = vec![NativeCandidate {
+            kind: CandidateKind::Local,
+            address: SocketAddr::from(([0, 0, 0, 0], 0)),
+            priority: 100,
+        }];
+        let dialed = dial_candidates(local_candidates, remote_candidates)
+            .await
+            .map_err(anyhow::Error::new)
+            .context("dialing native WAN candidates")?;
+        send_native_files_over_connection(&dialed.connection, paths, keypair).await?;
+        dialed.connection.close(0_u32.into(), b"done");
+        dialed.endpoint.wait_idle().await;
+        Ok(())
     }
 }
 
@@ -50,6 +79,28 @@ async fn send_native_files(
     let request = sender.prepare_files(&paths).await.context("preparing native transfer")?;
     let endpoint = native_client_endpoint()?;
     let connection = endpoint.connect(target, "localhost")?.await?;
+    send_prepared_native_files(&connection, request, paths, keypair).await?;
+    connection.close(0_u32.into(), b"done");
+    endpoint.wait_idle().await;
+    Ok(())
+}
+
+async fn send_native_files_over_connection(
+    connection: &quinn::Connection,
+    paths: Vec<PathBuf>,
+    keypair: Keypair,
+) -> Result<()> {
+    let sender = NativeTransferSender::default();
+    let request = sender.prepare_files(&paths).await.context("preparing native transfer")?;
+    send_prepared_native_files(connection, request, paths, keypair).await
+}
+
+async fn send_prepared_native_files(
+    connection: &quinn::Connection,
+    request: crate::dto::RequestTransfer,
+    paths: Vec<PathBuf>,
+    keypair: Keypair,
+) -> Result<()> {
     let (mut send, mut recv) = connection.open_bi().await?;
 
     let hello = Hello {
@@ -81,8 +132,6 @@ async fn send_native_files(
         other => bail!("native peer returned unexpected completion response: {other:?}"),
     }
     send.finish()?;
-    connection.close(0_u32.into(), b"done");
-    endpoint.wait_idle().await;
     Ok(())
 }
 
