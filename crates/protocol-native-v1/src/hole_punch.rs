@@ -9,7 +9,7 @@ use rustls::pki_types::{CertificateDer, ServerName, UnixTime};
 use rustls::{DigitallySignedStruct, SignatureScheme};
 use tokio::sync::mpsc;
 
-use crate::candidates::NativeCandidate;
+use crate::candidates::{CandidateKind, NativeCandidate};
 use crate::tls::ensure_ring_crypto_provider;
 use crate::transport::{NativeTransportConfig, NATIVE_ALPN};
 use crate::{NativeError, Result};
@@ -91,7 +91,7 @@ async fn dial_candidates_with_timing(
 ) -> Result<DialedCandidateConnection> {
     let pairs = candidate_pairs(&local_candidates, &remote_candidates);
     if pairs.is_empty() {
-        return Err(NativeError::NoDirectPath("no WAN candidate pairs available".to_string()));
+        return Err(no_direct_path_error(Vec::new(), false, None));
     }
 
     let mut diagnostics = PunchDiagnostics {
@@ -121,11 +121,11 @@ async fn dial_candidates_with_timing(
         }
     }
 
-    Err(NativeError::NoDirectPath(format!(
-        "all WAN candidate pairs failed; attempted={:?}; last_error={}",
+    Err(no_direct_path_error(
         diagnostics.attempted_pairs,
-        diagnostics.last_error.as_deref().unwrap_or("none")
-    )))
+        only_server_reflexive_remote_candidates(&pairs),
+        diagnostics.last_error,
+    ))
 }
 
 async fn dial_pair(
@@ -168,6 +168,25 @@ fn describe_pair(pair: &CandidatePair) -> String {
         "{:?} {} -> {:?} {}",
         pair.local.kind, pair.local.address, pair.remote.kind, pair.remote.address
     )
+}
+
+fn no_direct_path_error(
+    attempted_pairs: Vec<String>,
+    only_server_reflexive_failed: bool,
+    last_error: Option<String>,
+) -> NativeError {
+    let hint = if only_server_reflexive_failed {
+        "symmetric NAT or firewall likely. Relay is not available in the open-base v1 build."
+            .to_string()
+    } else {
+        "firewall or routing policy likely. Relay is not available in the open-base v1 build."
+            .to_string()
+    };
+    NativeError::NoDirectPath { attempted_pairs, hint, last_error }
+}
+
+fn only_server_reflexive_remote_candidates(pairs: &[CandidatePair]) -> bool {
+    !pairs.is_empty() && pairs.iter().all(|pair| pair.remote.kind == CandidateKind::ServerReflexive)
 }
 
 #[derive(Debug)]
@@ -216,7 +235,6 @@ impl ServerCertVerifier for TrustAnyServer {
 mod tests {
     use std::net::Ipv4Addr;
 
-    use crate::candidates::{CandidateKind, NativeCandidate};
     use crate::tls::NativeTlsIdentity;
 
     use super::*;
@@ -286,9 +304,12 @@ mod tests {
         .unwrap_err();
 
         let message = error.to_string();
-        assert!(message.contains("attempted="), "{message}");
+        assert!(message.contains("attempted_pairs="), "{message}");
         assert!(message.contains("127.0.0.1:9"), "{message}");
-        assert!(message.contains("last_error="), "{message}");
+        let NativeError::NoDirectPath { last_error, .. } = error else {
+            panic!("expected NoDirectPath");
+        };
+        assert!(last_error.is_some());
     }
 
     #[tokio::test]
@@ -305,7 +326,29 @@ mod tests {
         .await
         .unwrap_err();
 
-        assert!(matches!(error, NativeError::NoDirectPath(_)));
+        assert!(matches!(error, NativeError::NoDirectPath { .. }));
+    }
+
+    #[tokio::test]
+    async fn diagnostics_include_no_direct_wan_path_message() {
+        let error = failed_server_reflexive_dial_error().await;
+
+        assert!(error.to_string().contains("no direct WAN path"), "{error}");
+    }
+
+    #[tokio::test]
+    async fn diagnostics_mention_relay_not_available_in_base_v1() {
+        let error = failed_server_reflexive_dial_error().await;
+
+        assert!(error.to_string().contains("Relay is not available"), "{error}");
+        assert!(error.to_string().contains("open-base v1"), "{error}");
+    }
+
+    #[tokio::test]
+    async fn diagnostics_hint_symmetric_nat_for_server_reflexive_failures() {
+        let error = failed_server_reflexive_dial_error().await;
+
+        assert!(error.to_string().contains("symmetric NAT"), "{error}");
     }
 
     async fn loopback_server() -> quinn::Endpoint {
@@ -327,5 +370,18 @@ mod tests {
 
     fn candidate_at(kind: CandidateKind, address: SocketAddr, priority: u32) -> NativeCandidate {
         NativeCandidate { kind, address, priority }
+    }
+
+    async fn failed_server_reflexive_dial_error() -> NativeError {
+        let local = candidate(CandidateKind::Local, 127, 0, 100);
+        let remote = candidate(CandidateKind::ServerReflexive, 127, 9, 100);
+        dial_candidates_with_timing(
+            vec![local],
+            vec![remote],
+            Duration::from_millis(10),
+            Duration::from_millis(1),
+        )
+        .await
+        .unwrap_err()
     }
 }

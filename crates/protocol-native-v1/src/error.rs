@@ -21,8 +21,15 @@ pub enum NativeError {
     #[error("transport: {0}")]
     Transport(String),
     /// No direct WAN route could be established.
-    #[error("no direct path: {0}")]
-    NoDirectPath(String),
+    #[error("no direct WAN path to peer; {hint} attempted_pairs={attempted_pairs:?}")]
+    NoDirectPath {
+        /// Candidate pairs attempted before giving up.
+        attempted_pairs: Vec<String>,
+        /// Actionable diagnostic hint for the user.
+        hint: String,
+        /// Last transport error observed while dialing.
+        last_error: Option<String>,
+    },
     /// Manifest persistence failure.
     #[error("manifest: {0}")]
     Manifest(String),
