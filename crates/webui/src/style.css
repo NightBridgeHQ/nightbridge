@@ -30,6 +30,11 @@ button {
   cursor: pointer;
 }
 
+button.active {
+  border-color: #1d4ed8;
+  background: #dbeafe;
+}
+
 input {
   width: 100%;
   padding: 0 10px;
@@ -80,6 +85,28 @@ h2 {
   margin-top: 4px;
 }
 
+.desktop-setup {
+  display: grid;
+  gap: 10px;
+  max-width: 620px;
+  margin-bottom: 20px;
+  padding: 16px;
+  border: 1px solid #c8d0da;
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.desktop-setup label {
+  color: #536273;
+}
+
+.mode-switch,
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
 .summary {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -123,11 +150,6 @@ nav button {
   width: 100%;
   padding: 0 10px;
   text-align: left;
-}
-
-nav button.active {
-  border-color: #1d4ed8;
-  background: #dbeafe;
 }
 
 .panel {

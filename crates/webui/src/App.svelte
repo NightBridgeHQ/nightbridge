@@ -1,12 +1,23 @@
 <script lang="ts">
   import { onDestroy, onMount } from "svelte";
-  import { appState, connectEvents, disconnectEvents, refreshSnapshot, setToken } from "./state";
+  import {
+    appState,
+    connectEvents,
+    disconnectEvents,
+    loadDesktopSettings,
+    refreshSnapshot,
+    saveDesktopSettings,
+    setToken,
+    type GuiMode
+  } from "./state";
 
   type Tab = "Dashboard" | "Peers" | "Transfers" | "Inbox" | "Settings";
 
   const tabs: Tab[] = ["Dashboard", "Peers", "Transfers", "Inbox", "Settings"];
   let activeTab: Tab = "Dashboard";
   let tokenInput = "";
+  let endpointInput = "";
+  let modeInput: GuiMode = "remote";
 
   $: state = $appState;
   $: snapshot = state.snapshot;
@@ -16,11 +27,12 @@
   $: transferCount = snapshot?.transfers.length ?? 0;
   $: statusValue = state.connection === "connected" ? "online" : state.connection;
   $: tokenInput = state.token;
+  $: endpointInput = state.apiBase;
+  $: modeInput = state.guiMode;
+  $: showDesktopSetup = state.isDesktop && (!state.token || (state.guiMode === "remote" && !state.apiBase));
 
   onMount(() => {
-    if (state.token) {
-      void refreshSnapshot().then(connectEvents);
-    }
+    void loadDesktopSettings().then(() => refreshSnapshot()).then(connectEvents);
   });
 
   onDestroy(() => {
@@ -30,6 +42,12 @@
   function saveToken(): void {
     setToken(tokenInput);
     void refreshSnapshot().then(connectEvents);
+  }
+
+  function saveDesktopConnection(): void {
+    void saveDesktopSettings(modeInput, endpointInput, tokenInput)
+      .then(refreshSnapshot)
+      .then(connectEvents);
   }
 </script>
 
@@ -41,6 +59,40 @@
     </div>
     <button type="button" on:click={() => void refreshSnapshot().then(connectEvents)}>Refresh</button>
   </header>
+
+  {#if showDesktopSetup}
+    <section class="desktop-setup" aria-label="Desktop connection setup">
+      <div class="mode-switch" role="group" aria-label="Desktop mode">
+        <button
+          type="button"
+          class:active={modeInput === "remote"}
+          on:click={() => (modeInput = "remote")}
+        >
+          Remote daemon
+        </button>
+        <button
+          type="button"
+          class:active={modeInput === "standalone"}
+          on:click={() => (modeInput = "standalone")}
+        >
+          Standalone local daemon
+        </button>
+      </div>
+
+      {#if modeInput === "remote"}
+        <label for="remote-endpoint">Daemon endpoint</label>
+        <input id="remote-endpoint" type="url" placeholder="http://127.0.0.1:53317" bind:value={endpointInput} />
+      {/if}
+
+      <label for="desktop-api-token">API token</label>
+      <input id="desktop-api-token" type="password" bind:value={tokenInput} autocomplete="off" />
+
+      <div class="actions">
+        <button type="button" on:click={saveDesktopConnection}>Connect</button>
+      </div>
+      {#if state.error}<p class="error">{state.error}</p>{/if}
+    </section>
+  {/if}
 
   <section class="summary" aria-label="Daemon summary">
     <article>
@@ -129,9 +181,17 @@
       {:else}
         <h2>Settings</h2>
         <form class="settings" on:submit|preventDefault={saveToken}>
+          {#if state.isDesktop}
+            <label for="settings-endpoint">Daemon endpoint</label>
+            <input id="settings-endpoint" type="url" bind:value={endpointInput} autocomplete="off" />
+          {/if}
           <label for="api-token">API token</label>
           <input id="api-token" type="password" bind:value={tokenInput} autocomplete="off" />
-          <button type="submit">Save token</button>
+          {#if state.isDesktop}
+            <button type="button" on:click={saveDesktopConnection}>Save connection</button>
+          {:else}
+            <button type="submit">Save token</button>
+          {/if}
         </form>
         {#if state.error}<p class="error">{state.error}</p>{/if}
       {/if}
