@@ -1,3 +1,16 @@
-//! Stub for `lsi-gui`. Implemented in Sprint 6.
+//! Desktop GUI support for LocalSend Improved.
 
-#![allow(dead_code)]
+/// Stable desktop application name.
+pub fn app_name() -> &'static str {
+    "LocalSend Improved"
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn app_name_is_stable() {
+        assert_eq!(app_name(), "LocalSend Improved");
+    }
+}

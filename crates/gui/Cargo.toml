@@ -5,6 +5,14 @@ edition.workspace = true
 license.workspace = true
 repository.workspace = true
 rust-version.workspace = true
-description = "Tauri GUI (stub; implemented in Sprint 6)"
+description = "Tauri desktop GUI for LocalSend Improved"
+
+[[bin]]
+name = "localsend-improved-gui"
+path = "src/main.rs"
 
 [dependencies]
+tauri = { version = "=2.0.0", features = [] }
+
+[build-dependencies]
+tauri-build = { version = "=2.0.0", features = [] }

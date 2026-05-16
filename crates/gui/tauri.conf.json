@@ -1,0 +1,27 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "LocalSend Improved",
+  "version": "0.1.0",
+  "identifier": "com.localsendimproved.app",
+  "build": {
+    "beforeBuildCommand": "npm run build --prefix ../webui",
+    "frontendDist": "../webui/dist",
+    "devUrl": "http://localhost:5173"
+  },
+  "app": {
+    "windows": [
+      {
+        "title": "LocalSend Improved",
+        "width": 1180,
+        "height": 760,
+        "minWidth": 920,
+        "minHeight": 620
+      }
+    ]
+  },
+  "bundle": {
+    "active": true,
+    "targets": ["dmg", "appimage", "msi"],
+    "icon": []
+  }
+}

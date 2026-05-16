@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "build": "vite build",
-    "check": "tsc --noEmit"
+    "check": "tsc --noEmit",
+    "tauri": "tauri"
   },
   "dependencies": {
     "@sveltejs/vite-plugin-svelte": "7.1.2",
@@ -13,6 +14,7 @@
     "vite": "8.0.13"
   },
   "devDependencies": {
+    "@tauri-apps/cli": "2.0.0",
     "typescript": "5.4.5"
   }
 }
