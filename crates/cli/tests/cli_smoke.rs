@@ -171,9 +171,73 @@ fn send_native_requires_url_or_peer() {
     let mut cmd = Command::cargo_bin("localsend-improved").unwrap();
     set_isolated_dirs(&mut cmd, &dir);
 
-    cmd.args(["send", "--native", file.to_str().unwrap()]).assert().failure().stderr(
-        predicate::str::contains("native send requires --url until peer selection is available"),
-    );
+    cmd.args(["send", "--native", file.to_str().unwrap()])
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains("native send requires --url or --wan --peer"));
+}
+
+#[test]
+fn send_wan_requires_peer() {
+    let dir = TempDir::new().unwrap();
+    let file = dir.path().join("file.bin");
+    std::fs::write(&file, b"native payload").unwrap();
+
+    let mut cmd = Command::cargo_bin("localsend-improved").unwrap();
+    set_isolated_dirs(&mut cmd, &dir);
+
+    cmd.args(["send", "--wan", file.to_str().unwrap()])
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains("--wan requires --peer"));
+}
+
+#[test]
+fn send_wan_rejects_url() {
+    let dir = TempDir::new().unwrap();
+    let file = dir.path().join("file.bin");
+    std::fs::write(&file, b"native payload").unwrap();
+
+    let mut cmd = Command::cargo_bin("localsend-improved").unwrap();
+    set_isolated_dirs(&mut cmd, &dir);
+
+    cmd.args([
+        "send",
+        "--wan",
+        "--peer",
+        "abcd-1234-abcd-1234",
+        "--url",
+        "quic://127.0.0.1:53400",
+        file.to_str().unwrap(),
+    ])
+    .assert()
+    .failure()
+    .stderr(predicate::str::contains("--wan cannot be used with --url"));
+}
+
+#[test]
+fn send_wan_uses_daemon_api() {
+    let dir = TempDir::new().unwrap();
+    let file = dir.path().join("file.bin");
+    std::fs::write(&file, b"native payload").unwrap();
+
+    let mut cmd = Command::cargo_bin("localsend-improved").unwrap();
+    set_isolated_dirs(&mut cmd, &dir);
+
+    cmd.args([
+        "--daemon-grpc",
+        "http://127.0.0.1:9",
+        "--api-token",
+        "test-token",
+        "send",
+        "--wan",
+        "--peer",
+        "abcd-1234-abcd-1234",
+        file.to_str().unwrap(),
+    ])
+    .assert()
+    .failure()
+    .stderr(predicate::str::contains("daemon API unavailable"));
 }
 
 #[test]

@@ -24,6 +24,7 @@ message SendRequest {
     string localsend_url = 2;
     string native_url = 3;
     string peer_fingerprint = 4;
+    string wan_peer = 6;
   }
 
   bool native = 5;

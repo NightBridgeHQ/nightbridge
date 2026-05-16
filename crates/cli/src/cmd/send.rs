@@ -16,8 +16,14 @@ use lsi_protocol_native_v1::client::NativeTransferClient;
 #[derive(Args)]
 pub struct Cmd {
     /// Explicit peer API URL, for example https://192.168.1.20:53317.
-    #[arg(long, required_unless_present = "native")]
+    #[arg(long, required_unless_present_any = ["native", "wan"])]
     url: Option<String>,
+    /// Send through WAN rendezvous using a trusted peer fingerprint.
+    #[arg(long)]
+    wan: bool,
+    /// Trusted peer fingerprint for WAN sends.
+    #[arg(long)]
+    peer: Option<String>,
     /// Use the native QUIC protocol instead of LocalSend v2.
     #[arg(long)]
     native: bool,
@@ -38,6 +44,9 @@ pub fn run(command: Cmd, daemon_config: &DaemonClientConfig) -> Result<()> {
 }
 
 fn run_direct(command: Cmd) -> Result<()> {
+    if command.wan {
+        bail!("WAN send is only available through the daemon API");
+    }
     if command.native {
         return run_native(command);
     }
@@ -66,9 +75,26 @@ fn run_direct(command: Cmd) -> Result<()> {
 }
 
 fn run_daemon(command: Cmd, config: &DaemonClientConfig) -> Result<()> {
+    if command.wan {
+        if command.url.is_some() {
+            bail!("--wan cannot be used with --url");
+        }
+        let Some(peer) = command.peer else {
+            bail!("--wan requires --peer");
+        };
+        let paths = command.paths.iter().map(|path| path.display().to_string()).collect();
+        let request =
+            SendRequest { paths, target: Some(send_request::Target::WanPeer(peer)), native: true };
+        return send_via_daemon(config, request);
+    }
+
+    if command.peer.is_some() {
+        bail!("--peer is only supported with --wan");
+    }
+
     let Some(url) = command.url else {
         if command.native {
-            bail!("native send requires --url until peer selection is available");
+            bail!("native send requires --url or --wan --peer");
         }
         bail!("send requires --url");
     };
@@ -80,6 +106,10 @@ fn run_daemon(command: Cmd, config: &DaemonClientConfig) -> Result<()> {
         send_request::Target::LocalsendUrl(url)
     };
     let request = SendRequest { paths, target: Some(target), native: command.native };
+    send_via_daemon(config, request)
+}
+
+fn send_via_daemon(config: &DaemonClientConfig, request: SendRequest) -> Result<()> {
     let runtime = tokio::runtime::Builder::new_current_thread()
         .enable_all()
         .build()

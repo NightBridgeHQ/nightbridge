@@ -394,6 +394,31 @@ mod tests {
         fixture.stop().await;
     }
 
+    #[tokio::test]
+    async fn grpc_send_wan_peer_requires_rendezvous_config() {
+        let fixture = ApiFixture::start().await;
+        let source_dir = tempfile::TempDir::new().unwrap();
+        let source = source_dir.path().join("note.txt");
+        tokio::fs::write(&source, b"hello wan").await.unwrap();
+        let mut client = fixture.transfers_client().await;
+
+        let error = client
+            .send(authenticated_transfers_request(
+                "test-token",
+                SendRequest {
+                    paths: vec![source.display().to_string()],
+                    target: Some(send_request::Target::WanPeer("abcd-1234-abcd-1234".to_string())),
+                    native: true,
+                },
+            ))
+            .await
+            .unwrap_err();
+
+        assert_eq!(error.code(), tonic::Code::FailedPrecondition);
+        assert!(error.message().contains("WAN rendezvous is not configured"));
+        fixture.stop().await;
+    }
+
     struct ApiFixture {
         runtime: GrpcApiRuntime,
         state: Arc<DaemonState>,

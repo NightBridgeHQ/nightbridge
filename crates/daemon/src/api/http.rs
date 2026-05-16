@@ -577,6 +577,8 @@ struct SendTransferDto {
     #[serde(default)]
     peer_fingerprint: Option<String>,
     #[serde(default)]
+    wan_peer: Option<String>,
+    #[serde(default)]
     native: bool,
 }
 
@@ -584,7 +586,8 @@ impl SendTransferDto {
     fn into_proto(self) -> Result<SendRequest, ApiError> {
         let target_count = self.localsend_url.is_some() as u8
             + self.native_url.is_some() as u8
-            + self.peer_fingerprint.is_some() as u8;
+            + self.peer_fingerprint.is_some() as u8
+            + self.wan_peer.is_some() as u8;
         if target_count != 1 {
             return Err(ApiError::new(
                 StatusCode::BAD_REQUEST,
@@ -602,7 +605,8 @@ impl SendTransferDto {
             .localsend_url
             .map(send_request::Target::LocalsendUrl)
             .or_else(|| self.native_url.map(send_request::Target::NativeUrl))
-            .or_else(|| self.peer_fingerprint.map(send_request::Target::PeerFingerprint));
+            .or_else(|| self.peer_fingerprint.map(send_request::Target::PeerFingerprint))
+            .or_else(|| self.wan_peer.map(send_request::Target::WanPeer));
         Ok(SendRequest { paths: self.paths, target, native: self.native })
     }
 }

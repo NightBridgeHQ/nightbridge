@@ -1,5 +1,7 @@
 use std::sync::Arc;
 
+use lsi_core::identity::Fingerprint;
+use lsi_core::trust::TrustStore;
 use lsi_proto::transfers::v1::{
     send_request, transfers_service_server::TransfersService, CancelRequest, CancelResponse,
     ListActiveTransfersRequest, ListActiveTransfersResponse, ResumeRequest, ResumeResponse,
@@ -15,6 +17,7 @@ use uuid::Uuid;
 
 use crate::events::DaemonEvent;
 use crate::state::DaemonState;
+use crate::wan;
 
 #[derive(Clone)]
 pub(crate) struct TransfersApi {
@@ -84,6 +87,9 @@ pub(crate) async fn send_files(
         send_request::Target::PeerFingerprint(_) => {
             Err(Status::unimplemented("trusted-peer send is not wired yet"))
         }
+        send_request::Target::WanPeer(fingerprint) => {
+            send_files_to_wan_peer(state, fingerprint, paths).await
+        }
     };
 
     match result {
@@ -100,6 +106,33 @@ pub(crate) async fn send_files(
             Err(status)
         }
     }
+}
+
+async fn send_files_to_wan_peer(
+    state: &DaemonState,
+    fingerprint: String,
+    paths: Vec<std::path::PathBuf>,
+) -> Result<(), Status> {
+    if !state.config.wan.enabled || state.config.wan.rendezvous_url.is_none() {
+        return Err(Status::failed_precondition("WAN rendezvous is not configured"));
+    }
+
+    let fingerprint = fingerprint.parse::<Fingerprint>().map_err(|error| {
+        Status::invalid_argument(format!("invalid WAN peer fingerprint: {error}"))
+    })?;
+    let trust_store = TrustStore::open(&state.trust_db_path)
+        .map_err(|error| Status::internal(format!("failed to open trust store: {error}")))?;
+    let peer = trust_store
+        .get(&fingerprint)
+        .map_err(|error| Status::internal(format!("failed to read trusted peer: {error}")))?
+        .ok_or_else(|| Status::not_found(format!("trusted peer not found: {fingerprint}")))?;
+
+    let candidates = wan::lookup_peer_candidates(&state.config.wan, &state.identity, peer.pubkey)
+        .await
+        .map_err(internal_status)?;
+    NativeTransferClient::send_files_to_candidates(candidates, paths, state.identity.clone())
+        .await
+        .map_err(internal_status)
 }
 
 async fn validated_paths(paths: Vec<String>) -> Result<Vec<std::path::PathBuf>, Status> {
