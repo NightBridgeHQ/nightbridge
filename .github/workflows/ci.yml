@@ -88,3 +88,14 @@ jobs:
       - run: |
           echo "Official LocalSend artifact smoke is intentionally manual for now."
           echo "Next step: download a headless-capable official Linux artifact and send a file to lsi-daemon."
+
+  wan-netns-smoke:
+    name: WAN netns smoke (manual)
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch' && vars.LSI_RUN_NETNS_TESTS == '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - run: bash -n scripts/wan-netns-smoke.sh
+      - run: LSI_RUN_NETNS_TESTS=1 cargo test --test wan_netns -- --nocapture
