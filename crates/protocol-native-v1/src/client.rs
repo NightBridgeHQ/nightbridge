@@ -6,17 +6,14 @@ use std::sync::Arc;
 
 use anyhow::{bail, Context, Result};
 use lsi_core::identity::Keypair;
-use rustls::client::danger::{HandshakeSignatureValid, ServerCertVerified, ServerCertVerifier};
-use rustls::pki_types::{CertificateDer, ServerName, UnixTime};
-use rustls::{DigitallySignedStruct, SignatureScheme};
 use tokio::io::{AsyncReadExt, AsyncSeekExt};
 
 use crate::candidates::{CandidateKind, NativeCandidate};
 use crate::chunk::{blake3_hex, plan_chunks};
 use crate::dto::{default_extensions, DoneTransfer, Hello, PROTOCOL_VERSION};
 use crate::framing::{read_control, write_control, ControlMessage};
-use crate::hole_punch::dial_candidates;
-use crate::tls::ensure_ring_crypto_provider;
+use crate::hole_punch::{dial_candidates, NativeDialTrust};
+use crate::tls::{ensure_ring_crypto_provider, NativeServerVerifier};
 use crate::transfer::{write_chunk_frame, NativeTransferSender, TransferChunk};
 
 /// Protocol-native sender for direct QUIC file transfers.
@@ -24,7 +21,12 @@ pub struct NativeTransferClient;
 
 impl NativeTransferClient {
     /// Sends files to a peer URL such as `quic://192.168.1.20:53317`.
-    pub async fn send_files_to_url(url: &str, paths: Vec<PathBuf>, keypair: Keypair) -> Result<()> {
+    pub async fn send_files_to_url(
+        url: &str,
+        paths: Vec<PathBuf>,
+        keypair: Keypair,
+        expected_certificate_fingerprint: String,
+    ) -> Result<()> {
         let target = native_socket_addr(url)?;
         for path in &paths {
             if !path.is_file() {
@@ -32,7 +34,9 @@ impl NativeTransferClient {
             }
         }
 
-        send_native_files(target, paths, keypair).await.context("sending native files")
+        send_native_files(target, paths, keypair, expected_certificate_fingerprint)
+            .await
+            .context("sending native files")
     }
 
     /// Sends files to a peer using a resolved WAN candidate list.
@@ -40,6 +44,7 @@ impl NativeTransferClient {
         remote_candidates: Vec<NativeCandidate>,
         paths: Vec<PathBuf>,
         keypair: Keypair,
+        expected_certificate_fingerprint: String,
     ) -> Result<()> {
         for path in &paths {
             if !path.is_file() {
@@ -52,10 +57,14 @@ impl NativeTransferClient {
             address: SocketAddr::from(([0, 0, 0, 0], 0)),
             priority: 100,
         }];
-        let dialed = dial_candidates(local_candidates, remote_candidates)
-            .await
-            .map_err(anyhow::Error::new)
-            .context("dialing native WAN candidates")?;
+        let dialed = dial_candidates(
+            local_candidates,
+            remote_candidates,
+            NativeDialTrust::new(expected_certificate_fingerprint),
+        )
+        .await
+        .map_err(anyhow::Error::new)
+        .context("dialing native WAN candidates")?;
         send_native_files_over_connection(&dialed.connection, paths, keypair).await?;
         dialed.connection.close(0_u32.into(), b"done");
         dialed.endpoint.wait_idle().await;
@@ -74,10 +83,11 @@ async fn send_native_files(
     target: SocketAddr,
     paths: Vec<PathBuf>,
     keypair: Keypair,
+    expected_certificate_fingerprint: String,
 ) -> Result<()> {
     let sender = NativeTransferSender::default();
     let request = sender.prepare_files(&paths).await.context("preparing native transfer")?;
-    let endpoint = native_client_endpoint()?;
+    let endpoint = native_client_endpoint(expected_certificate_fingerprint)?;
     let connection = endpoint.connect(target, "localhost")?.await?;
     send_prepared_native_files(&connection, request, paths, keypair).await?;
     connection.close(0_u32.into(), b"done");
@@ -161,11 +171,13 @@ async fn send_file_chunks(
     Ok(())
 }
 
-fn native_client_endpoint() -> Result<quinn::Endpoint> {
+fn native_client_endpoint(expected_certificate_fingerprint: String) -> Result<quinn::Endpoint> {
     ensure_ring_crypto_provider();
     let mut rustls_config = rustls::ClientConfig::builder()
         .dangerous()
-        .with_custom_certificate_verifier(Arc::new(TrustAnyServer))
+        .with_custom_certificate_verifier(Arc::new(NativeServerVerifier::new(
+            expected_certificate_fingerprint,
+        )))
         .with_no_client_auth();
     rustls_config.alpn_protocols = vec![crate::transport::NATIVE_ALPN.to_vec()];
     let quic_crypto = quinn::crypto::rustls::QuicClientConfig::try_from(rustls_config)?;
@@ -173,48 +185,6 @@ fn native_client_endpoint() -> Result<quinn::Endpoint> {
     let mut endpoint = quinn::Endpoint::client(SocketAddr::from(([0, 0, 0, 0], 0)))?;
     endpoint.set_default_client_config(client_config);
     Ok(endpoint)
-}
-
-#[derive(Debug)]
-struct TrustAnyServer;
-
-impl ServerCertVerifier for TrustAnyServer {
-    fn verify_server_cert(
-        &self,
-        _end_entity: &CertificateDer<'_>,
-        _intermediates: &[CertificateDer<'_>],
-        _server_name: &ServerName<'_>,
-        _ocsp_response: &[u8],
-        _now: UnixTime,
-    ) -> std::result::Result<ServerCertVerified, rustls::Error> {
-        Ok(ServerCertVerified::assertion())
-    }
-
-    fn verify_tls12_signature(
-        &self,
-        _message: &[u8],
-        _cert: &CertificateDer<'_>,
-        _dss: &DigitallySignedStruct,
-    ) -> std::result::Result<HandshakeSignatureValid, rustls::Error> {
-        Ok(HandshakeSignatureValid::assertion())
-    }
-
-    fn verify_tls13_signature(
-        &self,
-        _message: &[u8],
-        _cert: &CertificateDer<'_>,
-        _dss: &DigitallySignedStruct,
-    ) -> std::result::Result<HandshakeSignatureValid, rustls::Error> {
-        Ok(HandshakeSignatureValid::assertion())
-    }
-
-    fn supported_verify_schemes(&self) -> Vec<SignatureScheme> {
-        vec![
-            SignatureScheme::ECDSA_NISTP256_SHA256,
-            SignatureScheme::ED25519,
-            SignatureScheme::RSA_PSS_SHA256,
-        ]
-    }
 }
 
 #[cfg(test)]
@@ -231,6 +201,7 @@ mod tests {
             "https://127.0.0.1:53317",
             Vec::new(),
             Keypair::generate(),
+            "expected".to_string(),
         )
         .await
         .unwrap_err();
@@ -244,6 +215,7 @@ mod tests {
             "quic://127.0.0.1:53317",
             vec![PathBuf::from("missing-native-payload.bin")],
             Keypair::generate(),
+            "expected".to_string(),
         )
         .await
         .unwrap_err();

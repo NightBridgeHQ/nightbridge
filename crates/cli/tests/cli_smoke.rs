@@ -178,6 +178,28 @@ fn send_native_requires_url_or_peer() {
 }
 
 #[test]
+fn direct_native_requires_certificate_fingerprint() {
+    let dir = TempDir::new().unwrap();
+    let file = dir.path().join("file.bin");
+    std::fs::write(&file, b"native payload").unwrap();
+
+    let mut cmd = Command::cargo_bin("localsend-improved").unwrap();
+    set_isolated_dirs(&mut cmd, &dir);
+
+    cmd.args([
+        "send",
+        "--direct",
+        "--native",
+        "--url",
+        "quic://127.0.0.1:53400",
+        file.to_str().unwrap(),
+    ])
+    .assert()
+    .failure()
+    .stderr(predicate::str::contains("direct native send requires --native-cert-fingerprint"));
+}
+
+#[test]
 fn send_wan_requires_peer() {
     let dir = TempDir::new().unwrap();
     let file = dir.path().join("file.bin");

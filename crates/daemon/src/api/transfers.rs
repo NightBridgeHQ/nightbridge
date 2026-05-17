@@ -11,7 +11,6 @@ use lsi_protocol_localsend_v2::{
     client::LocalSendClient,
     dto::{DeviceInfo, Protocol},
 };
-use lsi_protocol_native_v1::client::NativeTransferClient;
 use tonic::{Request, Response, Status};
 use uuid::Uuid;
 
@@ -79,11 +78,9 @@ pub(crate) async fn send_files(
             .send_files_to_url(&url, paths, sender_info(state))
             .await
             .map_err(internal_status),
-        send_request::Target::NativeUrl(url) => {
-            NativeTransferClient::send_files_to_url(&url, paths, state.identity.clone())
-                .await
-                .map_err(internal_status)
-        }
+        send_request::Target::NativeUrl(_url) => Err(Status::failed_precondition(
+            "native URL sends require pinned certificate metadata; use CLI --direct --native --native-cert-fingerprint or trusted WAN peer metadata",
+        )),
         send_request::Target::PeerFingerprint(_) => {
             Err(Status::unimplemented("trusted-peer send is not wired yet"))
         }
@@ -127,12 +124,13 @@ async fn send_files_to_wan_peer(
         .map_err(|error| Status::internal(format!("failed to read trusted peer: {error}")))?
         .ok_or_else(|| Status::not_found(format!("trusted peer not found: {fingerprint}")))?;
 
-    let candidates = wan::lookup_peer_candidates(&state.config.wan, &state.identity, peer.pubkey)
+    let _candidates = wan::lookup_peer_candidates(&state.config.wan, &state.identity, peer.pubkey)
         .await
         .map_err(internal_status)?;
-    NativeTransferClient::send_files_to_candidates(candidates, paths, state.identity.clone())
-        .await
-        .map_err(internal_status)
+    let _paths = paths;
+    Err(Status::failed_precondition(
+        "native WAN sends require pinned certificate metadata for the trusted peer",
+    ))
 }
 
 async fn validated_paths(paths: Vec<String>) -> Result<Vec<std::path::PathBuf>, Status> {

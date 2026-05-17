@@ -4,13 +4,10 @@ use std::net::SocketAddr;
 use std::sync::Arc;
 use std::time::Duration;
 
-use rustls::client::danger::{HandshakeSignatureValid, ServerCertVerified, ServerCertVerifier};
-use rustls::pki_types::{CertificateDer, ServerName, UnixTime};
-use rustls::{DigitallySignedStruct, SignatureScheme};
 use tokio::sync::mpsc;
 
 use crate::candidates::{CandidateKind, NativeCandidate};
-use crate::tls::ensure_ring_crypto_provider;
+use crate::tls::{ensure_ring_crypto_provider, NativeServerVerifier};
 use crate::transport::{NativeTransportConfig, NATIVE_ALPN};
 use crate::{NativeError, Result};
 
@@ -48,6 +45,24 @@ pub struct DialedCandidateConnection {
     pub diagnostics: PunchDiagnostics,
 }
 
+/// Expected remote certificate identity for native WAN candidate dialing.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct NativeDialTrust {
+    expected_certificate_fingerprint: String,
+}
+
+impl NativeDialTrust {
+    /// Create a trust config from the expected server certificate fingerprint.
+    pub fn new(expected_certificate_fingerprint: impl Into<String>) -> Self {
+        Self { expected_certificate_fingerprint: expected_certificate_fingerprint.into() }
+    }
+
+    /// Return the expected server certificate fingerprint.
+    pub fn expected_certificate_fingerprint(&self) -> String {
+        self.expected_certificate_fingerprint.clone()
+    }
+}
+
 /// Builds candidate pairs ordered by descending combined priority.
 pub fn candidate_pairs(
     local_candidates: &[NativeCandidate],
@@ -73,10 +88,12 @@ pub fn candidate_pairs(
 pub async fn dial_candidates(
     local_candidates: Vec<NativeCandidate>,
     remote_candidates: Vec<NativeCandidate>,
+    trust: NativeDialTrust,
 ) -> Result<DialedCandidateConnection> {
     dial_candidates_with_timing(
         local_candidates,
         remote_candidates,
+        trust,
         DEFAULT_ATTEMPT_TIMEOUT,
         DEFAULT_STAGGER,
     )
@@ -86,6 +103,7 @@ pub async fn dial_candidates(
 async fn dial_candidates_with_timing(
     local_candidates: Vec<NativeCandidate>,
     remote_candidates: Vec<NativeCandidate>,
+    trust: NativeDialTrust,
     attempt_timeout: Duration,
     stagger: Duration,
 ) -> Result<DialedCandidateConnection> {
@@ -102,9 +120,10 @@ async fn dial_candidates_with_timing(
 
     for (index, pair) in pairs.iter().cloned().enumerate() {
         let tx = tx.clone();
+        let trust = trust.clone();
         tokio::spawn(async move {
             tokio::time::sleep(stagger.saturating_mul(index as u32)).await;
-            let result = dial_pair(pair.clone(), attempt_timeout).await;
+            let result = dial_pair(pair.clone(), trust, attempt_timeout).await;
             let _ = tx.send((describe_pair(&pair), result)).await;
         });
     }
@@ -130,9 +149,10 @@ async fn dial_candidates_with_timing(
 
 async fn dial_pair(
     pair: CandidatePair,
+    trust: NativeDialTrust,
     attempt_timeout: Duration,
 ) -> Result<(quinn::Endpoint, quinn::Connection)> {
-    let endpoint = native_client_endpoint(pair.local.address)?;
+    let endpoint = native_client_endpoint(pair.local.address, trust)?;
     let connecting = endpoint
         .connect(pair.remote.address, "localhost")
         .map_err(|error| NativeError::Transport(error.to_string()))?;
@@ -143,11 +163,16 @@ async fn dial_pair(
     Ok((endpoint, connection))
 }
 
-fn native_client_endpoint(bind_addr: SocketAddr) -> Result<quinn::Endpoint> {
+fn native_client_endpoint(
+    bind_addr: SocketAddr,
+    trust: NativeDialTrust,
+) -> Result<quinn::Endpoint> {
     ensure_ring_crypto_provider();
     let mut rustls_config = rustls::ClientConfig::builder()
         .dangerous()
-        .with_custom_certificate_verifier(Arc::new(TrustAnyServer))
+        .with_custom_certificate_verifier(Arc::new(NativeServerVerifier::new(
+            trust.expected_certificate_fingerprint(),
+        )))
         .with_no_client_auth();
     rustls_config.alpn_protocols = vec![NATIVE_ALPN.to_vec()];
     let quic_crypto = quinn::crypto::rustls::QuicClientConfig::try_from(rustls_config)
@@ -189,48 +214,6 @@ fn only_server_reflexive_remote_candidates(pairs: &[CandidatePair]) -> bool {
     !pairs.is_empty() && pairs.iter().all(|pair| pair.remote.kind == CandidateKind::ServerReflexive)
 }
 
-#[derive(Debug)]
-struct TrustAnyServer;
-
-impl ServerCertVerifier for TrustAnyServer {
-    fn verify_server_cert(
-        &self,
-        _end_entity: &CertificateDer<'_>,
-        _intermediates: &[CertificateDer<'_>],
-        _server_name: &ServerName<'_>,
-        _ocsp_response: &[u8],
-        _now: UnixTime,
-    ) -> std::result::Result<ServerCertVerified, rustls::Error> {
-        Ok(ServerCertVerified::assertion())
-    }
-
-    fn verify_tls12_signature(
-        &self,
-        _message: &[u8],
-        _cert: &CertificateDer<'_>,
-        _dss: &DigitallySignedStruct,
-    ) -> std::result::Result<HandshakeSignatureValid, rustls::Error> {
-        Ok(HandshakeSignatureValid::assertion())
-    }
-
-    fn verify_tls13_signature(
-        &self,
-        _message: &[u8],
-        _cert: &CertificateDer<'_>,
-        _dss: &DigitallySignedStruct,
-    ) -> std::result::Result<HandshakeSignatureValid, rustls::Error> {
-        Ok(HandshakeSignatureValid::assertion())
-    }
-
-    fn supported_verify_schemes(&self) -> Vec<SignatureScheme> {
-        vec![
-            SignatureScheme::ECDSA_NISTP256_SHA256,
-            SignatureScheme::ED25519,
-            SignatureScheme::RSA_PSS_SHA256,
-        ]
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use std::net::Ipv4Addr;
@@ -259,7 +242,7 @@ mod tests {
 
     #[tokio::test]
     async fn loopback_candidate_pair_can_connect_to_local_native_listener() {
-        let server = loopback_server().await;
+        let (server, server_fingerprint) = loopback_server().await;
         let accept_endpoint = server.clone();
         let accept_task = tokio::spawn(async move {
             if let Some(incoming) = accept_endpoint.accept().await {
@@ -270,10 +253,12 @@ mod tests {
         });
         let remote = candidate_at(CandidateKind::Local, server.local_addr().unwrap(), 100);
         let local = candidate(CandidateKind::Local, 127, 0, 100);
+        let trust = NativeDialTrust::new(server_fingerprint);
 
         let dialed = dial_candidates_with_timing(
             vec![local],
             vec![remote],
+            trust,
             Duration::from_secs(1),
             Duration::from_millis(1),
         )
@@ -297,6 +282,7 @@ mod tests {
         let error = dial_candidates_with_timing(
             vec![local],
             vec![remote],
+            NativeDialTrust::new("unused"),
             Duration::from_millis(10),
             Duration::from_millis(1),
         )
@@ -320,6 +306,7 @@ mod tests {
         let error = dial_candidates_with_timing(
             vec![local],
             vec![remote],
+            NativeDialTrust::new("unused"),
             Duration::from_millis(10),
             Duration::from_millis(1),
         )
@@ -351,12 +338,24 @@ mod tests {
         assert!(error.to_string().contains("symmetric NAT"), "{error}");
     }
 
-    async fn loopback_server() -> quinn::Endpoint {
+    async fn loopback_server() -> (quinn::Endpoint, String) {
         let tls_identity = NativeTlsIdentity::generate("hole-punch-test").unwrap();
+        let fingerprint = tls_identity.fingerprint_sha256_hex();
         let server_config = NativeTransportConfig::default()
             .apply_to_server_config(tls_identity.quinn_server_config().unwrap())
             .unwrap();
-        quinn::Endpoint::server(server_config, SocketAddr::from((Ipv4Addr::LOCALHOST, 0))).unwrap()
+        let endpoint =
+            quinn::Endpoint::server(server_config, SocketAddr::from((Ipv4Addr::LOCALHOST, 0)))
+                .unwrap();
+        (endpoint, fingerprint)
+    }
+
+    #[test]
+    fn dialer_requires_expected_certificate_fingerprint() {
+        let expected = "abcd".to_string();
+        let config = NativeDialTrust::new(expected.clone());
+
+        assert_eq!(config.expected_certificate_fingerprint(), expected);
     }
 
     fn candidate(
@@ -378,6 +377,7 @@ mod tests {
         dial_candidates_with_timing(
             vec![local],
             vec![remote],
+            NativeDialTrust::new("unused"),
             Duration::from_millis(10),
             Duration::from_millis(1),
         )

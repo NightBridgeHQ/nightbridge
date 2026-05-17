@@ -27,6 +27,9 @@ pub struct Cmd {
     /// Use the native QUIC protocol instead of LocalSend v2.
     #[arg(long)]
     native: bool,
+    /// Expected SHA-256 certificate fingerprint for direct native QUIC sends.
+    #[arg(long)]
+    native_cert_fingerprint: Option<String>,
     /// Send directly from this CLI process instead of through the daemon API.
     #[arg(long)]
     direct: bool,
@@ -49,6 +52,9 @@ fn run_direct(command: Cmd) -> Result<()> {
     }
     if command.native {
         return run_native(command);
+    }
+    if command.native_cert_fingerprint.is_some() {
+        bail!("--native-cert-fingerprint is only supported with --direct --native");
     }
 
     let Some(url) = command.url else {
@@ -91,6 +97,9 @@ fn run_daemon(command: Cmd, config: &DaemonClientConfig) -> Result<()> {
     if command.peer.is_some() {
         bail!("--peer is only supported with --wan");
     }
+    if command.native_cert_fingerprint.is_some() {
+        bail!("--native-cert-fingerprint is only supported with --direct --native");
+    }
 
     let Some(url) = command.url else {
         if command.native {
@@ -124,6 +133,9 @@ fn run_native(command: Cmd) -> Result<()> {
     let Some(url) = command.url else {
         bail!("native send requires --url until peer selection is available");
     };
+    let Some(expected_certificate_fingerprint) = command.native_cert_fingerprint else {
+        bail!("direct native send requires --native-cert-fingerprint");
+    };
 
     let runtime = tokio::runtime::Builder::new_current_thread()
         .enable_all()
@@ -131,7 +143,12 @@ fn run_native(command: Cmd) -> Result<()> {
         .context("creating async runtime")?;
     let keypair = load_or_create_keypair()?;
     let file_count = command.paths.len();
-    runtime.block_on(NativeTransferClient::send_files_to_url(&url, command.paths, keypair))?;
+    runtime.block_on(NativeTransferClient::send_files_to_url(
+        &url,
+        command.paths,
+        keypair,
+        expected_certificate_fingerprint,
+    ))?;
 
     println!("sent {file_count} file(s)");
     Ok(())
