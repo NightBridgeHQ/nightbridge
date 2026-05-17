@@ -1,7 +1,7 @@
 # LocalSend Interop Matrix
 
 NightBridge keeps LocalSend v2 compatibility separate from the native
-protocol. This matrix tracks official-app interoperability evidence for the 1.0
+protocol. This matrix tracks official-app interoperability evidence for the 26.5
 candidate.
 
 | Platform | LocalSend version | Receive official app to daemon | Send daemon/CLI to official app | Discovery method | Evidence path | Status |

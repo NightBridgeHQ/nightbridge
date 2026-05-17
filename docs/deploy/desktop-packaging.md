@@ -17,7 +17,7 @@ cd crates/gui
 On this machine, the Tauri build produced:
 
 ```text
-target/release/bundle/dmg/NightBridge_0.1.0_aarch64.dmg
+target/release/bundle/dmg/NightBridge_26.5.0_aarch64.dmg
 ```
 
 The Tauri CLI runs `beforeBuildCommand` from the `crates/` directory, so the
@@ -83,4 +83,3 @@ release job, not by regular development builds.
   is configured.
 - Linux AppImage packaging was not attempted on this macOS host.
 - Updater signing and update metadata are not configured for Sprint 6.
-

@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "night-bridge"
-version = "0.1.0"
+version = "26.5.0"
 description = "Python SDK skeleton for the NightBridge local API."
 requires-python = ">=3.9"
 license = { text = "AGPL-3.0-only" }

@@ -1,6 +1,6 @@
-# 1.0 Preflight
+# 26.5 Preflight
 
-The 1.0 preflight is the short, repeatable release-readiness check for the
+The 26.5 preflight is the short, repeatable release-readiness check for the
 current branch. It verifies formatting, linting, workspace tests, WebUI checks,
 the targeted native soak hash test, GUI smoke gating, and LocalSend interop
 smoke coverage.
@@ -25,7 +25,7 @@ Optional tools may expand coverage:
 Run from the repository root:
 
 ```bash
-bash scripts/preflight-1.0.sh
+bash scripts/preflight-26.5.sh
 ```
 
 The script runs:
@@ -62,7 +62,7 @@ app matrix runs unless those tools and artifacts are explicitly available.
 ## Evidence
 
 Attach the command output or terminal log to the release notes draft before
-tagging 1.0. At minimum, record:
+tagging 26.5. At minimum, record:
 
 - branch and commit SHA
 - start and finish time

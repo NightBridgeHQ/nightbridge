@@ -66,7 +66,7 @@ mod tests {
         let status = DaemonStatus {
             alias: "demo".to_string(),
             fingerprint: "abcd-1234".to_string(),
-            version: "0.1.0".to_string(),
+            version: "26.5.0".to_string(),
             inbox_dir: "/tmp/inbox".to_string(),
             localsend_port: 53317,
             native_port: 53400,

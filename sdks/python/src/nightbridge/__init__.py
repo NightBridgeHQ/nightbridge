@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Any, Optional
 from urllib import error, request
 
-__version__ = "0.1.0"
+__version__ = "26.5.0"
 
 
 class Client:

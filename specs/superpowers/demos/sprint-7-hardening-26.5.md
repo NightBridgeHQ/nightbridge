@@ -1,14 +1,14 @@
-# Sprint 7 Hardening + 1.0 Demo Evidence
+# Sprint 7 Hardening + 26.5 Demo Evidence
 
 Date: 2026-05-17 16:24:58 CDT
-Branch: `feature/sprint-7-hardening-1.0`
+Branch: `feature/sprint-7-hardening-26.5`
 Commit: `ddc0946`
 
 ## Summary
 
 Sprint 7 hardens the native trust gate, records release-readiness checks, and
-adds 1.0 release documentation. The short preflight is green on this branch, but
-the project is not ready to tag 1.0 because the real 7-day soak, official
+adds 26.5 release documentation. The short preflight is green on this branch,
+but the project is not ready to tag 26.5 because the real 7-day soak, official
 LocalSend app matrix, release artifact reproducibility, and signing decisions
 are still outstanding.
 
@@ -32,7 +32,7 @@ Result: no matches.
 Evidence from the preflight and focused tests:
 
 ```bash
-bash scripts/preflight-1.0.sh
+bash scripts/preflight-26.5.sh
 ```
 
 Result: PASS.
@@ -74,7 +74,7 @@ The repeatable short harness and operator docs exist:
 - `scripts/native-soak.sh`
 - `docs/operations/soak-testing.md`
 
-No real 7-day soak evidence has been run or attached yet. This is a 1.0
+No real 7-day soak evidence has been run or attached yet. This is a 26.5
 release blocker.
 
 ## Interop
@@ -97,7 +97,7 @@ The official-app matrix is documented in `docs/interop/localsend-matrix.md`.
 iOS official app send-to-daemon has passed manual testing. The remaining iOS
 gap is the reverse acceptance flow: daemon/CLI sending to the official iOS app
 and the user accepting the incoming file in the app. Android and official
-desktop app verification remain manual and incomplete for tagging 1.0.
+desktop app verification remain manual and incomplete for tagging 26.5.
 
 ## GUI Smoke
 
@@ -182,7 +182,7 @@ Security docs are present:
 Release and operations docs are present:
 
 - `CHANGELOG.md`
-- `docs/release/1.0-notes.md`
+- `docs/release/26.5-notes.md`
 - `docs/release/artifacts.md`
 - `docs/release/preflight.md`
 - `docs/operations/soak-testing.md`
@@ -197,7 +197,7 @@ mdbook build docs
 
 ## Remaining Blockers
 
-Sprint 7 can close with a documented 1.0 no-go. A 1.0 release tag should not be
+Sprint 7 can close with a documented 26.5 no-go. A 26.5 release tag should not be
 created until:
 
 - real 7-day soak evidence passes and is attached

@@ -1,7 +1,7 @@
-# Sprint 7 Retro: Hardening + 1.0
+# Sprint 7 Retro: Hardening + 26.5
 
 Date: 2026-05-17
-Branch: `feature/sprint-7-hardening-1.0`
+Branch: `feature/sprint-7-hardening-26.5`
 Head commit at evidence time: `6b90923`
 
 ## What Shipped
@@ -26,7 +26,7 @@ Head commit at evidence time: `6b90923`
   ignored `specs/`, while canonical user/operator/security/release docs remain
   under tracked `docs/`.
 - Sprint 7 demo evidence recorded in
-  `specs/superpowers/demos/sprint-7-hardening-1.0.md`.
+  `specs/superpowers/demos/sprint-7-hardening-26.5.md`.
 
 ## Trust Gate
 
@@ -68,7 +68,7 @@ Result: `repeated_interruptions_resume_to_matching_file_hash` passed.
 The repeatable harness exists at `scripts/native-soak.sh`, and operator guidance
 lives in `docs/operations/soak-testing.md`.
 
-No real 7-day soak was run in this sprint session. This blocks a 1.0 release
+No real 7-day soak was run in this sprint session. This blocks a 26.5 release
 tag.
 
 ## Interop
@@ -106,7 +106,7 @@ WebDriver GUI smoke was not run on this host.
 Preflight passed:
 
 ```bash
-bash scripts/preflight-1.0.sh
+bash scripts/preflight-26.5.sh
 ```
 
 The preflight covered:
@@ -165,7 +165,7 @@ Tracked docs now cover:
 - LocalSend interop matrix
 - release artifacts
 - release preflight
-- 1.0 release notes draft
+- 26.5 release notes draft
 - changelog
 - security policy
 - threat model
@@ -178,10 +178,10 @@ Tracked docs now cover:
 
 Sprint 7 status: **GO to close Sprint 7**.
 
-1.0 release tag status: **NO-GO**.
+26.5 release tag status: **NO-GO**.
 
 The sprint deliverables are implemented and verified, but the release should not
-be tagged until the explicit 1.0 blockers below are resolved or formally scoped
+be tagged until the explicit 26.5 blockers below are resolved or formally scoped
 out in release notes.
 
 ## Commit Hygiene

@@ -1,6 +1,6 @@
 # Release Artifacts
 
-Sprint 7 defines the expected 1.0 release artifact set. Some artifacts require
+Sprint 7 defines the expected 26.5 release artifact set. Some artifacts require
 platform credentials or local tools and may remain documented gaps until those
 are available.
 

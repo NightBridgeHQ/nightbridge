@@ -69,8 +69,8 @@ app is only an operator console.
 Use standalone mode when the desktop app should start and manage a local daemon
 on the same machine.
 
-Before 1.0, desktop packages are pre-release. Unsigned package warnings are
-expected until signing and notarization are configured.
+Before the first CalVer release, desktop packages are pre-release. Unsigned
+package warnings are expected until signing and notarization are configured.
 
 ## WAN
 

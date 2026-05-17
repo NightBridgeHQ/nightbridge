@@ -209,7 +209,7 @@ Create `crates/gui/tauri.conf.json` with:
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "NightBridge",
-  "version": "0.1.0",
+  "version": "26.5.0",
   "identifier": "com.nightbridge.app",
   "build": {
     "beforeBuildCommand": "npm run build --prefix ../webui",

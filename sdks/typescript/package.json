@@ -1,6 +1,6 @@
 {
   "name": "@night-bridge/sdk",
-  "version": "0.1.0",
+  "version": "26.5.0",
   "description": "TypeScript SDK skeleton for the NightBridge local API.",
   "license": "AGPL-3.0-only",
   "type": "module",

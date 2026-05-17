@@ -1,6 +1,6 @@
 # Security Threat Model
 
-This document describes the security boundaries for the NightBridge 1.0
+This document describes the security boundaries for the NightBridge 26.5
 candidate. It is scoped to the open-base repository and does not cover future
 VIP relay services.
 

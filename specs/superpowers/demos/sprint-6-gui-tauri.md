@@ -64,7 +64,7 @@ Built application:
 target/release/night-bridge-gui
 
 Built bundle:
-target/release/bundle/dmg/NightBridge_0.1.0_aarch64.dmg
+target/release/bundle/dmg/NightBridge_26.5.0_aarch64.dmg
 ```
 
 Two MSRV-related packaging findings were fixed during this task:
@@ -133,4 +133,3 @@ Known local packaging gaps are documented in
 - Windows MSI/AuthentiCode was not validated on this macOS host
 - Linux AppImage was not validated on this macOS host
 - updater signing and release metadata are intentionally not configured
-

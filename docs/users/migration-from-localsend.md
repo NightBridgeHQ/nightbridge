@@ -49,7 +49,7 @@ WAN rendezvous is a control plane:
 If NAT or firewall policy prevents a direct path, use LAN, VPN, port forwarding,
 or a future relay-capable deployment.
 
-## Limitations Before 1.0
+## Limitations Before First CalVer Release
 
 - Desktop packages are pre-release until signing and notarization are complete.
 - No third-party audit has been completed.

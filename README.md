@@ -3,7 +3,7 @@
 > Headless-first file transfer for homelab and server use cases.
 > Bidirectional compatibility with LocalSend v2 plus a native QUIC+TLS1.3+Ed25519 protocol.
 
-**Status:** pre-alpha. The repository now includes the headless daemon, CLI, LocalSend v2 receive/send paths, native QUIC transfer foundations, WAN rendezvous work, and Tauri desktop GUI scaffolding. Desktop packages are pre-release until signing, notarization, and updater infrastructure are configured. See the [1.0 release notes draft](docs/release/1.0-notes.md), [release artifact matrix](docs/release/artifacts.md), and [operator guide](docs/operators/index.md).
+**Status:** pre-alpha. The repository now includes the headless daemon, CLI, LocalSend v2 receive/send paths, native QUIC transfer foundations, WAN rendezvous work, and Tauri desktop GUI scaffolding. Desktop packages are pre-release until signing, notarization, and updater infrastructure are configured. See the [26.5 release notes draft](docs/release/26.5-notes.md), [release artifact matrix](docs/release/artifacts.md), and [operator guide](docs/operators/index.md).
 
 ## Why?
 
@@ -61,7 +61,7 @@ Operator setup, service management, and troubleshooting live in the
 ## Release
 
 - Changelog: [CHANGELOG.md](CHANGELOG.md)
-- 1.0 release notes draft: [docs/release/1.0-notes.md](docs/release/1.0-notes.md)
+- 26.5 release notes draft: [docs/release/26.5-notes.md](docs/release/26.5-notes.md)
 - Release artifact matrix: [docs/release/artifacts.md](docs/release/artifacts.md)
 
 ## Security

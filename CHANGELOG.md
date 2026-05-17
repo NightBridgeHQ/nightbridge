@@ -6,7 +6,7 @@ This project follows the spirit of [Keep a Changelog](https://keepachangelog.com
 
 ## [Unreleased]
 
-## [1.0.0] - TBD
+## [26.5.0] - TBD
 
 ### Added
 
@@ -79,13 +79,13 @@ This project follows the spirit of [Keep a Changelog](https://keepachangelog.com
 - WebUI token bootstrap avoids adding an unauthenticated token recovery
   endpoint.
 - Threat model documents trusted assets, attacker assumptions, security
-  boundaries, and known limitations for 1.0.
+  boundaries, and known limitations for 26.5.
 - Security policy and audit invite packet are ready for external review, but no
   third-party audit has been completed yet.
 
 ### Known Limitations
 
-- 1.0 is not release-tagged until final preflight evidence passes.
+- 26.5 is not release-tagged until final preflight evidence passes.
 - Desktop packages are unsigned pre-release artifacts until platform signing,
   notarization, and updater infrastructure are configured.
 - Windows and Linux desktop packages need platform-native validation.

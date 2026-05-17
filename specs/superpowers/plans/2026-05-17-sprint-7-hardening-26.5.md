@@ -1,8 +1,8 @@
-# Sprint 7 Hardening + 1.0 Implementation Plan
+# Sprint 7 Hardening + 26.5 Implementation Plan
 
 > **For Claude:** REQUIRED SUB-SKILL: Use `superpowers:executing-plans` to implement this plan task-by-task. Use `superpowers:test-driven-development` for code changes, `superpowers:systematic-debugging` for failures, and `superpowers:subagent-driven-development` only when explicitly asked to parallelize.
 
-**Goal:** Stabilize NightBridge for a credible 1.0 candidate with security hardening, repeatable soak/interop verification, release artifacts, operator docs, and clear remaining-risk disclosure.
+**Goal:** Stabilize NightBridge for a credible 26.5 candidate with security hardening, repeatable soak/interop verification, release artifacts, operator docs, and clear remaining-risk disclosure.
 
 **Architecture:** Keep the daemon and protocol crates as the security boundary. Harden native transfers by binding trusted peer identity to Ed25519 fingerprints and TLS certificate material before investing in release automation. Treat platform packaging, docs, and release metadata as downstream work that can proceed only after the production trust gate and baseline verification are green.
 
@@ -51,7 +51,7 @@
 5. LocalSend interop matrix and GUI smoke.
 6. Release workflow/artifact hardening.
 7. Security/operator/user docs.
-8. Final 1.0 evidence, changelog, release notes, and retro.
+8. Final 26.5 evidence, changelog, release notes, and retro.
 
 ## Safe Parallelization Notes
 
@@ -79,7 +79,7 @@ Keep serial:
 Run:
 
 ```bash
-git switch -c feature/sprint-7-hardening-1.0
+git switch -c feature/sprint-7-hardening-26.5
 ```
 
 Expected: new branch created from `main`.
@@ -870,7 +870,7 @@ Include:
 - what changes for NAS/headless users
 - how trust differs between LocalSend compatibility and native protocol
 - WAN rendezvous expectations
-- limitations before 1.0
+- limitations before the first CalVer release
 
 **Step 3: Link from README**
 
@@ -905,7 +905,7 @@ git commit -s -m "docs(users): add quickstart and migration guide"
 
 Include:
 
-- supported versions: pre-1.0 main branch only until first release
+- supported versions: pre-CalVer main branch only until first release
 - reporting email placeholder
 - PGP key placeholder or "pending"
 - expected response timeline
@@ -1016,7 +1016,7 @@ git commit -s -m "docs(site): scaffold documentation site"
 
 **Files:**
 - Create: `CHANGELOG.md`
-- Create: `docs/release/1.0-notes.md`
+- Create: `docs/release/26.5-notes.md`
 - Modify: `README.md`
 
 **Step 1: Write changelog**
@@ -1028,7 +1028,7 @@ Create `CHANGELOG.md` using Keep a Changelog style:
 
 ## [Unreleased]
 
-## [1.0.0] - TBD
+## [26.5.0] - TBD
 
 ### Added
 
@@ -1043,9 +1043,9 @@ Populate it from Sprints 0-7.
 
 **Step 2: Write release notes draft**
 
-`docs/release/1.0-notes.md` should include:
+`docs/release/26.5-notes.md` should include:
 
-- what 1.0 is
+- what 26.5 is
 - install artifacts expected
 - LocalSend compatibility
 - native protocol
@@ -1064,7 +1064,7 @@ Add release docs links.
 Run:
 
 ```bash
-rg -n "1.0.0|Added|Security|Known Limitations|audit|WAN|GUI|LocalSend" CHANGELOG.md docs/release/1.0-notes.md README.md
+rg -n "26.5.0|Added|Security|Known Limitations|audit|WAN|GUI|LocalSend" CHANGELOG.md docs/release/26.5-notes.md README.md
 git diff --check
 ```
 
@@ -1074,19 +1074,19 @@ Expected: PASS.
 
 ```bash
 git add CHANGELOG.md README.md
-git add -f docs/release/1.0-notes.md
-git commit -s -m "docs(release): draft 1.0 notes"
+git add -f docs/release/26.5-notes.md
+git commit -s -m "docs(release): draft 26.5 notes"
 ```
 
-## Task 7.16: Final 1.0 Verification Script
+## Task 7.16: Final 26.5 Verification Script
 
 **Files:**
-- Create: `scripts/preflight-1.0.sh`
+- Create: `scripts/preflight-26.5.sh`
 - Create: `docs/release/preflight.md`
 
 **Step 1: Create script**
 
-Create `scripts/preflight-1.0.sh`:
+Create `scripts/preflight-26.5.sh`:
 
 ```bash
 #!/usr/bin/env bash
@@ -1121,8 +1121,8 @@ Create `docs/release/preflight.md` with:
 Run:
 
 ```bash
-bash -n scripts/preflight-1.0.sh
-bash scripts/preflight-1.0.sh
+bash -n scripts/preflight-26.5.sh
+bash scripts/preflight-26.5.sh
 rg -n "preflight|7-day|evidence|release" docs/release/preflight.md
 ```
 
@@ -1131,26 +1131,26 @@ Expected: PASS.
 **Step 4: Commit**
 
 ```bash
-git add scripts/preflight-1.0.sh
+git add scripts/preflight-26.5.sh
 git add -f docs/release/preflight.md
-git commit -s -m "test(release): add 1.0 preflight"
+git commit -s -m "test(release): add 26.5 preflight"
 ```
 
 ## Task 7.17: Sprint 7 Demo Evidence
 
 **Files:**
-- Create: `specs/superpowers/demos/sprint-7-hardening-1.0.md`
+- Create: `specs/superpowers/demos/sprint-7-hardening-26.5.md`
 
 **Step 1: Run final verification**
 
 Run:
 
 ```bash
-bash scripts/preflight-1.0.sh
+bash scripts/preflight-26.5.sh
 cargo test -p lsi-protocol-native-v1 --test soak_resume -- --ignored --nocapture
 ```
 
-If a real 7-day soak has been run, record the exact external evidence path. If not, mark 1.0 as not releasable yet and record the short soak result only.
+If a real 7-day soak has been run, record the exact external evidence path. If not, mark 26.5 as not releasable yet and record the short soak result only.
 
 **Step 2: Run release artifact checks**
 
@@ -1188,7 +1188,7 @@ Include:
 Run:
 
 ```bash
-rg -n "Trust Gate|Soak|Interop|GUI Smoke|Release Artifacts|Remaining Blockers" specs/superpowers/demos/sprint-7-hardening-1.0.md
+rg -n "Trust Gate|Soak|Interop|GUI Smoke|Release Artifacts|Remaining Blockers" specs/superpowers/demos/sprint-7-hardening-26.5.md
 git diff --check
 ```
 
@@ -1197,7 +1197,7 @@ Expected: PASS.
 **Step 5: Commit**
 
 ```bash
-git add -f specs/superpowers/demos/sprint-7-hardening-1.0.md
+git add -f specs/superpowers/demos/sprint-7-hardening-26.5.md
 git commit -s -m "test(demo): record sprint 7 hardening evidence"
 ```
 
@@ -1229,8 +1229,8 @@ Include:
 - interop evidence
 - release artifacts evidence
 - docs evidence
-- 1.0 go/no-go decision
-- remaining post-1.0 or release-blocking risks
+- 26.5 go/no-go decision
+- remaining post-26.5 or release-blocking risks
 
 **Step 3: Verify retro**
 
@@ -1269,9 +1269,9 @@ Sprint 7 is complete only when:
 13. Release artifact workflow includes checksums and SBOM/signing boundaries.
 14. Sprint 7 demo evidence and retro exist.
 
-## 1.0 Go/No-Go Rule
+## 26.5 Go/No-Go Rule
 
-Sprint 7 can close with a documented no-go, but 1.0 release cannot be tagged unless:
+Sprint 7 can close with a documented no-go, but 26.5 release cannot be tagged unless:
 
 - the 7-day soak has actually passed,
 - the official LocalSend interop matrix is green or explicitly scoped down,

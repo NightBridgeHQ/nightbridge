@@ -1,7 +1,7 @@
 # Security Audit Invite
 
-This packet summarizes the intended security audit request for the LocalSend
-Improved 1.0 candidate.
+This packet summarizes the intended security audit request for the NightBridge
+26.5 candidate.
 
 ## Project Overview
 
