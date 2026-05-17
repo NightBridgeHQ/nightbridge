@@ -63,6 +63,7 @@ Operator setup, service management, and troubleshooting live in the
 - Changelog: [CHANGELOG.md](CHANGELOG.md)
 - 26.5 release notes draft: [docs/release/26.5-notes.md](docs/release/26.5-notes.md)
 - Release artifact matrix: [docs/release/artifacts.md](docs/release/artifacts.md)
+- Versioning policy: [docs/release/versioning.md](docs/release/versioning.md)
 
 ## Security
 

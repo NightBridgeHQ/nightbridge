@@ -2,12 +2,13 @@
 
 ## Supported Versions
 
-Until the first public release, only the pre-1.0 `main` branch is supported for
-security fixes. Tagged releases will be added to this table after 1.0.
+Until the first public release, only the pre-CalVer `main` branch is supported
+for security fixes. Tagged releases will be added to this table after the first
+public CalVer release.
 
 | Version | Supported |
 | --- | --- |
-| pre-1.0 `main` | Yes |
+| pre-CalVer `main` | Yes |
 | older branches | No |
 
 ## Reporting
