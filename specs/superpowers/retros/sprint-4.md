@@ -76,7 +76,7 @@ ERROR: failed to connect to the docker API at unix:///var/run/docker.sock; check
 Detailed demo notes are in:
 
 ```text
-docs/demos/sprint-4-hooks-observability-packaging.md
+specs/superpowers/demos/sprint-4-hooks-observability-packaging.md
 ```
 
 The demo evidence records hook tests, health/metrics tests, packaging tool checks, Docker environment failure, and release-build proof.

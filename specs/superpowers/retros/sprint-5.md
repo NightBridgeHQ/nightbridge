@@ -23,7 +23,7 @@
 Detailed demo notes are in:
 
 ```text
-docs/demos/sprint-5-wan-rendezvous.md
+specs/superpowers/demos/sprint-5-wan-rendezvous.md
 ```
 
 The demo evidence records:

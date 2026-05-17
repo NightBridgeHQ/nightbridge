@@ -40,7 +40,7 @@
 - Do not put API tokens, signing keys, updater private keys, Apple credentials, Authenticode certificates, or PGP private keys in git.
 - Keep docs in English; conversation can remain Spanish.
 - Preserve DCO sign-off on every commit and do not add `Co-Authored-By`.
-- Existing generated docs under `docs/` are ignored by git; use `git add -f` for new docs.
+- Generated planning artifacts under `specs/` are ignored by git; use `git add -f` for new plans, demos, and retros.
 
 ## Execution Order
 
@@ -1139,7 +1139,7 @@ git commit -s -m "test(release): add 1.0 preflight"
 ## Task 7.17: Sprint 7 Demo Evidence
 
 **Files:**
-- Create: `docs/demos/sprint-7-hardening-1.0.md`
+- Create: `specs/superpowers/demos/sprint-7-hardening-1.0.md`
 
 **Step 1: Run final verification**
 
@@ -1188,7 +1188,7 @@ Include:
 Run:
 
 ```bash
-rg -n "Trust Gate|Soak|Interop|GUI Smoke|Release Artifacts|Remaining Blockers" docs/demos/sprint-7-hardening-1.0.md
+rg -n "Trust Gate|Soak|Interop|GUI Smoke|Release Artifacts|Remaining Blockers" specs/superpowers/demos/sprint-7-hardening-1.0.md
 git diff --check
 ```
 
@@ -1197,14 +1197,14 @@ Expected: PASS.
 **Step 5: Commit**
 
 ```bash
-git add -f docs/demos/sprint-7-hardening-1.0.md
+git add -f specs/superpowers/demos/sprint-7-hardening-1.0.md
 git commit -s -m "test(demo): record sprint 7 hardening evidence"
 ```
 
 ## Task 7.18: Close Sprint 7 Retro
 
 **Files:**
-- Create: `docs/superpowers/retros/sprint-7.md`
+- Create: `specs/superpowers/retros/sprint-7.md`
 
 **Step 1: Check commit hygiene**
 
@@ -1237,7 +1237,7 @@ Include:
 Run:
 
 ```bash
-rg -n "What Shipped|Trust Gate|Soak|Interop|Release Artifacts|Go/No-Go|Remaining Risks" docs/superpowers/retros/sprint-7.md
+rg -n "What Shipped|Trust Gate|Soak|Interop|Release Artifacts|Go/No-Go|Remaining Risks" specs/superpowers/retros/sprint-7.md
 git diff --check
 ```
 
@@ -1246,7 +1246,7 @@ Expected: PASS.
 **Step 4: Commit**
 
 ```bash
-git add -f docs/superpowers/retros/sprint-7.md
+git add -f specs/superpowers/retros/sprint-7.md
 git commit -s -m "docs(retro): close sprint 7"
 ```
 
@@ -1279,4 +1279,3 @@ Sprint 7 can close with a documented no-go, but 1.0 release cannot be tagged unl
 - security disclosure contact is real,
 - signing/notarization decision is explicit,
 - all release notes disclose remaining limitations.
-

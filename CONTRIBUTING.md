@@ -34,5 +34,5 @@ We follow conventional commits (`feat:`, `fix:`, `docs:`, `test:`, `build:`,
 
 ## Where To Start
 
-Look at `docs/superpowers/plans/` for the active sprint. Open issues that
+Look at `specs/superpowers/plans/` for the active sprint. Open issues that
 match the current sprint are good starter tasks.

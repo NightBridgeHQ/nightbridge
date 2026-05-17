@@ -73,7 +73,7 @@ Keep serial:
 ## Task 6.1: Tauri Tooling And MSRV Preflight
 
 **Files:**
-- Modify: `docs/superpowers/plans/2026-05-16-sprint-6-gui-tauri.md` only if scope changes after preflight
+- Modify: `specs/superpowers/plans/2026-05-16-sprint-6-gui-tauri.md` only if scope changes after preflight
 - No code changes unless dependency versions are proven compatible
 
 **Step 1: Record current toolchain**
@@ -140,7 +140,7 @@ Sprint 6 preflight result:
 If scope or version constraints change:
 
 ```bash
-git add docs/superpowers/plans/2026-05-16-sprint-6-gui-tauri.md
+git add specs/superpowers/plans/2026-05-16-sprint-6-gui-tauri.md
 git commit -s -m "docs(gui): refine sprint 6 tauri constraints"
 ```
 
@@ -921,7 +921,7 @@ git commit -s -m "docs(readme): add sprint 6 GUI status"
 ## Task 6.14: Sprint 6 Demo Evidence
 
 **Files:**
-- Create: `docs/demos/sprint-6-gui-tauri.md`
+- Create: `specs/superpowers/demos/sprint-6-gui-tauri.md`
 
 **Step 1: Run final GUI-focused commands**
 
@@ -974,14 +974,14 @@ Include:
 **Step 5: Commit**
 
 ```bash
-git add -f docs/demos/sprint-6-gui-tauri.md
+git add -f specs/superpowers/demos/sprint-6-gui-tauri.md
 git commit -s -m "test(demo): record sprint 6 GUI evidence"
 ```
 
 ## Task 6.15: Close Sprint 6 Retro
 
 **Files:**
-- Create: `docs/superpowers/retros/sprint-6.md`
+- Create: `specs/superpowers/retros/sprint-6.md`
 
 **Step 1: Run final verification**
 
@@ -1028,7 +1028,7 @@ Include:
 Run:
 
 ```bash
-rg -n "What Shipped|Standalone|Remote|Packaging|Test Evidence|Remaining Risks|Sprint 7" docs/superpowers/retros/sprint-6.md
+rg -n "What Shipped|Standalone|Remote|Packaging|Test Evidence|Remaining Risks|Sprint 7" specs/superpowers/retros/sprint-6.md
 ```
 
 Expected: all sections exist.
@@ -1036,7 +1036,7 @@ Expected: all sections exist.
 **Step 4: Commit**
 
 ```bash
-git add -f docs/superpowers/retros/sprint-6.md
+git add -f specs/superpowers/retros/sprint-6.md
 git commit -s -m "docs(retro): close sprint 6"
 ```
 

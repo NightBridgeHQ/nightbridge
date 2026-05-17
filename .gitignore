@@ -13,7 +13,7 @@ Cargo.lock.bak
 .idea/
 .vscode/
 .claude/
-/docs/
+/specs/
 *.profraw
 *.profdata
 *.gcov
