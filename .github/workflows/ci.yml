@@ -77,17 +77,14 @@ jobs:
         run: cargo build --workspace --release --target ${{ matrix.target }}
 
   interop-localsend:
-    name: LocalSend interop placeholder
+    name: LocalSend interop smoke
     runs-on: ubuntu-latest
     if: github.event_name == 'workflow_dispatch'
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
-      - run: cargo test -p lsi-protocol-localsend-v2 --test interop_receive
-      - run: |
-          echo "Official LocalSend artifact smoke is intentionally manual for now."
-          echo "Next step: download a headless-capable official Linux artifact and send a file to lsi-daemon."
+      - run: bash scripts/localsend-interop-smoke.sh
 
   wan-netns-smoke:
     name: WAN netns smoke (manual)
