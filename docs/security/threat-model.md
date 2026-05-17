@@ -33,7 +33,8 @@ VIP relay services.
 - LocalSend v2 receive authorization is controlled by
   `--localsend-receive-policy`. The default `prompt` mode rejects incoming
   uploads until an approval flow exists; `trusted` requires allowlisted
-  LocalSend fingerprints; `auto` is explicit trusted-LAN compatibility mode.
+  LocalSend fingerprints from config or a fingerprint file; `auto` is explicit
+  trusted-LAN compatibility mode.
 - Native QUIC uses TLS 1.3 and Ed25519 peer identity, with outbound sends pinned
   to trusted peer certificate fingerprints before transfer data is sent.
 - Daemon API access is protected by a bearer token and should be bound only to
@@ -48,7 +49,8 @@ VIP relay services.
 
 - Bearer-token authentication protects HTTP and gRPC daemon APIs.
 - Incoming LocalSend-compatible uploads are rejected by default unless the
-  operator chooses trusted fingerprint allowlisting or explicit auto-accept.
+  operator chooses trusted fingerprint allowlisting through config/file or
+  explicit auto-accept.
 - Native peers advertise Ed25519 public keys and stable fingerprints.
 - Trust policies distinguish `auto_accept`, `prompt`, and `block`.
 - Native outbound WAN sends require trusted peer records and pinned certificate

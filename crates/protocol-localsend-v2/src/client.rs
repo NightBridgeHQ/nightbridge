@@ -191,6 +191,7 @@ mod tests {
             session_ttl: Duration::from_secs(60),
             receive_policy: LocalSendReceivePolicy::Auto,
             trusted_fingerprints: Default::default(),
+            trusted_fingerprints_file: None,
             tls_identity: None,
         };
         let server = LocalSendServer::bind(config).await.unwrap();

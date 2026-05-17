@@ -12,27 +12,42 @@ ecosystem without keeping the official desktop app open.
    cargo build --release -p lsi-daemon
    ```
 
-2. Start the daemon with an inbox path, LocalSend port, and an explicit receive
-   policy.
+2. Configure the LocalSend receive policy and trusted fingerprints.
+
+   ```toml
+   # ~/.config/night-bridge/config.toml or /etc/night-bridge/config.toml
+   [localsend]
+   receive_policy = "trusted"
+   trusted_fingerprints_file = "/etc/night-bridge/localsend-trusted.txt"
+   ```
+
+   Add one official-app fingerprint per line:
+
+   ```text
+   # /etc/night-bridge/localsend-trusted.txt
+   <official-app-fingerprint>
+   ```
+
+3. Start the daemon with an inbox path and LocalSend port.
 
    ```bash
    target/release/night-bridge-daemon \
      --alias "NAS" \
      --inbox "$HOME/LocalSendInbox" \
-     --localsend-port 53317 \
-     --localsend-receive-policy trusted \
-     --trusted-localsend-fingerprint <official-app-fingerprint>
+     --localsend-port 53317
    ```
 
-3. Open the official LocalSend app on your phone or desktop.
-4. Select the daemon by alias and send a file.
-5. Check the daemon inbox.
+4. Open the official LocalSend app on your phone or desktop.
+5. Select the daemon by alias and send a file.
+6. Check the daemon inbox.
 
 The daemon defaults to `--localsend-receive-policy prompt`, which rejects
 incoming LocalSend uploads until an approval workflow is available. Use
-`trusted` with one or more `--trusted-localsend-fingerprint` values for
-unattended receive from known devices. Use `auto` only on a trusted test LAN;
-it accepts any LocalSend-compatible sender that can reach the daemon port.
+`trusted` with `trusted_fingerprints` or `trusted_fingerprints_file` for
+unattended receive from known devices. The fingerprint file is read for each new
+upload session, so adding a device does not require restarting the daemon. Use
+`auto` only on a trusted test LAN; it accepts any LocalSend-compatible sender
+that can reach the daemon port.
 
 The LocalSend v2 compatibility path keeps official app behavior, including
 self-signed HTTPS compatibility expectations, but receive authorization remains

@@ -7,7 +7,7 @@ use anyhow::{Context, Result};
 use clap::{Parser, ValueEnum};
 use lsi_core::{
     api_token::{ApiTokenVault, FsApiTokenVault},
-    config::{load_config_or_default, AppConfig, LoggingConfig},
+    config::{load_config_or_default, AppConfig, LocalSendConfig, LoggingConfig},
     identity::{Fingerprint, FsVault, IdentityVault, Keypair},
     paths,
     trust::TrustStore,
@@ -82,12 +82,8 @@ struct Args {
     disable_localsend_v2: bool,
 
     /// Incoming LocalSend v2 receive policy: prompt rejects until approved, trusted accepts only allowlisted fingerprints, auto accepts all LAN senders.
-    #[arg(
-        long = "localsend-receive-policy",
-        value_enum,
-        default_value_t = LocalSendReceivePolicyArg::Prompt
-    )]
-    localsend_receive_policy: LocalSendReceivePolicyArg,
+    #[arg(long = "localsend-receive-policy", value_enum)]
+    localsend_receive_policy: Option<LocalSendReceivePolicyArg>,
 
     /// LocalSend peer fingerprint allowed when --localsend-receive-policy=trusted. May be repeated.
     #[arg(long = "trusted-localsend-fingerprint")]
@@ -337,6 +333,22 @@ fn load_daemon_config(args: &Args) -> lsi_core::Result<AppConfig> {
     Ok(config)
 }
 
+fn localsend_receive_policy(
+    args_policy: Option<LocalSendReceivePolicyArg>,
+    config: &LocalSendConfig,
+) -> Result<LocalSendReceivePolicy> {
+    if let Some(policy) = args_policy {
+        return Ok(policy.into());
+    }
+
+    match config.receive_policy.as_str() {
+        "prompt" => Ok(LocalSendReceivePolicy::Prompt),
+        "trusted" => Ok(LocalSendReceivePolicy::Trusted),
+        "auto" => Ok(LocalSendReceivePolicy::Auto),
+        other => anyhow::bail!("unsupported LocalSend receive policy {other:?}"),
+    }
+}
+
 async fn start_localsend_v2(state: &DaemonState) -> Result<LocalSendRuntime> {
     let tls_identity = TlsIdentityVault::new(paths::config_dir())
         .load_or_generate(&state.alias)
@@ -347,8 +359,9 @@ async fn start_localsend_v2(state: &DaemonState) -> Result<LocalSendRuntime> {
         info: device_info.clone(),
         inbox_dir: state.inbox_dir.clone(),
         session_ttl: LOCALSEND_SESSION_TTL,
-        receive_policy: state.localsend_receive_policy.into(),
+        receive_policy: state.localsend_receive_policy,
         trusted_fingerprints: state.trusted_localsend_fingerprints.clone(),
+        trusted_fingerprints_file: state.trusted_localsend_fingerprints_file.clone(),
         tls_identity: Some(tls_identity),
     })
     .await?;
@@ -737,7 +750,7 @@ mod tests {
         assert_eq!(args.alias, default_alias());
         assert_eq!(args.inbox, paths::default_inbox());
         assert!(!args.disable_localsend_v2);
-        assert_eq!(args.localsend_receive_policy, LocalSendReceivePolicyArg::Prompt);
+        assert_eq!(args.localsend_receive_policy, None);
         assert!(args.trusted_localsend_fingerprint.is_empty());
     }
 
@@ -779,9 +792,33 @@ mod tests {
         assert_eq!(args.localsend_port, 4444);
         assert_eq!(args.alias, "workstation");
         assert_eq!(args.inbox, PathBuf::from("/tmp/lsi-inbox"));
-        assert_eq!(args.localsend_receive_policy, LocalSendReceivePolicyArg::Trusted);
+        assert_eq!(args.localsend_receive_policy, Some(LocalSendReceivePolicyArg::Trusted));
         assert_eq!(args.trusted_localsend_fingerprint, vec!["ios-fingerprint"]);
         assert!(args.disable_localsend_v2);
+    }
+
+    #[test]
+    fn localsend_receive_policy_prefers_arg_over_config() {
+        let mut config = LocalSendConfig {
+            receive_policy: "trusted".to_string(),
+            trusted_fingerprints: Vec::new(),
+            trusted_fingerprints_file: None,
+        };
+
+        assert_eq!(
+            localsend_receive_policy(None, &config).unwrap(),
+            LocalSendReceivePolicy::Trusted
+        );
+        assert_eq!(
+            localsend_receive_policy(Some(LocalSendReceivePolicyArg::Auto), &config).unwrap(),
+            LocalSendReceivePolicy::Auto
+        );
+
+        config.receive_policy = "prompt".to_string();
+        assert_eq!(
+            localsend_receive_policy(None, &config).unwrap(),
+            LocalSendReceivePolicy::Prompt
+        );
     }
 
     #[test]

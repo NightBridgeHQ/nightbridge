@@ -55,16 +55,43 @@ protects them.
 
 Incoming LocalSend-compatible uploads are not auto-accepted by default.
 
+Preferred persistent config:
+
+```toml
+[localsend]
+receive_policy = "trusted"
+trusted_fingerprints = ["lab-phone-fingerprint"]
+trusted_fingerprints_file = "/etc/night-bridge/localsend-trusted.txt"
+```
+
+The trusted fingerprint file is newline-delimited and supports comments:
+
+```text
+# /etc/night-bridge/localsend-trusted.txt
+ios-fingerprint
+android-fingerprint
+```
+
+The daemon reads `trusted_fingerprints_file` when each upload session is
+prepared, so adding or removing fingerprints in that file does not require a
+daemon restart. Changing `receive_policy` still requires config reload/restart
+until live config reload exists.
+
+In `prompt` or `trusted` mode, rejected incoming upload attempts are logged with
+the LocalSend alias and fingerprint. Use that log entry to add a newly approved
+device to `trusted_fingerprints_file`, then retry the send.
+
 Policies:
 
 - `prompt`: default. Reject incoming uploads until an operator approval flow is
   available.
 - `trusted`: accept only peers whose LocalSend fingerprint is listed with
-  `--trusted-localsend-fingerprint`.
+  `trusted_fingerprints`, `trusted_fingerprints_file`, or a one-off
+  `--trusted-localsend-fingerprint` override.
 - `auto`: accept any LocalSend-compatible sender that can reach the daemon
   port. Use only on trusted test LANs.
 
-Example trusted receive:
+Command-line overrides are available for one-off testing:
 
 ```bash
 night-bridge-daemon \

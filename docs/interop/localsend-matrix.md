@@ -58,7 +58,15 @@ cargo run -p lsi-cli --bin night-bridge -- send --direct --url https://10.16.20.
 ### Official iOS App To Daemon
 
 - Status: retest required after receive-policy hardening.
-- Required daemon mode:
+- Required daemon config:
+
+```toml
+[localsend]
+receive_policy = "trusted"
+trusted_fingerprints_file = "/etc/night-bridge/localsend-trusted.txt"
+```
+
+- Optional command-line override:
 
 ```bash
 night-bridge-daemon \

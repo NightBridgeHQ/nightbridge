@@ -2,6 +2,7 @@ use std::collections::BTreeSet;
 use std::path::PathBuf;
 
 use lsi_core::{api_token::ApiToken, config::AppConfig, identity::Keypair, paths};
+use lsi_protocol_localsend_v2::server::LocalSendReceivePolicy;
 use metrics_exporter_prometheus::PrometheusHandle;
 
 use crate::{events::EventBus, Args};
@@ -14,8 +15,9 @@ pub(crate) struct DaemonState {
     pub(crate) trust_db_path: PathBuf,
     pub(crate) inbox_dir: PathBuf,
     pub(crate) localsend_port: u16,
-    pub(crate) localsend_receive_policy: crate::LocalSendReceivePolicyArg,
+    pub(crate) localsend_receive_policy: LocalSendReceivePolicy,
     pub(crate) trusted_localsend_fingerprints: BTreeSet<String>,
+    pub(crate) trusted_localsend_fingerprints_file: Option<PathBuf>,
     pub(crate) native_port: u16,
     pub(crate) api_token: ApiToken,
     pub(crate) config: AppConfig,
@@ -50,12 +52,23 @@ impl DaemonState {
             trust_db_path: args.trust_db.clone().unwrap_or_else(paths::trust_db_file),
             inbox_dir: args.inbox.clone(),
             localsend_port: args.localsend_port,
-            localsend_receive_policy: args.localsend_receive_policy,
-            trusted_localsend_fingerprints: args
-                .trusted_localsend_fingerprint
+            localsend_receive_policy: crate::localsend_receive_policy(
+                args.localsend_receive_policy,
+                &config.localsend,
+            )
+            .expect("validated LocalSend receive policy should map to runtime policy"),
+            trusted_localsend_fingerprints: config
+                .localsend
+                .trusted_fingerprints
                 .iter()
+                .chain(args.trusted_localsend_fingerprint.iter())
                 .cloned()
                 .collect(),
+            trusted_localsend_fingerprints_file: config
+                .localsend
+                .trusted_fingerprints_file
+                .as_ref()
+                .map(PathBuf::from),
             native_port: args.native_port,
             api_token,
             config,
@@ -72,9 +85,10 @@ mod tests {
     use clap::Parser;
     use lsi_core::{
         api_token::ApiToken,
-        config::AppConfig,
+        config::{AppConfig, LocalSendConfig},
         identity::{Fingerprint, Keypair},
     };
+    use lsi_protocol_localsend_v2::server::LocalSendReceivePolicy;
 
     use crate::{paths, state::DaemonState, Args};
 
@@ -114,7 +128,7 @@ mod tests {
         assert_eq!(state.trust_db_path, PathBuf::from("/tmp/lsi-trust.db"));
         assert_eq!(state.inbox_dir, PathBuf::from("/tmp/lsi-inbox"));
         assert_eq!(state.localsend_port, 4444);
-        assert_eq!(state.localsend_receive_policy, crate::LocalSendReceivePolicyArg::Trusted);
+        assert_eq!(state.localsend_receive_policy, LocalSendReceivePolicy::Trusted);
         assert!(state.trusted_localsend_fingerprints.contains("ios-fingerprint"));
         assert_eq!(state.native_port, 4445);
         assert_eq!(state.api_token.expose_secret(), "temporary-token");
@@ -137,5 +151,35 @@ mod tests {
         );
 
         assert_eq!(state.trust_db_path, paths::trust_db_file());
+    }
+
+    #[test]
+    fn state_uses_configured_localsend_fingerprints_file() {
+        let args = Args::parse_from(["daemon"]);
+        let identity = Keypair::generate();
+        let fingerprint = Fingerprint::from_pubkey(&identity.public_bytes()).to_string();
+        let config = AppConfig {
+            localsend: LocalSendConfig {
+                receive_policy: "trusted".to_string(),
+                trusted_fingerprints: vec!["inline-fingerprint".to_string()],
+                trusted_fingerprints_file: Some("/etc/night-bridge/localsend-trusted.txt".into()),
+            },
+            ..AppConfig::default()
+        };
+
+        let state = DaemonState::from_args(
+            &args,
+            identity,
+            fingerprint,
+            ApiToken::new("token").unwrap(),
+            config,
+        );
+
+        assert_eq!(state.localsend_receive_policy, LocalSendReceivePolicy::Trusted);
+        assert!(state.trusted_localsend_fingerprints.contains("inline-fingerprint"));
+        assert_eq!(
+            state.trusted_localsend_fingerprints_file,
+            Some(PathBuf::from("/etc/night-bridge/localsend-trusted.txt"))
+        );
     }
 }

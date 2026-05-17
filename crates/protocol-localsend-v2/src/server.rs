@@ -4,7 +4,7 @@ use std::collections::BTreeSet;
 use std::future::Future;
 use std::io;
 use std::net::SocketAddr;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -64,6 +64,8 @@ pub struct LocalSendServerConfig {
     pub receive_policy: LocalSendReceivePolicy,
     /// LocalSend peer certificate fingerprints allowed by `Trusted` policy.
     pub trusted_fingerprints: BTreeSet<String>,
+    /// Optional newline-delimited fingerprint allowlist read for each new upload session.
+    pub trusted_fingerprints_file: Option<PathBuf>,
     /// Optional TLS identity. When set, the listener serves HTTPS with rustls.
     pub tls_identity: Option<TlsIdentity>,
 }
@@ -83,6 +85,7 @@ struct ServerState {
     inbox: InboxWriter,
     receive_policy: LocalSendReceivePolicy,
     trusted_fingerprints: BTreeSet<String>,
+    trusted_fingerprints_file: Option<PathBuf>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -116,6 +119,7 @@ impl LocalSendServer {
             inbox: InboxWriter::new(config.inbox_dir),
             receive_policy: config.receive_policy,
             trusted_fingerprints: normalize_trusted_fingerprints(config.trusted_fingerprints),
+            trusted_fingerprints_file: config.trusted_fingerprints_file,
         };
 
         Ok(Self { listener, state, tls_identity: config.tls_identity })
@@ -250,19 +254,37 @@ async fn prepare_upload(
 fn authorize_prepare_upload(state: &ServerState, peer: &DeviceInfo) -> Result<()> {
     match state.receive_policy {
         LocalSendReceivePolicy::Auto => Ok(()),
-        LocalSendReceivePolicy::Prompt => Err(LocalSendError::Session(
-            "incoming LocalSend upload requires operator approval".to_string(),
-        )),
+        LocalSendReceivePolicy::Prompt => {
+            warn!(
+                peer_alias = %peer.alias,
+                peer_fingerprint = %peer.fingerprint,
+                "rejected LocalSend upload pending operator approval"
+            );
+            Err(LocalSendError::Session(
+                "incoming LocalSend upload requires operator approval".to_string(),
+            ))
+        }
         LocalSendReceivePolicy::Trusted => {
             let Some(fingerprint) = normalize_fingerprint(&peer.fingerprint) else {
+                warn!(
+                    peer_alias = %peer.alias,
+                    peer_fingerprint = %peer.fingerprint,
+                    "rejected LocalSend upload without a usable peer fingerprint"
+                );
                 return Err(LocalSendError::Session(
                     "incoming LocalSend upload has no peer fingerprint".to_string(),
                 ));
             };
 
-            if state.trusted_fingerprints.contains(&fingerprint) {
+            let trusted_fingerprints = trusted_fingerprints(state)?;
+            if trusted_fingerprints.contains(&fingerprint) {
                 Ok(())
             } else {
+                warn!(
+                    peer_alias = %peer.alias,
+                    peer_fingerprint = %peer.fingerprint,
+                    "rejected untrusted LocalSend upload"
+                );
                 Err(LocalSendError::Session(format!(
                     "incoming LocalSend peer is not trusted: {}",
                     peer.fingerprint
@@ -270,6 +292,24 @@ fn authorize_prepare_upload(state: &ServerState, peer: &DeviceInfo) -> Result<()
             }
         }
     }
+}
+
+fn trusted_fingerprints(state: &ServerState) -> Result<BTreeSet<String>> {
+    let mut fingerprints = state.trusted_fingerprints.clone();
+    if let Some(path) = &state.trusted_fingerprints_file {
+        fingerprints.extend(read_trusted_fingerprints_file(path)?);
+    }
+    Ok(fingerprints)
+}
+
+fn read_trusted_fingerprints_file(path: &Path) -> Result<BTreeSet<String>> {
+    let contents = std::fs::read_to_string(path).map_err(LocalSendError::Io)?;
+    Ok(contents
+        .lines()
+        .map(str::trim)
+        .filter(|line| !line.is_empty() && !line.starts_with('#'))
+        .filter_map(normalize_fingerprint)
+        .collect())
 }
 
 fn normalize_trusted_fingerprints(fingerprints: BTreeSet<String>) -> BTreeSet<String> {
@@ -466,6 +506,7 @@ mod tests {
             session_ttl: Duration::from_secs(60),
             receive_policy: LocalSendReceivePolicy::Auto,
             trusted_fingerprints: Default::default(),
+            trusted_fingerprints_file: None,
             tls_identity: None,
         };
         let server = LocalSendServer::bind(config).await.unwrap();
@@ -489,6 +530,7 @@ mod tests {
             session_ttl: Duration::from_secs(60),
             receive_policy: LocalSendReceivePolicy::Auto,
             trusted_fingerprints: Default::default(),
+            trusted_fingerprints_file: None,
             tls_identity: Some(TlsIdentity::generate("Receiver").unwrap()),
         };
         let server = LocalSendServer::bind(config).await.unwrap();
@@ -514,6 +556,7 @@ mod tests {
             session_ttl: Duration::from_secs(60),
             receive_policy,
             trusted_fingerprints: trusted_fingerprints.into_iter().collect(),
+            trusted_fingerprints_file: None,
             tls_identity: None,
         };
         let server = LocalSendServer::bind(config).await.unwrap();
@@ -748,6 +791,62 @@ mod tests {
         assert!(!response.files["file-1"].is_empty());
 
         let _ = shutdown.send(());
+        task.await.unwrap().unwrap();
+    }
+
+    #[tokio::test]
+    async fn trusted_policy_reads_allowlist_file_per_prepare_upload() {
+        let temp = tempfile::tempdir().unwrap();
+        let allowlist = temp.path().join("trusted-localsend.txt");
+        let config = LocalSendServerConfig {
+            bind_addr: "127.0.0.1:0".parse().unwrap(),
+            info: device_info("Receiver", 0),
+            inbox_dir: temp.path().join("inbox"),
+            session_ttl: Duration::from_secs(60),
+            receive_policy: LocalSendReceivePolicy::Trusted,
+            trusted_fingerprints: Default::default(),
+            trusted_fingerprints_file: Some(allowlist.clone()),
+            tls_identity: None,
+        };
+        let server = LocalSendServer::bind(config).await.unwrap();
+        let addr = server.local_addr();
+        let (shutdown_tx, shutdown_rx) = tokio::sync::oneshot::channel();
+        let task = tokio::spawn(server.serve_until_shutdown(async {
+            let _ = shutdown_rx.await;
+        }));
+        let body = b"hello";
+        let prepare_request = PrepareUploadRequest {
+            info: device_info("Sender", 53317),
+            files: BTreeMap::from([(
+                "file-1".to_string(),
+                file_meta("file-1", "note.txt", body.len() as u64),
+            )]),
+        };
+
+        tokio::fs::write(&allowlist, "# trusted devices\nother-fingerprint\n").await.unwrap();
+        let (first_status, _) = request(
+            addr,
+            "POST",
+            "/api/localsend/v2/prepare-upload",
+            Some("application/json"),
+            &serde_json::to_vec(&prepare_request).unwrap(),
+        )
+        .await;
+
+        tokio::fs::write(&allowlist, "# trusted devices\ntest-fingerprint\n").await.unwrap();
+        let (second_status, _) = request(
+            addr,
+            "POST",
+            "/api/localsend/v2/prepare-upload",
+            Some("application/json"),
+            &serde_json::to_vec(&prepare_request).unwrap(),
+        )
+        .await;
+
+        assert_eq!(first_status, 403);
+        assert_eq!(second_status, 200);
+
+        let _ = shutdown_tx.send(());
         task.await.unwrap().unwrap();
     }
 

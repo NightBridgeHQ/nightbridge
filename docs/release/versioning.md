@@ -29,8 +29,8 @@ NightBridge `26.5.0` must not be tagged until:
 - real 7-day native soak evidence passes
 - official LocalSend app interop is completed or explicitly scoped down,
   especially daemon/CLI-to-official-app acceptance
-- official LocalSend app send-to-daemon is retested with
-  `--localsend-receive-policy trusted`
+- official LocalSend app send-to-daemon is retested with trusted LocalSend
+  receive policy and a persistent fingerprint allowlist file
 - release artifacts are reproducible from a clean final `dist/` directory
 - checksums and SBOM are generated for the final artifacts
 - Docker and systemd validation run on representative target hosts or are

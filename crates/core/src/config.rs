@@ -21,6 +21,9 @@ pub struct AppConfig {
     /// WAN rendezvous settings.
     #[serde(default)]
     pub wan: WanConfig,
+    /// LocalSend compatibility settings.
+    #[serde(default)]
+    pub localsend: LocalSendConfig,
 }
 
 impl AppConfig {
@@ -32,6 +35,7 @@ impl AppConfig {
         self.metrics.validate()?;
         self.logging.validate()?;
         self.wan.validate()?;
+        self.localsend.validate()?;
         Ok(())
     }
 }
@@ -192,6 +196,52 @@ impl WanConfig {
     }
 }
 
+/// LocalSend compatibility configuration.
+#[derive(Clone, Debug, Deserialize, PartialEq, Eq)]
+pub struct LocalSendConfig {
+    /// Receive policy: `prompt`, `trusted`, or `auto`.
+    #[serde(default = "default_localsend_receive_policy")]
+    pub receive_policy: String,
+    /// Inline LocalSend fingerprints allowed when receive policy is `trusted`.
+    #[serde(default)]
+    pub trusted_fingerprints: Vec<String>,
+    /// Optional path to a newline-delimited trusted LocalSend fingerprint file.
+    #[serde(default)]
+    pub trusted_fingerprints_file: Option<String>,
+}
+
+impl Default for LocalSendConfig {
+    fn default() -> Self {
+        Self {
+            receive_policy: default_localsend_receive_policy(),
+            trusted_fingerprints: Vec::new(),
+            trusted_fingerprints_file: None,
+        }
+    }
+}
+
+impl LocalSendConfig {
+    fn validate(&self) -> Result<()> {
+        match self.receive_policy.as_str() {
+            "prompt" | "trusted" | "auto" => {}
+            other => {
+                return Err(CoreError::Config(format!(
+                    "unsupported localsend receive_policy {other:?}; expected prompt, trusted, or auto"
+                )));
+            }
+        }
+
+        for fingerprint in &self.trusted_fingerprints {
+            require_nonblank("trusted LocalSend fingerprint", fingerprint)?;
+        }
+        if let Some(path) = &self.trusted_fingerprints_file {
+            require_nonblank("trusted LocalSend fingerprints file", path)?;
+        }
+
+        Ok(())
+    }
+}
+
 /// Load and validate configuration from an existing path.
 pub fn load_config(path: &Path) -> Result<AppConfig> {
     let contents = std::fs::read_to_string(path)?;
@@ -245,6 +295,10 @@ fn default_logging_level() -> String {
 
 fn default_wan_register_interval_seconds() -> u64 {
     60
+}
+
+fn default_localsend_receive_policy() -> String {
+    "prompt".to_string()
 }
 
 #[cfg(test)]
@@ -336,6 +390,42 @@ stun_servers = ["stun.example.net:3478"]
         let error = parse("[wan]\nstun_servers = [\"\"]\n").unwrap_err();
 
         assert!(error.to_string().contains("stun server is required"), "{error}");
+    }
+
+    #[test]
+    fn localsend_config_defaults_to_prompt() {
+        let config = parse("").unwrap();
+
+        assert_eq!(config.localsend.receive_policy, "prompt");
+        assert!(config.localsend.trusted_fingerprints.is_empty());
+        assert!(config.localsend.trusted_fingerprints_file.is_none());
+    }
+
+    #[test]
+    fn localsend_config_accepts_trusted_fingerprints_file() {
+        let config = parse(
+            r#"
+[localsend]
+receive_policy = "trusted"
+trusted_fingerprints = ["ios-fingerprint"]
+trusted_fingerprints_file = "/etc/night-bridge/localsend-trusted.txt"
+"#,
+        )
+        .unwrap();
+
+        assert_eq!(config.localsend.receive_policy, "trusted");
+        assert_eq!(config.localsend.trusted_fingerprints, vec!["ios-fingerprint"]);
+        assert_eq!(
+            config.localsend.trusted_fingerprints_file.as_deref(),
+            Some("/etc/night-bridge/localsend-trusted.txt")
+        );
+    }
+
+    #[test]
+    fn localsend_config_rejects_invalid_receive_policy() {
+        let error = parse("[localsend]\nreceive_policy = \"open\"\n").unwrap_err();
+
+        assert!(error.to_string().contains("unsupported localsend receive_policy"), "{error}");
     }
 
     #[test]
