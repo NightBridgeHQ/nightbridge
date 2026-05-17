@@ -164,7 +164,7 @@ mod tests {
     };
     use lsi_protocol_localsend_v2::{
         dto::{DeviceInfo, Protocol},
-        server::{LocalSendServer, LocalSendServerConfig},
+        server::{LocalSendReceivePolicy, LocalSendServer, LocalSendServerConfig},
     };
     use tonic::metadata::MetadataValue;
 
@@ -561,6 +561,8 @@ mod tests {
             },
             inbox_dir: inbox_dir.to_path_buf(),
             session_ttl: Duration::from_secs(60),
+            receive_policy: LocalSendReceivePolicy::Auto,
+            trusted_fingerprints: Default::default(),
             tls_identity: None,
         };
         let server = LocalSendServer::bind(config).await.unwrap();

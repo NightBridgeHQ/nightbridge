@@ -165,7 +165,7 @@ mod tests {
 
     use crate::client::LocalSendClient;
     use crate::dto::{DeviceInfo, Protocol};
-    use crate::server::{LocalSendServer, LocalSendServerConfig};
+    use crate::server::{LocalSendReceivePolicy, LocalSendServer, LocalSendServerConfig};
 
     fn device_info(alias: &str, port: u16) -> DeviceInfo {
         DeviceInfo {
@@ -189,6 +189,8 @@ mod tests {
             info: device_info("Receiver", 0),
             inbox_dir: inbox_dir.into(),
             session_ttl: Duration::from_secs(60),
+            receive_policy: LocalSendReceivePolicy::Auto,
+            trusted_fingerprints: Default::default(),
             tls_identity: None,
         };
         let server = LocalSendServer::bind(config).await.unwrap();

@@ -1,3 +1,4 @@
+use std::collections::BTreeSet;
 use std::path::PathBuf;
 
 use lsi_core::{api_token::ApiToken, config::AppConfig, identity::Keypair, paths};
@@ -13,6 +14,8 @@ pub(crate) struct DaemonState {
     pub(crate) trust_db_path: PathBuf,
     pub(crate) inbox_dir: PathBuf,
     pub(crate) localsend_port: u16,
+    pub(crate) localsend_receive_policy: crate::LocalSendReceivePolicyArg,
+    pub(crate) trusted_localsend_fingerprints: BTreeSet<String>,
     pub(crate) native_port: u16,
     pub(crate) api_token: ApiToken,
     pub(crate) config: AppConfig,
@@ -47,6 +50,12 @@ impl DaemonState {
             trust_db_path: args.trust_db.clone().unwrap_or_else(paths::trust_db_file),
             inbox_dir: args.inbox.clone(),
             localsend_port: args.localsend_port,
+            localsend_receive_policy: args.localsend_receive_policy,
+            trusted_localsend_fingerprints: args
+                .trusted_localsend_fingerprint
+                .iter()
+                .cloned()
+                .collect(),
             native_port: args.native_port,
             api_token,
             config,
@@ -81,6 +90,10 @@ mod tests {
             "/tmp/lsi-inbox",
             "--localsend-port",
             "4444",
+            "--localsend-receive-policy",
+            "trusted",
+            "--trusted-localsend-fingerprint",
+            "ios-fingerprint",
             "--native-port",
             "4445",
         ]);
@@ -101,6 +114,8 @@ mod tests {
         assert_eq!(state.trust_db_path, PathBuf::from("/tmp/lsi-trust.db"));
         assert_eq!(state.inbox_dir, PathBuf::from("/tmp/lsi-inbox"));
         assert_eq!(state.localsend_port, 4444);
+        assert_eq!(state.localsend_receive_policy, crate::LocalSendReceivePolicyArg::Trusted);
+        assert!(state.trusted_localsend_fingerprints.contains("ios-fingerprint"));
         assert_eq!(state.native_port, 4445);
         assert_eq!(state.api_token.expose_secret(), "temporary-token");
         assert_eq!(state.config, AppConfig::default());

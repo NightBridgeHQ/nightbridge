@@ -4,7 +4,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use anyhow::{Context, Result};
-use clap::Parser;
+use clap::{Parser, ValueEnum};
 use lsi_core::{
     api_token::{ApiTokenVault, FsApiTokenVault},
     config::{load_config_or_default, AppConfig, LoggingConfig},
@@ -15,7 +15,7 @@ use lsi_core::{
 use lsi_protocol_localsend_v2::{
     discovery::DiscoveryAnnouncer,
     dto::{DeviceInfo, Protocol},
-    server::{LocalSendServer, LocalSendServerConfig},
+    server::{LocalSendReceivePolicy, LocalSendServer, LocalSendServerConfig},
     tls::{TlsIdentity, TlsIdentityVault},
 };
 use lsi_protocol_native_v1::{
@@ -81,6 +81,18 @@ struct Args {
     #[arg(long = "disable-localsend-v2")]
     disable_localsend_v2: bool,
 
+    /// Incoming LocalSend v2 receive policy: prompt rejects until approved, trusted accepts only allowlisted fingerprints, auto accepts all LAN senders.
+    #[arg(
+        long = "localsend-receive-policy",
+        value_enum,
+        default_value_t = LocalSendReceivePolicyArg::Prompt
+    )]
+    localsend_receive_policy: LocalSendReceivePolicyArg,
+
+    /// LocalSend peer fingerprint allowed when --localsend-receive-policy=trusted. May be repeated.
+    #[arg(long = "trusted-localsend-fingerprint")]
+    trusted_localsend_fingerprint: Vec<String>,
+
     /// UDP port for the native QUIC listener.
     #[arg(long = "native-port", default_value_t = DEFAULT_NATIVE_PORT)]
     native_port: u16,
@@ -116,6 +128,23 @@ struct Args {
     /// Disable the local daemon API.
     #[arg(long = "disable-api")]
     disable_api: bool,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq, ValueEnum)]
+enum LocalSendReceivePolicyArg {
+    Prompt,
+    Trusted,
+    Auto,
+}
+
+impl From<LocalSendReceivePolicyArg> for LocalSendReceivePolicy {
+    fn from(value: LocalSendReceivePolicyArg) -> Self {
+        match value {
+            LocalSendReceivePolicyArg::Prompt => Self::Prompt,
+            LocalSendReceivePolicyArg::Trusted => Self::Trusted,
+            LocalSendReceivePolicyArg::Auto => Self::Auto,
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -318,6 +347,8 @@ async fn start_localsend_v2(state: &DaemonState) -> Result<LocalSendRuntime> {
         info: device_info.clone(),
         inbox_dir: state.inbox_dir.clone(),
         session_ttl: LOCALSEND_SESSION_TTL,
+        receive_policy: state.localsend_receive_policy.into(),
+        trusted_fingerprints: state.trusted_localsend_fingerprints.clone(),
         tls_identity: Some(tls_identity),
     })
     .await?;
@@ -706,6 +737,8 @@ mod tests {
         assert_eq!(args.alias, default_alias());
         assert_eq!(args.inbox, paths::default_inbox());
         assert!(!args.disable_localsend_v2);
+        assert_eq!(args.localsend_receive_policy, LocalSendReceivePolicyArg::Prompt);
+        assert!(args.trusted_localsend_fingerprint.is_empty());
     }
 
     #[test]
@@ -736,12 +769,18 @@ mod tests {
             "workstation",
             "--inbox",
             "/tmp/lsi-inbox",
+            "--localsend-receive-policy",
+            "trusted",
+            "--trusted-localsend-fingerprint",
+            "ios-fingerprint",
             "--disable-localsend-v2",
         ]);
 
         assert_eq!(args.localsend_port, 4444);
         assert_eq!(args.alias, "workstation");
         assert_eq!(args.inbox, PathBuf::from("/tmp/lsi-inbox"));
+        assert_eq!(args.localsend_receive_policy, LocalSendReceivePolicyArg::Trusted);
+        assert_eq!(args.trusted_localsend_fingerprint, vec!["ios-fingerprint"]);
         assert!(args.disable_localsend_v2);
     }
 

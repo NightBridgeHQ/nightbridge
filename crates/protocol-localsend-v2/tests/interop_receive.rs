@@ -2,7 +2,9 @@ use std::time::Duration;
 
 use lsi_protocol_localsend_v2::client::LocalSendClient;
 use lsi_protocol_localsend_v2::dto::{DeviceInfo, Protocol};
-use lsi_protocol_localsend_v2::server::{LocalSendServer, LocalSendServerConfig};
+use lsi_protocol_localsend_v2::server::{
+    LocalSendReceivePolicy, LocalSendServer, LocalSendServerConfig,
+};
 
 fn device_info(alias: &str, port: u16) -> DeviceInfo {
     DeviceInfo {
@@ -28,6 +30,8 @@ async fn local_client_uploads_file_to_local_receiver() {
         info: device_info("Receiver", 0),
         inbox_dir: inbox.clone(),
         session_ttl: Duration::from_secs(60),
+        receive_policy: LocalSendReceivePolicy::Auto,
+        trusted_fingerprints: Default::default(),
         tls_identity: None,
     };
     let server = LocalSendServer::bind(config).await.unwrap();

@@ -12,21 +12,31 @@ ecosystem without keeping the official desktop app open.
    cargo build --release -p lsi-daemon
    ```
 
-2. Start the daemon with an inbox path and LocalSend port.
+2. Start the daemon with an inbox path, LocalSend port, and an explicit receive
+   policy.
 
    ```bash
    target/release/night-bridge-daemon \
      --alias "NAS" \
      --inbox "$HOME/LocalSendInbox" \
-     --localsend-port 53317
+     --localsend-port 53317 \
+     --localsend-receive-policy trusted \
+     --trusted-localsend-fingerprint <official-app-fingerprint>
    ```
 
 3. Open the official LocalSend app on your phone or desktop.
 4. Select the daemon by alias and send a file.
 5. Check the daemon inbox.
 
-The LocalSend v2 compatibility path keeps official app behavior, including its
-self-signed HTTPS compatibility expectations.
+The daemon defaults to `--localsend-receive-policy prompt`, which rejects
+incoming LocalSend uploads until an approval workflow is available. Use
+`trusted` with one or more `--trusted-localsend-fingerprint` values for
+unattended receive from known devices. Use `auto` only on a trusted test LAN;
+it accepts any LocalSend-compatible sender that can reach the daemon port.
+
+The LocalSend v2 compatibility path keeps official app behavior, including
+self-signed HTTPS compatibility expectations, but receive authorization remains
+controlled by the daemon policy above.
 
 ## Send From CLI To A LocalSend Peer
 

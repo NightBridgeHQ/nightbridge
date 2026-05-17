@@ -51,6 +51,33 @@ root and inbox arguments.
 Bind API ports to localhost unless an external reverse proxy or firewall policy
 protects them.
 
+## LocalSend Receive Policy
+
+Incoming LocalSend-compatible uploads are not auto-accepted by default.
+
+Policies:
+
+- `prompt`: default. Reject incoming uploads until an operator approval flow is
+  available.
+- `trusted`: accept only peers whose LocalSend fingerprint is listed with
+  `--trusted-localsend-fingerprint`.
+- `auto`: accept any LocalSend-compatible sender that can reach the daemon
+  port. Use only on trusted test LANs.
+
+Example trusted receive:
+
+```bash
+night-bridge-daemon \
+  --localsend-receive-policy trusted \
+  --trusted-localsend-fingerprint <official-app-fingerprint>
+```
+
+Example explicit compatibility testing mode:
+
+```bash
+night-bridge-daemon --localsend-receive-policy auto
+```
+
 ## API Token
 
 The daemon API requires a bearer token. The token is stored in the API token

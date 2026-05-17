@@ -55,5 +55,8 @@ or a future relay-capable deployment.
 - No third-party audit has been completed.
 - Existing trusted peers without native certificate metadata must be re-paired
   or refreshed before native WAN auto-send works.
+- LocalSend-compatible receive defaults to `prompt`, which rejects incoming
+  uploads until an approval workflow exists. Use `trusted` with explicit
+  LocalSend fingerprints for unattended receive from known official apps.
 - Official LocalSend app matrix evidence is still manual.
 - Public relay/VIP fallback is not part of the open-base v1 build.

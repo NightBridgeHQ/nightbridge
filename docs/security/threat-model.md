@@ -30,6 +30,10 @@ VIP relay services.
 
 - LocalSend v2 compatibility accepts official-app self-signed HTTPS behavior
   only inside the LocalSend compatibility protocol path.
+- LocalSend v2 receive authorization is controlled by
+  `--localsend-receive-policy`. The default `prompt` mode rejects incoming
+  uploads until an approval flow exists; `trusted` requires allowlisted
+  LocalSend fingerprints; `auto` is explicit trusted-LAN compatibility mode.
 - Native QUIC uses TLS 1.3 and Ed25519 peer identity, with outbound sends pinned
   to trusted peer certificate fingerprints before transfer data is sent.
 - Daemon API access is protected by a bearer token and should be bound only to
@@ -43,6 +47,8 @@ VIP relay services.
 ## Mitigations
 
 - Bearer-token authentication protects HTTP and gRPC daemon APIs.
+- Incoming LocalSend-compatible uploads are rejected by default unless the
+  operator chooses trusted fingerprint allowlisting or explicit auto-accept.
 - Native peers advertise Ed25519 public keys and stable fingerprints.
 - Trust policies distinguish `auto_accept`, `prompt`, and `block`.
 - Native outbound WAN sends require trusted peer records and pinned certificate
@@ -60,7 +66,7 @@ VIP relay services.
 - Desktop packages are unsigned until platform signing and notarization
   credentials are configured.
 - LocalSend v2 compatibility intentionally permits official-app self-signed TLS
-  behavior.
+  behavior inside that protocol path.
 - Rendezvous server certificates still need an operator trust model before
   public deployment.
 - There is no completed third-party security audit.

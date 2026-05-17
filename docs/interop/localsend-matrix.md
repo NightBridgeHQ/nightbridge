@@ -7,7 +7,7 @@ candidate.
 | Platform | LocalSend version | Receive official app to daemon | Send daemon/CLI to official app | Discovery method | Evidence path | Status |
 | --- | --- | --- | --- | --- | --- | --- |
 | Android | TBD | Manual | Manual | LAN multicast / manual URL | `target/interop/android/` | Pending official-device run |
-| iOS | TBD | Passed manual send from official app to daemon | Passed manual accept from daemon/CLI to official app | Manual URL `https://10.16.20.53:53317`; LAN multicast discovery did not find peer | `target/interop/ios/` | PASS for manual iOS coverage |
+| iOS | TBD | Passed before receive-policy hardening; retest with `trusted` pending | Passed manual accept from daemon/CLI to official app | Manual URL `https://10.16.20.53:53317`; LAN multicast discovery did not find peer | `target/interop/ios/` | Partial after receive-policy hardening |
 | Desktop macOS | TBD | Manual | Manual | LAN multicast / manual URL | `target/interop/macos/` | Pending official-app run |
 | Desktop Windows | TBD | Manual | Manual | LAN multicast / manual URL | `target/interop/windows/` | Pending official-app run |
 | Desktop Linux | TBD | Manual | Manual | LAN multicast / manual URL | `target/interop/linux/` | Pending official-app run |
@@ -26,7 +26,9 @@ matrix above.
 
 ## Current Manual Findings
 
-- iOS official LocalSend app can send files to the daemon.
+- iOS official LocalSend app could send files to the daemon before receive
+  policy hardening. This path must be retested with
+  `--localsend-receive-policy trusted` and an allowlisted iOS fingerprint.
 - iOS official LocalSend app can receive from the NightBridge CLI through
   manual URL send. LAN discovery did not find the peer in this run.
 - The iOS receive test sent `docs/release/versioning.md` to
@@ -36,6 +38,8 @@ matrix above.
   runs.
 
 ## iOS Evidence
+
+### Daemon/CLI To Official iOS App
 
 - Date: 2026-05-17
 - Commit: `c510bd2`
@@ -50,6 +54,20 @@ cargo run -p lsi-cli --bin night-bridge -- send --direct --url https://10.16.20.
 
 - CLI result: `sent 1 file(s)`
 - User confirmation: iOS device received `versioning.md`
+
+### Official iOS App To Daemon
+
+- Status: retest required after receive-policy hardening.
+- Required daemon mode:
+
+```bash
+night-bridge-daemon \
+  --localsend-receive-policy trusted \
+  --trusted-localsend-fingerprint <ios-local-send-fingerprint>
+```
+
+- Expected: unknown iOS fingerprints are rejected before upload session
+  creation; allowlisted iOS fingerprint can send.
 
 ## Manual Evidence
 

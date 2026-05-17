@@ -24,11 +24,13 @@ owner is ready to:
 
 NightBridge `26.5.0` must not be tagged until:
 
-- final `scripts/preflight-26.5.sh` evidence passes and is attached to the
-  release notes
+- final `scripts/preflight-26.5.sh` evidence passes on the release commit and
+  is attached to the release notes
 - real 7-day native soak evidence passes
 - official LocalSend app interop is completed or explicitly scoped down,
   especially daemon/CLI-to-official-app acceptance
+- official LocalSend app send-to-daemon is retested with
+  `--localsend-receive-policy trusted`
 - release artifacts are reproducible from a clean final `dist/` directory
 - checksums and SBOM are generated for the final artifacts
 - Docker and systemd validation run on representative target hosts or are
