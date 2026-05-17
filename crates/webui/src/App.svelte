@@ -27,6 +27,14 @@
   $: lanCount = snapshot?.lanPeers.length ?? 0;
   $: inboxCount = snapshot?.inbox.length ?? 0;
   $: transferCount = snapshot?.transfers.length ?? 0;
+  $: transferFailure =
+    state.lastEvent?.type === "transfer_failed" && state.lastEvent.error?.message
+      ? {
+          transferId: state.lastEvent.transfer_id,
+          code: state.lastEvent.error.code,
+          message: state.lastEvent.error.message
+        }
+      : null;
   $: statusValue = state.connection === "connected" ? "online" : state.connection;
   $: standaloneLabel = state.guiMode === "standalone" ? `standalone ${state.standalone}` : "remote daemon";
   $: tokenInput = state.token;
@@ -165,6 +173,13 @@
         {#if state.lastEvent}
           <p class="event">Last event: {state.lastEvent.type ?? "daemon"}</p>
         {/if}
+        {#if transferFailure}
+          <div class="diagnostic" role="status">
+            <strong>{transferFailure.code ?? "transfer failed"}</strong>
+            <span>{transferFailure.message}</span>
+            {#if transferFailure.transferId}<small>{transferFailure.transferId}</small>{/if}
+          </div>
+        {/if}
       {:else if activeTab === "Peers"}
         <h2>Peers</h2>
         <div class="table">
@@ -184,6 +199,13 @@
         </div>
       {:else if activeTab === "Transfers"}
         <h2>Transfers</h2>
+        {#if transferFailure}
+          <div class="diagnostic" role="status">
+            <strong>{transferFailure.code ?? "transfer failed"}</strong>
+            <span>{transferFailure.message}</span>
+            {#if transferFailure.transferId}<small>{transferFailure.transferId}</small>{/if}
+          </div>
+        {/if}
         {#if transferCount === 0}
           <p class="empty">No active transfers</p>
         {:else}

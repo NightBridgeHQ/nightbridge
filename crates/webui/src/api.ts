@@ -36,6 +36,11 @@ export type InboxEntry = {
 
 export type Transfer = Record<string, unknown>;
 
+export type TransferFailureError = {
+  code?: string;
+  message?: string;
+};
+
 export type DaemonSnapshot = {
   status: DaemonStatus;
   trustedPeers: TrustedPeer[];
@@ -48,6 +53,8 @@ export type DaemonEvent = {
   event_id?: string;
   occurred_at_unix_seconds?: number;
   type?: string;
+  error?: TransferFailureError | null;
+  transfer_id?: string;
   [key: string]: unknown;
 };
 

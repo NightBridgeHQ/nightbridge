@@ -192,9 +192,32 @@ pre {
 }
 
 .event,
+.diagnostic,
 .empty,
 .error {
   margin-top: 14px;
+}
+
+.diagnostic {
+  display: grid;
+  gap: 4px;
+  padding: 12px;
+  border: 1px solid #f4b8a4;
+  border-radius: 6px;
+  background: #fff4ef;
+}
+
+.diagnostic strong {
+  color: #9f2a12;
+}
+
+.diagnostic span,
+.diagnostic small {
+  overflow-wrap: anywhere;
+}
+
+.diagnostic small {
+  color: #536273;
 }
 
 .error {
