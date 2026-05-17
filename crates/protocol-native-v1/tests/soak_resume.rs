@@ -11,7 +11,8 @@ use tokio::io::{AsyncReadExt, AsyncSeekExt, AsyncWriteExt};
 const CHUNK_SIZE: u64 = 1024 * 1024;
 const DEFAULT_SOAK_SIZE: u64 = 16 * 1024 * 1024;
 const EXTENDED_SOAK_SIZE: u64 = 128 * 1024 * 1024;
-const FORCED_RECONNECTS: u64 = 10;
+const DEFAULT_SOAK_RECONNECTS: u64 = 10;
+const DEFAULT_SOAK_SEED: u64 = 0;
 
 fn peer() -> NativePeerInfo {
     NativePeerInfo {
@@ -31,12 +32,21 @@ async fn repeated_interruptions_resume_to_matching_file_hash() {
     let inbox = temp.path().join("inbox");
     let manifest_path = temp.path().join("manifest.db");
     let file_size = soak_size();
+    let reconnects = soak_reconnects();
+    let seed = soak_seed();
 
-    let source_hash = write_patterned_file(&source, file_size).await.unwrap();
+    let source_hash = write_patterned_file(&source, file_size, seed).await.unwrap();
     let sender = NativeTransferSender::new(CHUNK_SIZE);
     let request = sender.prepare_files(&[source.clone()]).await.unwrap();
 
-    for reconnect_index in 0..FORCED_RECONNECTS {
+    let receiver = NativeTransferReceiver::trusted(
+        inbox.clone(),
+        ManifestStore::open(&manifest_path).unwrap(),
+        peer().fingerprint,
+    );
+    receiver.accept_transfer(&peer(), &request).await.unwrap();
+
+    for reconnect_index in 0..interrupted_reconnects(file_size, reconnects) {
         let receiver = NativeTransferReceiver::trusted(
             inbox.clone(),
             ManifestStore::open(&manifest_path).unwrap(),
@@ -60,8 +70,9 @@ async fn repeated_interruptions_resume_to_matching_file_hash() {
     );
 
     let plan = receiver.resume_plan(&request.transfer_id, CHUNK_SIZE).unwrap();
-    let missing_before_resume = plan.missing.get("file-0").unwrap();
-    assert!(!missing_before_resume.is_empty(), "soak setup must leave ranges to resume");
+    let has_missing_before_resume =
+        plan.missing.get("file-0").map(|ranges| !ranges.is_empty()).unwrap_or(true);
+    assert!(has_missing_before_resume, "soak setup must leave ranges to resume");
 
     // Until QUIC/daemon wiring lands, this harness simulates reconnects by recreating the
     // receiver over a persistent manifest. The final call exercises the public resume path.
@@ -73,21 +84,40 @@ async fn repeated_interruptions_resume_to_matching_file_hash() {
 }
 
 fn soak_size() -> u64 {
-    if std::env::var_os("LSI_SOAK").is_some() {
-        EXTENDED_SOAK_SIZE
-    } else {
-        DEFAULT_SOAK_SIZE
-    }
+    env_u64("LSI_SOAK_BYTES").unwrap_or_else(|| {
+        if std::env::var_os("LSI_SOAK").is_some() {
+            EXTENDED_SOAK_SIZE
+        } else {
+            DEFAULT_SOAK_SIZE
+        }
+    })
 }
 
-async fn write_patterned_file(path: &Path, size: u64) -> std::io::Result<String> {
+fn soak_reconnects() -> u64 {
+    env_u64("LSI_SOAK_RECONNECTS").unwrap_or(DEFAULT_SOAK_RECONNECTS)
+}
+
+fn soak_seed() -> u64 {
+    env_u64("LSI_SOAK_SEED").unwrap_or(DEFAULT_SOAK_SEED)
+}
+
+fn interrupted_reconnects(file_size: u64, requested_reconnects: u64) -> u64 {
+    let chunks = file_size.div_ceil(CHUNK_SIZE);
+    requested_reconnects.min(chunks.saturating_sub(1))
+}
+
+fn env_u64(name: &str) -> Option<u64> {
+    std::env::var(name).ok().and_then(|value| value.parse::<u64>().ok())
+}
+
+async fn write_patterned_file(path: &Path, size: u64, seed: u64) -> std::io::Result<String> {
     let mut file = fs::File::create(path).await?;
     let mut hasher = blake3::Hasher::new();
     let mut written = 0_u64;
 
     while written < size {
         let len = (size - written).min(CHUNK_SIZE) as usize;
-        let bytes = patterned_bytes(written, len);
+        let bytes = patterned_bytes(written, len, seed);
         file.write_all(&bytes).await?;
         hasher.update(&bytes);
         written += len as u64;
@@ -121,21 +151,42 @@ async fn hash_file(path: &Path) -> std::io::Result<String> {
     Ok(hasher.finalize().to_hex().to_string())
 }
 
-fn patterned_bytes(offset: u64, len: usize) -> Vec<u8> {
+fn patterned_bytes(offset: u64, len: usize, seed: u64) -> Vec<u8> {
     let mut bytes = Vec::with_capacity(len);
     for index in 0..len {
         let position = offset + index as u64;
-        bytes.push(((position.wrapping_mul(31) ^ (position >> 7) ^ 0xa5) & 0xff) as u8);
+        bytes.push(((position.wrapping_mul(31) ^ (position >> 7) ^ seed ^ 0xa5) & 0xff) as u8);
     }
     bytes
 }
 
 #[test]
 fn patterned_bytes_have_stable_hash() {
-    let bytes = patterned_bytes(4096, 1024);
+    let bytes = patterned_bytes(4096, 1024, DEFAULT_SOAK_SEED);
 
     assert_eq!(
         blake3_hex(bytes),
         "206e6997faef0f33f3e624cd7f38a9ecf09a92c326324a2f32a0c5ac9eaba923"
     );
+}
+
+#[test]
+fn soak_controls_read_environment_overrides() {
+    std::env::set_var("LSI_SOAK_BYTES", "1048576");
+    std::env::set_var("LSI_SOAK_RECONNECTS", "2");
+    std::env::set_var("LSI_SOAK_SEED", "99");
+
+    assert_eq!(soak_size(), 1_048_576);
+    assert_eq!(soak_reconnects(), 2);
+    assert_eq!(soak_seed(), 99);
+
+    std::env::remove_var("LSI_SOAK_BYTES");
+    std::env::remove_var("LSI_SOAK_RECONNECTS");
+    std::env::remove_var("LSI_SOAK_SEED");
+}
+
+#[test]
+fn interrupted_reconnects_leave_data_for_resume() {
+    assert_eq!(interrupted_reconnects(CHUNK_SIZE, 2), 0);
+    assert_eq!(interrupted_reconnects(CHUNK_SIZE * 4, 10), 3);
 }
