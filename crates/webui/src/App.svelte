@@ -8,6 +8,8 @@
     refreshSnapshot,
     saveDesktopSettings,
     setToken,
+    startStandaloneDaemon,
+    stopStandaloneDaemon,
     type GuiMode
   } from "./state";
 
@@ -26,6 +28,7 @@
   $: inboxCount = snapshot?.inbox.length ?? 0;
   $: transferCount = snapshot?.transfers.length ?? 0;
   $: statusValue = state.connection === "connected" ? "online" : state.connection;
+  $: standaloneLabel = state.guiMode === "standalone" ? `standalone ${state.standalone}` : "remote daemon";
   $: tokenInput = state.token;
   $: endpointInput = state.apiBase;
   $: modeInput = state.guiMode;
@@ -45,9 +48,19 @@
   }
 
   function saveDesktopConnection(): void {
-    void saveDesktopSettings(modeInput, endpointInput, tokenInput)
-      .then(refreshSnapshot)
-      .then(connectEvents);
+    if (modeInput === "standalone") {
+      void saveDesktopSettings(modeInput, "", "")
+        .then(startStandaloneDaemon)
+        .then(refreshSnapshot)
+        .then(connectEvents);
+      return;
+    }
+
+    void saveDesktopSettings(modeInput, endpointInput, tokenInput).then(refreshSnapshot).then(connectEvents);
+  }
+
+  function stopStandalone(): void {
+    void stopStandaloneDaemon();
   }
 </script>
 
@@ -84,11 +97,20 @@
         <input id="remote-endpoint" type="url" placeholder="http://127.0.0.1:53317" bind:value={endpointInput} />
       {/if}
 
-      <label for="desktop-api-token">API token</label>
-      <input id="desktop-api-token" type="password" bind:value={tokenInput} autocomplete="off" />
+      {#if modeInput === "remote"}
+        <label for="desktop-api-token">API token</label>
+        <input id="desktop-api-token" type="password" bind:value={tokenInput} autocomplete="off" />
+      {:else}
+        <p class="event">Standalone daemon: {state.standalone}</p>
+      {/if}
 
       <div class="actions">
-        <button type="button" on:click={saveDesktopConnection}>Connect</button>
+        <button type="button" on:click={saveDesktopConnection}>
+          {modeInput === "standalone" ? "Start" : "Connect"}
+        </button>
+        {#if state.guiMode === "standalone" && state.standalone === "running"}
+          <button type="button" on:click={stopStandalone}>Stop</button>
+        {/if}
       </div>
       {#if state.error}<p class="error">{state.error}</p>{/if}
     </section>
@@ -98,7 +120,7 @@
     <article>
       <span>Daemon</span>
       <strong>{statusValue}</strong>
-      <small>{snapshot?.status.version ?? state.error ?? "Token required"}</small>
+      <small>{snapshot?.status.version ?? state.error ?? standaloneLabel}</small>
     </article>
     <article>
       <span>Peers</span>
@@ -182,13 +204,27 @@
         <h2>Settings</h2>
         <form class="settings" on:submit|preventDefault={saveToken}>
           {#if state.isDesktop}
-            <label for="settings-endpoint">Daemon endpoint</label>
-            <input id="settings-endpoint" type="url" bind:value={endpointInput} autocomplete="off" />
+            <label for="settings-mode">Desktop mode</label>
+            <select id="settings-mode" bind:value={modeInput}>
+              <option value="remote">Remote daemon</option>
+              <option value="standalone">Standalone local daemon</option>
+            </select>
+            {#if modeInput === "remote"}
+              <label for="settings-endpoint">Daemon endpoint</label>
+              <input id="settings-endpoint" type="url" bind:value={endpointInput} autocomplete="off" />
+            {:else}
+              <p class="event">Standalone daemon: {state.standalone}</p>
+            {/if}
           {/if}
-          <label for="api-token">API token</label>
-          <input id="api-token" type="password" bind:value={tokenInput} autocomplete="off" />
+          {#if !state.isDesktop || modeInput === "remote"}
+            <label for="api-token">API token</label>
+            <input id="api-token" type="password" bind:value={tokenInput} autocomplete="off" />
+          {/if}
           {#if state.isDesktop}
             <button type="button" on:click={saveDesktopConnection}>Save connection</button>
+            {#if state.guiMode === "standalone" && state.standalone === "running"}
+              <button type="button" on:click={stopStandalone}>Stop standalone daemon</button>
+            {/if}
           {:else}
             <button type="submit">Save token</button>
           {/if}

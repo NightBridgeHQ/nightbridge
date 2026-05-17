@@ -9,12 +9,14 @@ const MODE_KEY = "lsi.guiMode";
 export type GuiMode = "remote" | "standalone";
 
 export type ConnectionState = "disconnected" | "connecting" | "connected" | "error";
+export type StandaloneState = "stopped" | "starting" | "running" | "error";
 
 export type AppState = {
   token: string;
   apiBase: string;
   guiMode: GuiMode;
   isDesktop: boolean;
+  standalone: StandaloneState;
   connection: ConnectionState;
   snapshot: DaemonSnapshot | null;
   lastEvent: DaemonEvent | null;
@@ -24,6 +26,12 @@ export type AppState = {
 type DesktopSettings = {
   mode: GuiMode;
   remote_endpoint: string | null;
+  api_token: string | null;
+};
+
+type EmbeddedDaemonStatus = {
+  running: boolean;
+  endpoint: string | null;
   api_token: string | null;
 };
 
@@ -40,6 +48,7 @@ export const appState = writable<AppState>({
   apiBase: initialApiBase,
   guiMode: initialGuiMode,
   isDesktop: isTauri,
+  standalone: "stopped",
   connection: initialToken ? "disconnected" : "disconnected",
   snapshot: null,
   lastEvent: null,
@@ -101,6 +110,10 @@ export async function loadDesktopSettings(): Promise<void> {
     setGuiMode(settings.mode);
     setDaemonApiBase(settings.remote_endpoint ?? "");
     setToken(settings.api_token ?? "");
+    if (settings.mode === "standalone") {
+      const status = await invoke<EmbeddedDaemonStatus>("gui_embedded_daemon_status");
+      applyEmbeddedDaemonStatus(status);
+    }
   } catch (error) {
     appState.update((state) => ({
       ...state,
@@ -135,6 +148,77 @@ export async function saveDesktopSettings(mode: GuiMode, endpoint: string, token
   setGuiMode(mode);
   setDaemonApiBase(mode === "remote" ? trimmedEndpoint : "");
   setToken(trimmedToken);
+}
+
+export async function startStandaloneDaemon(): Promise<void> {
+  if (!isTauri) {
+    appState.update((state) => ({
+      ...state,
+      standalone: "error",
+      connection: "error",
+      error: "Standalone mode requires the desktop app"
+    }));
+    return;
+  }
+
+  appState.update((state) => ({ ...state, standalone: "starting", connection: "connecting", error: null }));
+  try {
+    const status = await invoke<EmbeddedDaemonStatus>("gui_start_embedded_daemon");
+    applyEmbeddedDaemonStatus(status);
+  } catch (error) {
+    appState.update((state) => ({
+      ...state,
+      standalone: "error",
+      connection: "error",
+      error: error instanceof Error ? error.message : String(error)
+    }));
+  }
+}
+
+export async function stopStandaloneDaemon(): Promise<void> {
+  if (!isTauri) {
+    return;
+  }
+
+  try {
+    await invoke("gui_stop_embedded_daemon");
+    disconnectEvents();
+    setDaemonApiBase("");
+    setToken("");
+    appState.update((state) => ({
+      ...state,
+      standalone: "stopped",
+      connection: "disconnected",
+      snapshot: null,
+      lastEvent: null,
+      error: null
+    }));
+  } catch (error) {
+    appState.update((state) => ({
+      ...state,
+      standalone: "error",
+      connection: "error",
+      error: error instanceof Error ? error.message : String(error)
+    }));
+  }
+}
+
+function applyEmbeddedDaemonStatus(status: EmbeddedDaemonStatus): void {
+  if (!status.running) {
+    appState.update((state) => ({
+      ...state,
+      standalone: "stopped",
+      connection: "disconnected",
+      snapshot: null,
+      error: null
+    }));
+    return;
+  }
+
+  setGuiMode("standalone");
+  setDaemonApiBase(status.endpoint ?? "");
+  setToken(status.api_token ?? "");
+  appState.update((state) => ({ ...state, standalone: "running", error: null }));
 }
 
 export async function refreshSnapshot(): Promise<void> {
