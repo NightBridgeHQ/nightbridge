@@ -54,6 +54,8 @@ pub struct Peer {
     pub trusted_at: i64,
     /// Unix timestamp of most recent sighting; `None` until seen.
     pub last_seen: Option<i64>,
+    /// Pinned native QUIC server certificate fingerprint, if known.
+    pub native_certificate_fingerprint: Option<String>,
     /// Auto-accept, prompt, or block.
     pub policy: PeerPolicy,
 }
@@ -70,6 +72,7 @@ impl TrustStore {
         conn.pragma_update(None, "journal_mode", "WAL")?;
         conn.pragma_update(None, "foreign_keys", "ON")?;
         conn.execute_batch(SCHEMA)?;
+        migrate_schema(&conn)?;
         Ok(Self { conn: Mutex::new(conn) })
     }
 
@@ -77,6 +80,7 @@ impl TrustStore {
     pub fn open_in_memory() -> Result<Self> {
         let conn = Connection::open_in_memory()?;
         conn.execute_batch(SCHEMA)?;
+        migrate_schema(&conn)?;
         Ok(Self { conn: Mutex::new(conn) })
     }
 
@@ -98,6 +102,40 @@ impl TrustStore {
             .ok_or_else(|| CoreError::TrustStore("peer disappeared after insert".into()))
     }
 
+    /// Insert or update a peer and pin its native QUIC certificate fingerprint.
+    pub fn trust_with_native_certificate(
+        &self,
+        pubkey: [u8; 32],
+        label: &str,
+        policy: PeerPolicy,
+        native_certificate_fingerprint: &str,
+    ) -> Result<Peer> {
+        validate_certificate_fingerprint(native_certificate_fingerprint)?;
+        let fingerprint = Fingerprint::from_pubkey(&pubkey);
+        let now = now_unix();
+        let conn = self.conn.lock().expect("trust store mutex poisoned");
+        conn.execute(
+            "INSERT INTO peers
+               (fingerprint, pubkey, label, trusted_at, policy, native_certificate_fingerprint)
+             VALUES (?, ?, ?, ?, ?, ?)
+             ON CONFLICT(fingerprint) DO UPDATE SET
+               label = excluded.label,
+               policy = excluded.policy,
+               native_certificate_fingerprint = excluded.native_certificate_fingerprint",
+            params![
+                fingerprint.to_string(),
+                pubkey.as_slice(),
+                label,
+                now,
+                policy.as_str(),
+                native_certificate_fingerprint
+            ],
+        )?;
+        drop(conn);
+        self.get(&fingerprint)?
+            .ok_or_else(|| CoreError::TrustStore("peer disappeared after insert".into()))
+    }
+
     /// Remove a peer by fingerprint. Returns `true` when a row was removed.
     pub fn untrust(&self, fingerprint: &Fingerprint) -> Result<bool> {
         let conn = self.conn.lock().expect("trust store mutex poisoned");
@@ -110,7 +148,8 @@ impl TrustStore {
     pub fn get(&self, fingerprint: &Fingerprint) -> Result<Option<Peer>> {
         let conn = self.conn.lock().expect("trust store mutex poisoned");
         let mut stmt = conn.prepare(
-            "SELECT fingerprint, pubkey, label, trusted_at, last_seen, policy
+            "SELECT fingerprint, pubkey, label, trusted_at, last_seen,
+                    native_certificate_fingerprint, policy
              FROM peers WHERE fingerprint = ?",
         )?;
         let mut rows = stmt.query(params![fingerprint.to_string()])?;
@@ -124,7 +163,8 @@ impl TrustStore {
     pub fn list(&self) -> Result<Vec<Peer>> {
         let conn = self.conn.lock().expect("trust store mutex poisoned");
         let mut stmt = conn.prepare(
-            "SELECT fingerprint, pubkey, label, trusted_at, last_seen, policy
+            "SELECT fingerprint, pubkey, label, trusted_at, last_seen,
+                    native_certificate_fingerprint, policy
              FROM peers ORDER BY trusted_at ASC",
         )?;
         let mut rows = stmt.query([])?;
@@ -143,6 +183,37 @@ impl TrustStore {
             params![now_unix(), fingerprint.to_string()],
         )?;
         Ok(())
+    }
+}
+
+fn migrate_schema(conn: &Connection) -> Result<()> {
+    if !column_exists(conn, "peers", "native_certificate_fingerprint")? {
+        conn.execute("ALTER TABLE peers ADD COLUMN native_certificate_fingerprint TEXT", [])?;
+    }
+    Ok(())
+}
+
+fn column_exists(conn: &Connection, table: &str, column: &str) -> Result<bool> {
+    let mut stmt = conn.prepare(&format!("PRAGMA table_info({table})"))?;
+    let mut rows = stmt.query([])?;
+    while let Some(row) = rows.next()? {
+        let name: String = row.get("name")?;
+        if name == column {
+            return Ok(true);
+        }
+    }
+    Ok(false)
+}
+
+fn validate_certificate_fingerprint(value: &str) -> Result<()> {
+    let valid = value.len() == 64
+        && value.chars().all(|ch| ch.is_ascii_hexdigit() && !ch.is_ascii_uppercase());
+    if valid {
+        Ok(())
+    } else {
+        Err(CoreError::TrustStore(
+            "native certificate fingerprint must be 64 lowercase hex characters".into(),
+        ))
     }
 }
 
@@ -170,6 +241,7 @@ fn row_to_peer(row: &rusqlite::Row<'_>) -> Result<Peer> {
         label: row.get("label")?,
         trusted_at: row.get("trusted_at")?,
         last_seen: row.get("last_seen")?,
+        native_certificate_fingerprint: row.get("native_certificate_fingerprint")?,
         policy: PeerPolicy::from_str(&policy_text)?,
     })
 }
@@ -191,6 +263,7 @@ mod tests {
         assert_eq!(peer.policy, PeerPolicy::AutoAccept);
         let fetched = store.get(&peer.fingerprint).unwrap().unwrap();
         assert_eq!(fetched.pubkey, pk);
+        assert!(fetched.native_certificate_fingerprint.is_none());
     }
 
     #[test]
@@ -232,6 +305,36 @@ mod tests {
         store.touch(&peer.fingerprint).unwrap();
         let updated = store.get(&peer.fingerprint).unwrap().unwrap();
         assert!(updated.last_seen.is_some());
+    }
+
+    #[test]
+    fn trust_with_native_certificate_roundtrip() {
+        let store = TrustStore::open_in_memory().unwrap();
+        let cert = "a".repeat(64);
+        let peer = store
+            .trust_with_native_certificate(
+                fixture_pubkey(12),
+                "native",
+                PeerPolicy::AutoAccept,
+                &cert,
+            )
+            .unwrap();
+
+        assert_eq!(peer.native_certificate_fingerprint.as_deref(), Some(cert.as_str()));
+        let fetched = store.get(&peer.fingerprint).unwrap().unwrap();
+        assert_eq!(fetched.native_certificate_fingerprint.as_deref(), Some(cert.as_str()));
+    }
+
+    #[test]
+    fn native_certificate_fingerprint_must_be_lowercase_sha256_hex() {
+        let store = TrustStore::open_in_memory().unwrap();
+        let error = store
+            .trust_with_native_certificate(fixture_pubkey(13), "bad", PeerPolicy::AutoAccept, "ABC")
+            .unwrap_err();
+
+        assert!(error
+            .to_string()
+            .contains("native certificate fingerprint must be 64 lowercase hex"));
     }
 
     #[test]

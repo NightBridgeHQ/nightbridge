@@ -43,6 +43,7 @@ message TrustedPeer {
   int64 trusted_at_unix_seconds = 4;
   optional int64 last_seen_unix_seconds = 5;
   PeerPolicy policy = 6;
+  optional string native_certificate_fingerprint = 7;
 }
 
 message LanPeer {

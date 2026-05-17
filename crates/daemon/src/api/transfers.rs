@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use lsi_core::identity::Fingerprint;
-use lsi_core::trust::TrustStore;
+use lsi_core::trust::{Peer, PeerPolicy, TrustStore};
 use lsi_proto::transfers::v1::{
     send_request, transfers_service_server::TransfersService, CancelRequest, CancelResponse,
     ListActiveTransfersRequest, ListActiveTransfersResponse, ResumeRequest, ResumeResponse,
@@ -11,6 +11,7 @@ use lsi_protocol_localsend_v2::{
     client::LocalSendClient,
     dto::{DeviceInfo, Protocol},
 };
+use lsi_protocol_native_v1::client::NativeTransferClient;
 use tonic::{Request, Response, Status};
 use uuid::Uuid;
 
@@ -124,13 +125,43 @@ async fn send_files_to_wan_peer(
         .map_err(|error| Status::internal(format!("failed to read trusted peer: {error}")))?
         .ok_or_else(|| Status::not_found(format!("trusted peer not found: {fingerprint}")))?;
 
-    let _candidates = wan::lookup_peer_candidates(&state.config.wan, &state.identity, peer.pubkey)
+    let expected_certificate_fingerprint = native_wan_certificate_fingerprint(&peer)?;
+    let candidates = wan::lookup_peer_candidates(&state.config.wan, &state.identity, peer.pubkey)
         .await
         .map_err(internal_status)?;
-    let _paths = paths;
-    Err(Status::failed_precondition(
-        "native WAN sends require pinned certificate metadata for the trusted peer",
-    ))
+    NativeTransferClient::send_files_to_candidates(
+        candidates,
+        paths,
+        state.identity.clone(),
+        expected_certificate_fingerprint,
+    )
+    .await
+    .map_err(internal_status)
+}
+
+fn native_wan_certificate_fingerprint(peer: &Peer) -> Result<String, Status> {
+    match peer.policy {
+        PeerPolicy::Block => {
+            return Err(Status::permission_denied(format!(
+                "trusted peer is blocked: {}",
+                peer.fingerprint
+            )));
+        }
+        PeerPolicy::Prompt => {
+            return Err(Status::permission_denied(format!(
+                "trusted peer requires prompt before native WAN send: {}",
+                peer.fingerprint
+            )));
+        }
+        PeerPolicy::AutoAccept => {}
+    }
+
+    peer.native_certificate_fingerprint.clone().ok_or_else(|| {
+        Status::failed_precondition(format!(
+            "trusted peer is missing native certificate metadata: {}; re-pair or refresh trust",
+            peer.fingerprint
+        ))
+    })
 }
 
 async fn validated_paths(paths: Vec<String>) -> Result<Vec<std::path::PathBuf>, Status> {
@@ -167,4 +198,63 @@ fn sender_info(state: &DaemonState) -> DeviceInfo {
 
 fn internal_status(error: impl std::fmt::Display) -> Status {
     Status::internal(error.to_string())
+}
+
+#[cfg(test)]
+mod tests {
+    use lsi_core::identity::Fingerprint;
+
+    use super::*;
+
+    fn peer(policy: PeerPolicy, native_certificate_fingerprint: Option<String>) -> Peer {
+        let pubkey = [7; 32];
+        Peer {
+            fingerprint: Fingerprint::from_pubkey(&pubkey),
+            pubkey,
+            label: "peer".to_string(),
+            trusted_at: 1,
+            last_seen: None,
+            native_certificate_fingerprint,
+            policy,
+        }
+    }
+
+    #[test]
+    fn native_wan_auto_accept_requires_certificate_metadata() {
+        let status =
+            native_wan_certificate_fingerprint(&peer(PeerPolicy::AutoAccept, None)).unwrap_err();
+
+        assert_eq!(status.code(), tonic::Code::FailedPrecondition);
+        assert!(status.message().contains("missing native certificate metadata"));
+    }
+
+    #[test]
+    fn native_wan_rejects_blocked_peer() {
+        let status =
+            native_wan_certificate_fingerprint(&peer(PeerPolicy::Block, Some("a".repeat(64))))
+                .unwrap_err();
+
+        assert_eq!(status.code(), tonic::Code::PermissionDenied);
+        assert!(status.message().contains("trusted peer is blocked"));
+    }
+
+    #[test]
+    fn native_wan_rejects_prompt_peer() {
+        let status =
+            native_wan_certificate_fingerprint(&peer(PeerPolicy::Prompt, Some("a".repeat(64))))
+                .unwrap_err();
+
+        assert_eq!(status.code(), tonic::Code::PermissionDenied);
+        assert!(status.message().contains("requires prompt"));
+    }
+
+    #[test]
+    fn native_wan_auto_accept_returns_certificate_metadata() {
+        let cert = "a".repeat(64);
+        let result =
+            native_wan_certificate_fingerprint(&peer(PeerPolicy::AutoAccept, Some(cert.clone())))
+                .unwrap();
+
+        assert_eq!(result, cert);
+    }
 }

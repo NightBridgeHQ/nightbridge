@@ -163,6 +163,7 @@ async fn list_trusted(
             label: peer.label,
             trusted_at_unix_seconds: peer.trusted_at,
             last_seen_unix_seconds: peer.last_seen,
+            native_certificate_fingerprint: peer.native_certificate_fingerprint,
             policy: match peer.policy {
                 CorePeerPolicy::AutoAccept => "auto_accept",
                 CorePeerPolicy::Prompt => "prompt",
@@ -521,6 +522,7 @@ struct TrustedPeerDto {
     label: String,
     trusted_at_unix_seconds: i64,
     last_seen_unix_seconds: Option<i64>,
+    native_certificate_fingerprint: Option<String>,
     policy: &'static str,
 }
 

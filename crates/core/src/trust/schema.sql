@@ -4,6 +4,7 @@ CREATE TABLE IF NOT EXISTS peers (
     label        TEXT NOT NULL DEFAULT '',
     trusted_at   INTEGER NOT NULL,
     last_seen    INTEGER,
+    native_certificate_fingerprint TEXT,
     policy       TEXT NOT NULL CHECK (policy IN ('auto_accept', 'prompt', 'block'))
                               DEFAULT 'prompt'
 );

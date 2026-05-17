@@ -268,6 +268,7 @@ mod tests {
         assert_eq!(peer.label, "workstation");
         assert_eq!(peer.trusted_at_unix_seconds, trusted.trusted_at);
         assert_eq!(peer.last_seen_unix_seconds, trusted.last_seen);
+        assert_eq!(peer.native_certificate_fingerprint, trusted.native_certificate_fingerprint);
         assert_eq!(peer.policy, PeerPolicy::AutoAccept as i32);
 
         fixture.stop().await;

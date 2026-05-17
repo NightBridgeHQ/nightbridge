@@ -71,6 +71,7 @@ fn trusted_peer(peer: Peer) -> TrustedPeer {
         trusted_at_unix_seconds: peer.trusted_at,
         last_seen_unix_seconds: peer.last_seen,
         policy: peer_policy(peer.policy) as i32,
+        native_certificate_fingerprint: peer.native_certificate_fingerprint,
     }
 }
 
