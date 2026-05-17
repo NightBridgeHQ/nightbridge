@@ -4,7 +4,7 @@
   "version": "0.1.0",
   "identifier": "com.localsendimproved.app",
   "build": {
-    "beforeBuildCommand": "npm run build --prefix ../webui",
+    "beforeBuildCommand": "npm run build --prefix webui",
     "frontendDist": "../webui/dist",
     "devUrl": "http://localhost:5173"
   },

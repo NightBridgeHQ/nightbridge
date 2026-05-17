@@ -19,6 +19,12 @@ tauri = { version = "=2.0.0", features = [] }
 thiserror.workspace = true
 url.workspace = true
 
+[target.'cfg(target_vendor = "apple")'.dependencies]
+# Tauri CLI enables tauri/native-tls for release bundles. Newer native-tls
+# and security-framework releases exceed the workspace Rust 1.78 MSRV.
+native-tls = "=0.2.13"
+security-framework = "=2.11.1"
+
 [build-dependencies]
 tauri-build = { version = "=2.0.0", features = [] }
 
