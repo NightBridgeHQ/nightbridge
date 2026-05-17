@@ -48,6 +48,11 @@ cd crates/gui
 Packaging and signing notes live in
 [docs/deploy/desktop-packaging.md](docs/deploy/desktop-packaging.md).
 
+## Operations
+
+Operator setup, service management, and troubleshooting live in the
+[operator guide](docs/operators/index.md).
+
 ## Security
 
 Security design and operator-facing risk notes:
