@@ -7,7 +7,7 @@ candidate.
 | Platform | LocalSend version | Receive official app to daemon | Send daemon/CLI to official app | Discovery method | Evidence path | Status |
 | --- | --- | --- | --- | --- | --- | --- |
 | Android | TBD | Manual | Manual | LAN multicast / manual URL | `target/interop/android/` | Pending official-device run |
-| iOS | TBD | Passed manual send from official app to daemon | Manual acceptance flow pending | LAN multicast / manual URL | `target/interop/ios/` | Partial official-device evidence |
+| iOS | TBD | Passed manual send from official app to daemon | Passed manual accept from daemon/CLI to official app | Manual URL `https://10.16.20.53:53317`; LAN multicast discovery did not find peer | `target/interop/ios/` | PASS for manual iOS coverage |
 | Desktop macOS | TBD | Manual | Manual | LAN multicast / manual URL | `target/interop/macos/` | Pending official-app run |
 | Desktop Windows | TBD | Manual | Manual | LAN multicast / manual URL | `target/interop/windows/` | Pending official-app run |
 | Desktop Linux | TBD | Manual | Manual | LAN multicast / manual URL | `target/interop/linux/` | Pending official-app run |
@@ -27,10 +27,29 @@ matrix above.
 ## Current Manual Findings
 
 - iOS official LocalSend app can send files to the daemon.
-- The unverified iOS path is the reverse direction: daemon/CLI sending to the
-  official iOS app and the user accepting the incoming file in the app.
+- iOS official LocalSend app can receive from the NightBridge CLI through
+  manual URL send. LAN discovery did not find the peer in this run.
+- The iOS receive test sent `docs/release/versioning.md` to
+  `https://10.16.20.53:53317` and the user confirmed the file was present on
+  the device.
 - Android and official desktop app evidence still need platform-specific manual
   runs.
+
+## iOS Evidence
+
+- Date: 2026-05-17
+- Commit: `c510bd2`
+- Sender: NightBridge CLI on macOS
+- Receiver: official LocalSend app on iOS
+- Discovery: manual URL after LAN discovery returned no peers
+- Command:
+
+```bash
+cargo run -p lsi-cli --bin night-bridge -- send --direct --url https://10.16.20.53:53317 docs/release/versioning.md
+```
+
+- CLI result: `sent 1 file(s)`
+- User confirmation: iOS device received `versioning.md`
 
 ## Manual Evidence
 
