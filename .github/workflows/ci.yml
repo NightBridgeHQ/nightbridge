@@ -86,6 +86,23 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       - run: bash scripts/localsend-interop-smoke.sh
 
+  gui-smoke:
+    name: GUI smoke (manual)
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: crates/webui/package-lock.json
+      - run: npm ci --prefix crates/webui
+      - run: bash -n scripts/gui-smoke.sh
+      - run: LSI_RUN_GUI_SMOKE=1 cargo test --test gui_smoke -- --nocapture
+
   wan-netns-smoke:
     name: WAN netns smoke (manual)
     runs-on: ubuntu-latest
