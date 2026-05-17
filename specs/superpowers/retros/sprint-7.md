@@ -81,8 +81,11 @@ bash scripts/localsend-interop-smoke.sh
 
 Result: `local_client_uploads_file_to_local_receiver` passed.
 
-Official LocalSend app verification remains manual and incomplete. The matrix
-is documented in `docs/interop/localsend-matrix.md`.
+iOS official app send-to-daemon has passed manual testing. The remaining iOS
+gap is the reverse acceptance flow: daemon/CLI sending to the official iOS app
+and the user accepting the incoming file in the app. Android and official
+desktop app verification remain manual and incomplete. The matrix is documented
+in `docs/interop/localsend-matrix.md`.
 
 ## GUI Smoke
 
@@ -201,7 +204,8 @@ Result:
 ## Remaining Risks
 
 - Real 7-day native soak has not passed.
-- Official LocalSend app interop matrix is not green yet.
+- Official LocalSend app interop matrix is not green yet; iOS send-to-daemon is
+  proven, but daemon/CLI-to-official-app acceptance is still pending.
 - Release artifacts are not proven reproducible from a clean final `dist/`
   directory.
 - `cargo-deb` and `cargo-generate-rpm` are missing locally, so package builds

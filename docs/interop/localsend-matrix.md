@@ -7,7 +7,7 @@ candidate.
 | Platform | LocalSend version | Receive official app to daemon | Send daemon/CLI to official app | Discovery method | Evidence path | Status |
 | --- | --- | --- | --- | --- | --- | --- |
 | Android | TBD | Manual | Manual | LAN multicast / manual URL | `target/interop/android/` | Pending official-device run |
-| iOS | TBD | Manual | Manual | LAN multicast / manual URL | `target/interop/ios/` | Pending official-device run |
+| iOS | TBD | Passed manual send from official app to daemon | Manual acceptance flow pending | LAN multicast / manual URL | `target/interop/ios/` | Partial official-device evidence |
 | Desktop macOS | TBD | Manual | Manual | LAN multicast / manual URL | `target/interop/macos/` | Pending official-app run |
 | Desktop Windows | TBD | Manual | Manual | LAN multicast / manual URL | `target/interop/windows/` | Pending official-app run |
 | Desktop Linux | TBD | Manual | Manual | LAN multicast / manual URL | `target/interop/linux/` | Pending official-app run |
@@ -23,6 +23,14 @@ cargo test -p lsi-protocol-localsend-v2 --test interop_receive -- --nocapture
 That test proves the LocalSend v2 client/server implementation can complete an
 upload against a local receiver. It is not a substitute for the official app
 matrix above.
+
+## Current Manual Findings
+
+- iOS official LocalSend app can send files to the daemon.
+- The unverified iOS path is the reverse direction: daemon/CLI sending to the
+  official iOS app and the user accepting the incoming file in the app.
+- Android and official desktop app evidence still need platform-specific manual
+  runs.
 
 ## Manual Evidence
 

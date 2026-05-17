@@ -93,9 +93,11 @@ Official LocalSend app matrix is manual unless LSI_OFFICIAL_LOCALSEND_ARTIFACT
 points to a verified headless-capable artifact for this platform.
 ```
 
-The official-app matrix is documented in `docs/interop/localsend-matrix.md`,
-but full official LocalSend app verification remains manual and incomplete for
-tagging 1.0.
+The official-app matrix is documented in `docs/interop/localsend-matrix.md`.
+iOS official app send-to-daemon has passed manual testing. The remaining iOS
+gap is the reverse acceptance flow: daemon/CLI sending to the official iOS app
+and the user accepting the incoming file in the app. Android and official
+desktop app verification remain manual and incomplete for tagging 1.0.
 
 ## GUI Smoke
 
@@ -199,7 +201,8 @@ Sprint 7 can close with a documented 1.0 no-go. A 1.0 release tag should not be
 created until:
 
 - real 7-day soak evidence passes and is attached
-- official LocalSend app interop is green or explicitly scoped down
+- official LocalSend app interop is green or explicitly scoped down, especially
+  the daemon/CLI-to-official-app acceptance flow
 - release artifact generation is reproducible from a clean release directory
 - `cargo-deb` and `cargo-generate-rpm` are available or package formats are
   explicitly deferred
