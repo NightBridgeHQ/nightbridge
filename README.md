@@ -3,7 +3,7 @@
 > Headless-first file transfer for homelab and server use cases.
 > Bidirectional compatibility with LocalSend v2 plus a native QUIC+TLS1.3+Ed25519 protocol.
 
-**Status:** pre-alpha. The repository now includes the headless daemon, CLI, LocalSend v2 receive/send paths, native QUIC transfer foundations, and Sprint 5 WAN rendezvous work for self-hosted candidate registration, lookup, and direct-path diagnostics. See [the v1 roadmap](docs/superpowers/plans/2026-05-10-localsend-improved-v1.md) and [Sprint 5 plan](docs/superpowers/plans/2026-05-15-sprint-5-wan-rendezvous.md).
+**Status:** pre-alpha. The repository now includes the headless daemon, CLI, LocalSend v2 receive/send paths, native QUIC transfer foundations, Sprint 5 WAN rendezvous work, and Sprint 6 Tauri desktop GUI scaffolding. Desktop packages are pre-release until signing, notarization, and updater infrastructure are configured. See [the v1 roadmap](docs/superpowers/plans/2026-05-10-localsend-improved-v1.md), [Sprint 5 plan](docs/superpowers/plans/2026-05-15-sprint-5-wan-rendezvous.md), and [Sprint 6 GUI plan](docs/superpowers/plans/2026-05-16-sprint-6-gui-tauri.md).
 
 ## Why?
 
@@ -22,6 +22,31 @@ public rendezvous service.
 
 - Deployment guide: [docs/deploy/rendezvous-on-a-vps.md](docs/deploy/rendezvous-on-a-vps.md)
 - Privacy model: [docs/security/rendezvous-privacy.md](docs/security/rendezvous-privacy.md)
+
+## Desktop GUI
+
+Sprint 6 adds a Tauri desktop app in `crates/gui` that bundles the existing
+Svelte WebUI from `crates/webui`. It supports remote daemon mode for connecting
+to an existing daemon endpoint and standalone local daemon mode for starting a
+local daemon process from the desktop app.
+
+Useful GUI checks:
+
+```bash
+npm run check --prefix crates/webui
+npm run build --prefix crates/webui
+cargo check -p lsi-gui
+```
+
+Local Tauri package build:
+
+```bash
+cd crates/gui
+../webui/node_modules/.bin/tauri build
+```
+
+Packaging and signing notes live in
+[docs/deploy/desktop-packaging.md](docs/deploy/desktop-packaging.md).
 
 ## License
 

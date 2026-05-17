@@ -16,7 +16,8 @@ body {
 }
 
 button,
-input {
+input,
+select {
   min-height: 36px;
   border: 1px solid #98a5b3;
   border-radius: 6px;
@@ -30,7 +31,13 @@ button {
   cursor: pointer;
 }
 
-input {
+button.active {
+  border-color: #1d4ed8;
+  background: #dbeafe;
+}
+
+input,
+select {
   width: 100%;
   padding: 0 10px;
 }
@@ -80,6 +87,28 @@ h2 {
   margin-top: 4px;
 }
 
+.desktop-setup {
+  display: grid;
+  gap: 10px;
+  max-width: 620px;
+  margin-bottom: 20px;
+  padding: 16px;
+  border: 1px solid #c8d0da;
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.desktop-setup label {
+  color: #536273;
+}
+
+.mode-switch,
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
 .summary {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -125,11 +154,6 @@ nav button {
   text-align: left;
 }
 
-nav button.active {
-  border-color: #1d4ed8;
-  background: #dbeafe;
-}
-
 .panel {
   min-height: 360px;
   padding: 18px;
@@ -168,9 +192,32 @@ pre {
 }
 
 .event,
+.diagnostic,
 .empty,
 .error {
   margin-top: 14px;
+}
+
+.diagnostic {
+  display: grid;
+  gap: 4px;
+  padding: 12px;
+  border: 1px solid #f4b8a4;
+  border-radius: 6px;
+  background: #fff4ef;
+}
+
+.diagnostic strong {
+  color: #9f2a12;
+}
+
+.diagnostic span,
+.diagnostic small {
+  overflow-wrap: anywhere;
+}
+
+.diagnostic small {
+  color: #536273;
 }
 
 .error {

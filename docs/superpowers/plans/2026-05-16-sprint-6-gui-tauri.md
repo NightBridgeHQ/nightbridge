@@ -108,18 +108,32 @@ Use official Tauri docs or local package metadata to confirm a Tauri 2.x combina
 Candidate crates to evaluate:
 
 ```toml
-tauri = { version = "=2.x.y", default-features = false, features = [] }
-tauri-build = "=2.x.y"
+tauri = { version = "=2.0.0", features = [] }
+tauri-build = "=2.0.0"
 ```
 
 Candidate npm packages to evaluate:
 
 ```json
-"@tauri-apps/cli": "2.x.y",
-"@tauri-apps/api": "2.x.y"
+"@tauri-apps/cli": "2.0.0",
+"@tauri-apps/api": "2.0.0"
 ```
 
 Expected: exact versions selected or a documented blocker if current Tauri requires a newer Rust toolchain.
+
+Sprint 6 preflight result:
+
+- `tauri = 2.0.0` and `tauri-build = 2.0.0` compile on Rust `1.78.0`.
+- Cargo's default resolution pulls newer compatible-range Tauri family crates and transitive crates with higher MSRV.
+- Keep the initial `Cargo.lock` resolution on the Tauri 2.0 line:
+  - `tauri-codegen = 2.0.0`
+  - `tauri-macros = 2.0.0`
+  - `tauri-runtime = 2.0.0`
+  - `tauri-runtime-wry = 2.0.0`
+  - `tauri-utils = 2.0.0`
+  - `plist = 1.7.0`
+  - `serde_with = 3.15.0`
+  - `serde_with_macros = 3.15.0`
 
 **Step 4: Commit only if the plan is updated**
 

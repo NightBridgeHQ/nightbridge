@@ -5,6 +5,28 @@ edition.workspace = true
 license.workspace = true
 repository.workspace = true
 rust-version.workspace = true
-description = "Tauri GUI (stub; implemented in Sprint 6)"
+description = "Tauri desktop GUI for LocalSend Improved"
+
+[[bin]]
+name = "localsend-improved-gui"
+path = "src/main.rs"
 
 [dependencies]
+directories.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+tauri = { version = "=2.0.0", features = [] }
+thiserror.workspace = true
+url.workspace = true
+
+[target.'cfg(target_vendor = "apple")'.dependencies]
+# Tauri CLI enables tauri/native-tls for release bundles. Newer native-tls
+# and security-framework releases exceed the workspace Rust 1.78 MSRV.
+native-tls = "=0.2.13"
+security-framework = "=2.11.1"
+
+[build-dependencies]
+tauri-build = { version = "=2.0.0", features = [] }
+
+[dev-dependencies]
+tempfile.workspace = true

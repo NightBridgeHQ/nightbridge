@@ -1,4 +1,5 @@
 /target
+crates/gui/gen/
 **/node_modules/
 **/__pycache__/
 **/.pytest_cache/

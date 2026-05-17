@@ -1,12 +1,25 @@
 <script lang="ts">
   import { onDestroy, onMount } from "svelte";
-  import { appState, connectEvents, disconnectEvents, refreshSnapshot, setToken } from "./state";
+  import {
+    appState,
+    connectEvents,
+    disconnectEvents,
+    loadDesktopSettings,
+    refreshSnapshot,
+    saveDesktopSettings,
+    setToken,
+    startStandaloneDaemon,
+    stopStandaloneDaemon,
+    type GuiMode
+  } from "./state";
 
   type Tab = "Dashboard" | "Peers" | "Transfers" | "Inbox" | "Settings";
 
   const tabs: Tab[] = ["Dashboard", "Peers", "Transfers", "Inbox", "Settings"];
   let activeTab: Tab = "Dashboard";
   let tokenInput = "";
+  let endpointInput = "";
+  let modeInput: GuiMode = "remote";
 
   $: state = $appState;
   $: snapshot = state.snapshot;
@@ -14,13 +27,23 @@
   $: lanCount = snapshot?.lanPeers.length ?? 0;
   $: inboxCount = snapshot?.inbox.length ?? 0;
   $: transferCount = snapshot?.transfers.length ?? 0;
+  $: transferFailure =
+    state.lastEvent?.type === "transfer_failed" && state.lastEvent.error?.message
+      ? {
+          transferId: state.lastEvent.transfer_id,
+          code: state.lastEvent.error.code,
+          message: state.lastEvent.error.message
+        }
+      : null;
   $: statusValue = state.connection === "connected" ? "online" : state.connection;
+  $: standaloneLabel = state.guiMode === "standalone" ? `standalone ${state.standalone}` : "remote daemon";
   $: tokenInput = state.token;
+  $: endpointInput = state.apiBase;
+  $: modeInput = state.guiMode;
+  $: showDesktopSetup = state.isDesktop && (!state.token || (state.guiMode === "remote" && !state.apiBase));
 
   onMount(() => {
-    if (state.token) {
-      void refreshSnapshot().then(connectEvents);
-    }
+    void loadDesktopSettings().then(() => refreshSnapshot()).then(connectEvents);
   });
 
   onDestroy(() => {
@@ -30,6 +53,22 @@
   function saveToken(): void {
     setToken(tokenInput);
     void refreshSnapshot().then(connectEvents);
+  }
+
+  function saveDesktopConnection(): void {
+    if (modeInput === "standalone") {
+      void saveDesktopSettings(modeInput, "", "")
+        .then(startStandaloneDaemon)
+        .then(refreshSnapshot)
+        .then(connectEvents);
+      return;
+    }
+
+    void saveDesktopSettings(modeInput, endpointInput, tokenInput).then(refreshSnapshot).then(connectEvents);
+  }
+
+  function stopStandalone(): void {
+    void stopStandaloneDaemon();
   }
 </script>
 
@@ -42,11 +81,54 @@
     <button type="button" on:click={() => void refreshSnapshot().then(connectEvents)}>Refresh</button>
   </header>
 
+  {#if showDesktopSetup}
+    <section class="desktop-setup" aria-label="Desktop connection setup">
+      <div class="mode-switch" role="group" aria-label="Desktop mode">
+        <button
+          type="button"
+          class:active={modeInput === "remote"}
+          on:click={() => (modeInput = "remote")}
+        >
+          Remote daemon
+        </button>
+        <button
+          type="button"
+          class:active={modeInput === "standalone"}
+          on:click={() => (modeInput = "standalone")}
+        >
+          Standalone local daemon
+        </button>
+      </div>
+
+      {#if modeInput === "remote"}
+        <label for="remote-endpoint">Daemon endpoint</label>
+        <input id="remote-endpoint" type="url" placeholder="http://127.0.0.1:53317" bind:value={endpointInput} />
+      {/if}
+
+      {#if modeInput === "remote"}
+        <label for="desktop-api-token">API token</label>
+        <input id="desktop-api-token" type="password" bind:value={tokenInput} autocomplete="off" />
+      {:else}
+        <p class="event">Standalone daemon: {state.standalone}</p>
+      {/if}
+
+      <div class="actions">
+        <button type="button" on:click={saveDesktopConnection}>
+          {modeInput === "standalone" ? "Start" : "Connect"}
+        </button>
+        {#if state.guiMode === "standalone" && state.standalone === "running"}
+          <button type="button" on:click={stopStandalone}>Stop</button>
+        {/if}
+      </div>
+      {#if state.error}<p class="error">{state.error}</p>{/if}
+    </section>
+  {/if}
+
   <section class="summary" aria-label="Daemon summary">
     <article>
       <span>Daemon</span>
       <strong>{statusValue}</strong>
-      <small>{snapshot?.status.version ?? state.error ?? "Token required"}</small>
+      <small>{snapshot?.status.version ?? state.error ?? standaloneLabel}</small>
     </article>
     <article>
       <span>Peers</span>
@@ -91,6 +173,13 @@
         {#if state.lastEvent}
           <p class="event">Last event: {state.lastEvent.type ?? "daemon"}</p>
         {/if}
+        {#if transferFailure}
+          <div class="diagnostic" role="status">
+            <strong>{transferFailure.code ?? "transfer failed"}</strong>
+            <span>{transferFailure.message}</span>
+            {#if transferFailure.transferId}<small>{transferFailure.transferId}</small>{/if}
+          </div>
+        {/if}
       {:else if activeTab === "Peers"}
         <h2>Peers</h2>
         <div class="table">
@@ -110,6 +199,13 @@
         </div>
       {:else if activeTab === "Transfers"}
         <h2>Transfers</h2>
+        {#if transferFailure}
+          <div class="diagnostic" role="status">
+            <strong>{transferFailure.code ?? "transfer failed"}</strong>
+            <span>{transferFailure.message}</span>
+            {#if transferFailure.transferId}<small>{transferFailure.transferId}</small>{/if}
+          </div>
+        {/if}
         {#if transferCount === 0}
           <p class="empty">No active transfers</p>
         {:else}
@@ -129,9 +225,31 @@
       {:else}
         <h2>Settings</h2>
         <form class="settings" on:submit|preventDefault={saveToken}>
-          <label for="api-token">API token</label>
-          <input id="api-token" type="password" bind:value={tokenInput} autocomplete="off" />
-          <button type="submit">Save token</button>
+          {#if state.isDesktop}
+            <label for="settings-mode">Desktop mode</label>
+            <select id="settings-mode" bind:value={modeInput}>
+              <option value="remote">Remote daemon</option>
+              <option value="standalone">Standalone local daemon</option>
+            </select>
+            {#if modeInput === "remote"}
+              <label for="settings-endpoint">Daemon endpoint</label>
+              <input id="settings-endpoint" type="url" bind:value={endpointInput} autocomplete="off" />
+            {:else}
+              <p class="event">Standalone daemon: {state.standalone}</p>
+            {/if}
+          {/if}
+          {#if !state.isDesktop || modeInput === "remote"}
+            <label for="api-token">API token</label>
+            <input id="api-token" type="password" bind:value={tokenInput} autocomplete="off" />
+          {/if}
+          {#if state.isDesktop}
+            <button type="button" on:click={saveDesktopConnection}>Save connection</button>
+            {#if state.guiMode === "standalone" && state.standalone === "running"}
+              <button type="button" on:click={stopStandalone}>Stop standalone daemon</button>
+            {/if}
+          {:else}
+            <button type="submit">Save token</button>
+          {/if}
         </form>
         {#if state.error}<p class="error">{state.error}</p>{/if}
       {/if}

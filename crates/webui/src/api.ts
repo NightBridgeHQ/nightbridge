@@ -36,6 +36,11 @@ export type InboxEntry = {
 
 export type Transfer = Record<string, unknown>;
 
+export type TransferFailureError = {
+  code?: string;
+  message?: string;
+};
+
 export type DaemonSnapshot = {
   status: DaemonStatus;
   trustedPeers: TrustedPeer[];
@@ -48,8 +53,23 @@ export type DaemonEvent = {
   event_id?: string;
   occurred_at_unix_seconds?: number;
   type?: string;
+  error?: TransferFailureError | null;
+  transfer_id?: string;
   [key: string]: unknown;
 };
+
+let apiBase = "";
+
+export function setApiBase(base: string): void {
+  apiBase = base.replace(/\/+$/, "");
+}
+
+export function resolveApiPath(path: string): string {
+  if (!path.startsWith("/")) {
+    throw new Error("API path must start with /");
+  }
+  return `${apiBase}${path}`;
+}
 
 const jsonHeaders = (token: string): HeadersInit => ({
   Authorization: `Bearer ${token}`,
@@ -57,8 +77,16 @@ const jsonHeaders = (token: string): HeadersInit => ({
 });
 
 async function requestJson<T>(path: string, token: string): Promise<T> {
-  const response = await fetch(path, { headers: jsonHeaders(token) });
+  let response: Response;
+  try {
+    response = await fetch(resolveApiPath(path), { headers: jsonHeaders(token) });
+  } catch (error) {
+    throw new Error(`Cannot reach daemon endpoint: ${error instanceof Error ? error.message : String(error)}`);
+  }
   if (!response.ok) {
+    if (response.status === 401 || response.status === 403) {
+      throw new Error("Bad API token or token missing");
+    }
     throw new Error(`${response.status} ${response.statusText || "API request failed"}`);
   }
   return (await response.json()) as T;
@@ -87,11 +115,22 @@ export async function streamEvents(
   signal: AbortSignal,
   onEvent: (event: DaemonEvent) => void
 ): Promise<void> {
-  const response = await fetch("/api/v1/events", {
-    headers: { Authorization: `Bearer ${token}`, Accept: "text/event-stream" },
-    signal
-  });
+  let response: Response;
+  try {
+    response = await fetch(resolveApiPath("/api/v1/events"), {
+      headers: { Authorization: `Bearer ${token}`, Accept: "text/event-stream" },
+      signal
+    });
+  } catch (error) {
+    if (signal.aborted) {
+      return;
+    }
+    throw new Error(`Event stream disconnected: ${error instanceof Error ? error.message : String(error)}`);
+  }
   if (!response.ok || !response.body) {
+    if (response.status === 401 || response.status === 403) {
+      throw new Error("Bad API token or token missing");
+    }
     throw new Error(`${response.status} ${response.statusText || "event stream failed"}`);
   }
 
