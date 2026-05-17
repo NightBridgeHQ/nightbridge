@@ -52,9 +52,9 @@ impl GuiSettings {
 
         Ok(Self {
             mode: self.mode,
-            remote_endpoint: self
-                .remote_endpoint
-                .and_then(|endpoint| non_empty(endpoint).map(|endpoint| endpoint.trim_end_matches('/').to_string())),
+            remote_endpoint: self.remote_endpoint.and_then(|endpoint| {
+                non_empty(endpoint).map(|endpoint| endpoint.trim_end_matches('/').to_string())
+            }),
             api_token: self.api_token.and_then(non_empty),
         })
     }
@@ -92,7 +92,9 @@ pub fn save_settings(settings: GuiSettings) -> Result<(), SettingsError> {
 
 pub fn load_settings_from(path: &Path) -> Result<GuiSettings, SettingsError> {
     match fs::read(path) {
-        Ok(bytes) => Ok(serde_json::from_slice::<GuiSettings>(&bytes).map_err(SettingsError::Parse)?.normalized()?),
+        Ok(bytes) => Ok(serde_json::from_slice::<GuiSettings>(&bytes)
+            .map_err(SettingsError::Parse)?
+            .normalized()?),
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(GuiSettings::default()),
         Err(error) => Err(SettingsError::Read(error)),
     }

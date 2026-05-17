@@ -1,10 +1,11 @@
 //! Desktop GUI support for LocalSend Improved.
 
-pub mod settings;
 pub mod daemon;
+pub mod settings;
 
 pub use daemon::{
-    gui_embedded_daemon_status, gui_start_embedded_daemon, gui_stop_embedded_daemon, EmbeddedDaemonManager,
+    gui_embedded_daemon_status, gui_start_embedded_daemon, gui_stop_embedded_daemon,
+    EmbeddedDaemonManager,
 };
 pub use settings::{gui_load_settings, gui_save_settings, GuiMode, GuiSettings};
 

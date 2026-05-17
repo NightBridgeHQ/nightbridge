@@ -50,7 +50,15 @@ impl DaemonSpec {
             ("XDG_DATA_HOME".to_string(), format!("{root_string}/data")),
         ];
 
-        Self { executable, state_root, inbox_dir, api_http_port: API_HTTP_PORT, api_grpc_port: API_GRPC_PORT, args, env }
+        Self {
+            executable,
+            state_root,
+            inbox_dir,
+            api_http_port: API_HTTP_PORT,
+            api_grpc_port: API_GRPC_PORT,
+            args,
+            env,
+        }
     }
 
     #[cfg(test)]
@@ -82,7 +90,11 @@ pub enum DaemonError {
     #[error("prepare embedded daemon directories")]
     Prepare(#[source] std::io::Error),
     #[error("start embedded daemon at {path}")]
-    Start { path: String, #[source] source: std::io::Error },
+    Start {
+        path: String,
+        #[source]
+        source: std::io::Error,
+    },
     #[error("stop embedded daemon")]
     Stop(#[source] std::io::Error),
     #[error("read embedded daemon API token")]
@@ -145,7 +157,11 @@ impl EmbeddedDaemonManager {
             if child.try_wait().map_err(DaemonError::Stop)?.is_some() {
                 self.child = None;
                 self.spec = None;
-                return Ok(EmbeddedDaemonStatus { running: false, endpoint: None, api_token: None });
+                return Ok(EmbeddedDaemonStatus {
+                    running: false,
+                    endpoint: None,
+                    api_token: None,
+                });
             }
             let spec = self.spec.as_ref().ok_or(DaemonError::NotRunning)?;
             return Ok(EmbeddedDaemonStatus {
@@ -169,27 +185,33 @@ impl Drop for EmbeddedDaemonManager {
 pub fn gui_start_embedded_daemon(
     manager: tauri::State<'_, std::sync::Mutex<EmbeddedDaemonManager>>,
 ) -> Result<EmbeddedDaemonStatus, String> {
-    manager.lock().map_err(|_| "embedded daemon manager lock poisoned".to_string())?.start().map_err(|error| {
-        error.to_string()
-    })
+    manager
+        .lock()
+        .map_err(|_| "embedded daemon manager lock poisoned".to_string())?
+        .start()
+        .map_err(|error| error.to_string())
 }
 
 #[tauri::command]
 pub fn gui_stop_embedded_daemon(
     manager: tauri::State<'_, std::sync::Mutex<EmbeddedDaemonManager>>,
 ) -> Result<(), String> {
-    manager.lock().map_err(|_| "embedded daemon manager lock poisoned".to_string())?.stop().map_err(|error| {
-        error.to_string()
-    })
+    manager
+        .lock()
+        .map_err(|_| "embedded daemon manager lock poisoned".to_string())?
+        .stop()
+        .map_err(|error| error.to_string())
 }
 
 #[tauri::command]
 pub fn gui_embedded_daemon_status(
     manager: tauri::State<'_, std::sync::Mutex<EmbeddedDaemonManager>>,
 ) -> Result<EmbeddedDaemonStatus, String> {
-    manager.lock().map_err(|_| "embedded daemon manager lock poisoned".to_string())?.status().map_err(|error| {
-        error.to_string()
-    })
+    manager
+        .lock()
+        .map_err(|_| "embedded daemon manager lock poisoned".to_string())?
+        .status()
+        .map_err(|error| error.to_string())
 }
 
 fn daemon_executable_path() -> PathBuf {
@@ -197,7 +219,9 @@ fn daemon_executable_path() -> PathBuf {
         .ok()
         .and_then(|path| path.parent().map(Path::to_path_buf))
         .map(|dir| dir.join(format!("localsend-improved-daemon{}", std::env::consts::EXE_SUFFIX)))
-        .unwrap_or_else(|| PathBuf::from(format!("localsend-improved-daemon{}", std::env::consts::EXE_SUFFIX)))
+        .unwrap_or_else(|| {
+            PathBuf::from(format!("localsend-improved-daemon{}", std::env::consts::EXE_SUFFIX))
+        })
 }
 
 fn read_optional_token(path: &Path) -> Result<Option<String>, DaemonError> {
