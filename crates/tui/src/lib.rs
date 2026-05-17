@@ -1,4 +1,4 @@
-//! Terminal dashboard for the LocalSend Improved daemon API.
+//! Terminal dashboard for the NightBridge daemon API.
 
 pub mod app;
 pub mod client;

@@ -1,4 +1,4 @@
-//! Protocol-agnostic core for LocalSend Improved.
+//! Protocol-agnostic core for NightBridge.
 //!
 //! Exposes identity, trust, and (later) protocol primitives via traits so the
 //! daemon and other surfaces can inject I/O implementations.

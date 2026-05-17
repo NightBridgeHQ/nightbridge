@@ -1,6 +1,6 @@
 # Summary
 
-[LocalSend Improved](index.md)
+[NightBridge](index.md)
 
 - [Users](users.md)
 - [Operators](operators.md)

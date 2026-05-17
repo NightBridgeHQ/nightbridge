@@ -1,4 +1,4 @@
-# LocalSend Improved
+# NightBridge
 
 > Headless-first file transfer for homelab and server use cases.
 > Bidirectional compatibility with LocalSend v2 plus a native QUIC+TLS1.3+Ed25519 protocol.

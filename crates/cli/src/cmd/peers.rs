@@ -1,4 +1,4 @@
-//! `localsend-improved peers ...` subcommands.
+//! `night-bridge peers ...` subcommands.
 
 use crate::daemon_client::{self, DaemonClientConfig};
 use anyhow::{bail, Context, Result};

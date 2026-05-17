@@ -11,8 +11,8 @@ use tracing::{info, warn};
 use crate::protocol::{ClientMessage, ErrorResponse, ServerMessage};
 use crate::registry::{Registry, RegistryError};
 
-/// ALPN identifier for the LocalSend Improved rendezvous protocol.
-pub const RENDEZVOUS_ALPN: &[u8] = b"lsi-rendezvous-v1";
+/// ALPN identifier for the NightBridge rendezvous protocol.
+pub const RENDEZVOUS_ALPN: &[u8] = b"night-bridge-rendezvous-v1";
 
 pub(crate) const MAX_FRAME_BYTES: usize = 1024 * 1024;
 

@@ -7,7 +7,7 @@
 - `config.toml` loader with hook, metrics, and logging validation.
 - Stable hook event schema and daemon event adapter.
 - Signed webhook hook sink with HMAC SHA-256.
-- Exec hook sink with timeout and `LSI_EVENT_*` environment variables.
+- Exec hook sink with timeout and `NBRG_EVENT_*` environment variables.
 - Hook dispatcher runtime wired into daemon startup and shutdown.
 - Prometheus recorder plus `/metrics`, `/healthz`, and `/readyz`.
 - Configurable daemon log format: `json`, `pretty`, and `compact`.
@@ -69,7 +69,7 @@ install: cargo install cargo-generate-rpm --locked
 ERROR: failed to connect to the docker API at unix:///var/run/docker.sock; check if the path is correct and if the daemon is running: dial unix /var/run/docker.sock: connect: no such file or directory
 ```
 
-`systemd-analyze verify packaging/systemd/localsend-improved.service` was not run because `systemd-analyze` is not installed in this environment.
+`systemd-analyze verify packaging/systemd/night-bridge.service` was not run because `systemd-analyze` is not installed in this environment.
 
 ## Demo Evidence
 

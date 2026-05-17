@@ -84,8 +84,8 @@ async fn repeated_interruptions_resume_to_matching_file_hash() {
 }
 
 fn soak_size() -> u64 {
-    env_u64("LSI_SOAK_BYTES").unwrap_or_else(|| {
-        if std::env::var_os("LSI_SOAK").is_some() {
+    env_u64("NBRG_SOAK_BYTES").unwrap_or_else(|| {
+        if std::env::var_os("NBRG_SOAK").is_some() {
             EXTENDED_SOAK_SIZE
         } else {
             DEFAULT_SOAK_SIZE
@@ -94,11 +94,11 @@ fn soak_size() -> u64 {
 }
 
 fn soak_reconnects() -> u64 {
-    env_u64("LSI_SOAK_RECONNECTS").unwrap_or(DEFAULT_SOAK_RECONNECTS)
+    env_u64("NBRG_SOAK_RECONNECTS").unwrap_or(DEFAULT_SOAK_RECONNECTS)
 }
 
 fn soak_seed() -> u64 {
-    env_u64("LSI_SOAK_SEED").unwrap_or(DEFAULT_SOAK_SEED)
+    env_u64("NBRG_SOAK_SEED").unwrap_or(DEFAULT_SOAK_SEED)
 }
 
 fn interrupted_reconnects(file_size: u64, requested_reconnects: u64) -> u64 {
@@ -172,17 +172,17 @@ fn patterned_bytes_have_stable_hash() {
 
 #[test]
 fn soak_controls_read_environment_overrides() {
-    std::env::set_var("LSI_SOAK_BYTES", "1048576");
-    std::env::set_var("LSI_SOAK_RECONNECTS", "2");
-    std::env::set_var("LSI_SOAK_SEED", "99");
+    std::env::set_var("NBRG_SOAK_BYTES", "1048576");
+    std::env::set_var("NBRG_SOAK_RECONNECTS", "2");
+    std::env::set_var("NBRG_SOAK_SEED", "99");
 
     assert_eq!(soak_size(), 1_048_576);
     assert_eq!(soak_reconnects(), 2);
     assert_eq!(soak_seed(), 99);
 
-    std::env::remove_var("LSI_SOAK_BYTES");
-    std::env::remove_var("LSI_SOAK_RECONNECTS");
-    std::env::remove_var("LSI_SOAK_SEED");
+    std::env::remove_var("NBRG_SOAK_BYTES");
+    std::env::remove_var("NBRG_SOAK_RECONNECTS");
+    std::env::remove_var("NBRG_SOAK_SEED");
 }
 
 #[test]

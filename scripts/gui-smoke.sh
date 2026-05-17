@@ -12,14 +12,14 @@ cargo check -p lsi-gui
 if ! command -v tauri-driver >/dev/null 2>&1; then
   echo "missing: tauri-driver"
   echo "install: cargo install tauri-driver --locked"
-  if [[ "${LSI_GUI_SMOKE_STRICT:-0}" == "1" ]]; then
+  if [[ "${NBRG_GUI_SMOKE_STRICT:-0}" == "1" ]]; then
     exit 1
   fi
   exit 0
 fi
 
-port="${LSI_GUI_SMOKE_WEBDRIVER_PORT:-4444}"
-log="${LSI_GUI_SMOKE_LOG:-target/gui-smoke/tauri-driver.log}"
+port="${NBRG_GUI_SMOKE_WEBDRIVER_PORT:-4444}"
+log="${NBRG_GUI_SMOKE_LOG:-target/gui-smoke/tauri-driver.log}"
 mkdir -p "$(dirname "$log")"
 
 echo "tauri-driver is available"

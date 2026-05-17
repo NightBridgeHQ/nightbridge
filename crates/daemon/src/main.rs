@@ -49,11 +49,11 @@ const DEFAULT_LOCALSEND_PORT: u16 = 53317;
 const DEFAULT_NATIVE_PORT: u16 = 53400;
 const DEFAULT_API_GRPC_PORT: u16 = 53500;
 const DEFAULT_API_HTTP_PORT: u16 = 53501;
-const DEFAULT_ALIAS: &str = "localsend-improved";
+const DEFAULT_ALIAS: &str = "night-bridge";
 const LOCALSEND_VERSION: &str = "2.0";
 const LOCALSEND_SESSION_TTL: Duration = Duration::from_secs(60 * 60);
 
-/// Headless daemon for LocalSend Improved.
+/// Headless daemon for NightBridge.
 #[derive(Debug, Parser)]
 #[command(version, about)]
 struct Args {

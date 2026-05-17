@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "LocalSend Improved",
+  "productName": "NightBridge",
   "version": "0.1.0",
-  "identifier": "com.localsendimproved.app",
+  "identifier": "com.nightbridge.app",
   "build": {
     "beforeBuildCommand": "npm run build --prefix webui",
     "frontendDist": "../webui/dist",
@@ -11,7 +11,7 @@
   "app": {
     "windows": [
       {
-        "title": "LocalSend Improved",
+        "title": "NightBridge",
         "width": 1180,
         "height": 760,
         "minWidth": 920,

@@ -7,7 +7,7 @@ use lsi_rendezvous::server::{RendezvousServer, RendezvousServerConfig};
 use tracing::info;
 use tracing_subscriber::{fmt, EnvFilter};
 
-/// Self-hosted WAN rendezvous server for LocalSend Improved.
+/// Self-hosted WAN rendezvous server for NightBridge.
 #[derive(Debug, Parser)]
 #[command(version, about)]
 struct Args {

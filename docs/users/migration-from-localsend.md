@@ -1,6 +1,6 @@
 # Migration From LocalSend
 
-LocalSend Improved does not replace the official LocalSend app for phones and
+NightBridge does not replace the official LocalSend app for phones and
 general desktop users. It adds a headless daemon, CLI, API, WebUI/TUI, native
 protocol work, and WAN rendezvous support for server-style deployments.
 

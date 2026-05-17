@@ -1,6 +1,6 @@
 # Deploying Rendezvous On A VPS
 
-LocalSend Improved WAN rendezvous is a self-hosted QUIC control plane. It lets daemons register and look up native QUIC candidates, but it does not relay file bytes.
+NightBridge WAN rendezvous is a self-hosted QUIC control plane. It lets daemons register and look up native QUIC candidates, but it does not relay file bytes.
 
 There is no default public rendezvous service. Run your own rendezvous server for the peers you operate or trust.
 
@@ -15,7 +15,7 @@ cargo build --release -p lsi-rendezvous
 The binary is written to:
 
 ```text
-target/release/lsi-rendezvous
+target/release/night-bridge-rendezvous
 ```
 
 ## Run
@@ -23,7 +23,7 @@ target/release/lsi-rendezvous
 Example direct run:
 
 ```bash
-target/release/lsi-rendezvous --bind 0.0.0.0:53410 --max-ttl-seconds 300
+target/release/night-bridge-rendezvous --bind 0.0.0.0:53410 --max-ttl-seconds 300
 ```
 
 Use a UDP port. The current Sprint 5 default examples use `53410/udp`.
@@ -34,7 +34,7 @@ Example unit:
 
 ```ini
 [Unit]
-Description=LocalSend Improved Rendezvous
+Description=NightBridge Rendezvous
 After=network-online.target
 Wants=network-online.target
 
@@ -42,7 +42,7 @@ Wants=network-online.target
 Type=simple
 User=localsend-rendezvous
 Group=localsend-rendezvous
-ExecStart=/usr/local/bin/lsi-rendezvous --bind 0.0.0.0:53410 --max-ttl-seconds 300
+ExecStart=/usr/local/bin/night-bridge-rendezvous --bind 0.0.0.0:53410 --max-ttl-seconds 300
 Restart=on-failure
 RestartSec=3
 NoNewPrivileges=true
@@ -57,7 +57,7 @@ WantedBy=multi-user.target
 Install and start:
 
 ```bash
-sudo install -m 0755 target/release/lsi-rendezvous /usr/local/bin/lsi-rendezvous
+sudo install -m 0755 target/release/night-bridge-rendezvous /usr/local/bin/night-bridge-rendezvous
 sudo useradd --system --home /nonexistent --shell /usr/sbin/nologin localsend-rendezvous
 sudo install -m 0644 localsend-rendezvous.service /etc/systemd/system/localsend-rendezvous.service
 sudo systemctl daemon-reload
@@ -109,5 +109,5 @@ ss -lunp | grep ':53410'
 For functional health, run a client registration/lookup smoke from a trusted host or use the Linux netns harness:
 
 ```bash
-LSI_RUN_NETNS_TESTS=1 cargo test --test wan_netns -- --nocapture
+NBRG_RUN_NETNS_TESTS=1 cargo test --test wan_netns -- --nocapture
 ```

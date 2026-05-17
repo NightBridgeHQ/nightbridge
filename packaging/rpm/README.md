@@ -12,9 +12,9 @@ cargo generate-rpm -p lsi-daemon
 
 The package installs:
 
-- `/usr/bin/localsend-improved-daemon`
-- `/usr/lib/systemd/system/localsend-improved.service`
-- `/etc/localsend-improved/config.toml`
+- `/usr/bin/night-bridge-daemon`
+- `/usr/lib/systemd/system/night-bridge.service`
+- `/etc/night-bridge/config.toml`
 
 Use `packaging/build-packages.sh --check-tools` to verify local tool
 availability before attempting a package build.

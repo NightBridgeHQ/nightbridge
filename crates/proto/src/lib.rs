@@ -1,4 +1,4 @@
-//! Generated local API bindings for LocalSend Improved.
+//! Generated local API bindings for NightBridge.
 
 #![forbid(unsafe_code)]
 #![warn(missing_docs)]

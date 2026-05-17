@@ -1,6 +1,6 @@
 # Rendezvous Privacy Model
 
-LocalSend Improved WAN rendezvous is a control-plane service. It helps peers find each other; it is not a relay and it does not proxy transfers.
+NightBridge WAN rendezvous is a control-plane service. It helps peers find each other; it is not a relay and it does not proxy transfers.
 
 ## What Rendezvous Sees
 

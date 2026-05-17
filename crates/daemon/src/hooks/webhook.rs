@@ -10,8 +10,8 @@ use sha2::Sha256;
 
 type HmacSha256 = Hmac<Sha256>;
 
-const SIGNATURE_HEADER: &str = "X-LSI-Signature";
-const EVENT_HEADER: &str = "X-LSI-Event";
+const SIGNATURE_HEADER: &str = "X-NBRG-Signature";
+const EVENT_HEADER: &str = "X-NBRG-Event";
 const JSON_CONTENT_TYPE: &str = "application/json";
 
 /// HTTP webhook sink for delivering daemon hook events.
@@ -244,8 +244,8 @@ mod tests {
         body: Bytes,
     ) -> StatusCode {
         *captured.lock().await = Some(CapturedRequest {
-            signature: header_value(&headers, "X-LSI-Signature"),
-            event_header: header_value(&headers, "X-LSI-Event"),
+            signature: header_value(&headers, "X-NBRG-Signature"),
+            event_header: header_value(&headers, "X-NBRG-Event"),
             content_type: header_value(&headers, "content-type"),
             body: body.to_vec(),
         });
@@ -262,8 +262,8 @@ mod tests {
         }
 
         *state.captured.lock().await = Some(CapturedRequest {
-            signature: header_value(&headers, "X-LSI-Signature"),
-            event_header: header_value(&headers, "X-LSI-Event"),
+            signature: header_value(&headers, "X-NBRG-Signature"),
+            event_header: header_value(&headers, "X-NBRG-Event"),
             content_type: header_value(&headers, "content-type"),
             body: body.to_vec(),
         });

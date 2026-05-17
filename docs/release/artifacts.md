@@ -8,17 +8,17 @@ are available.
 
 | Artifact | Expected path or name | Produced by | Status |
 | --- | --- | --- | --- |
-| Linux CLI binary | `localsend-improved` | release workflow Rust build | Required |
-| Linux daemon binary | `localsend-improved-daemon` | release workflow Rust build | Required |
-| Linux TUI binary | `lsi-tui` | release workflow Rust build | Required |
-| macOS CLI binary | `localsend-improved` | release workflow Rust build | Required |
-| macOS daemon binary | `localsend-improved-daemon` | release workflow Rust build | Required |
-| macOS TUI binary | `lsi-tui` | release workflow Rust build | Required |
-| Windows CLI binary | `localsend-improved.exe` | release workflow Rust build | Required |
-| Windows daemon binary | `localsend-improved-daemon.exe` | release workflow Rust build | Required |
-| Windows TUI binary | `lsi-tui.exe` | release workflow Rust build | Required |
+| Linux CLI binary | `night-bridge` | release workflow Rust build | Required |
+| Linux daemon binary | `night-bridge-daemon` | release workflow Rust build | Required |
+| Linux TUI binary | `night-bridge-tui` | release workflow Rust build | Required |
+| macOS CLI binary | `night-bridge` | release workflow Rust build | Required |
+| macOS daemon binary | `night-bridge-daemon` | release workflow Rust build | Required |
+| macOS TUI binary | `night-bridge-tui` | release workflow Rust build | Required |
+| Windows CLI binary | `night-bridge.exe` | release workflow Rust build | Required |
+| Windows daemon binary | `night-bridge-daemon.exe` | release workflow Rust build | Required |
+| Windows TUI binary | `night-bridge-tui.exe` | release workflow Rust build | Required |
 | Tauri desktop bundles | platform-specific app bundle, installer, or archive | Tauri build job | Required before desktop GA |
-| Docker image | `localsend-improved:<version>` | Docker build job | Required |
+| Docker image | `night-bridge:<version>` | Docker build job | Required |
 | Debian package | `.deb` | `packaging/build-packages.sh` | Required when `cargo-deb` is available |
 | RPM package | `.rpm` | `packaging/build-packages.sh` | Required when `cargo-generate-rpm` is available |
 | Checksums | `dist/SHA256SUMS` | `packaging/release/checksums.sh` | Always generated |

@@ -3,13 +3,13 @@ requires = ["hatchling>=1.24"]
 build-backend = "hatchling.build"
 
 [project]
-name = "localsend-improved"
+name = "night-bridge"
 version = "0.1.0"
-description = "Python SDK skeleton for the LocalSend Improved local API."
+description = "Python SDK skeleton for the NightBridge local API."
 requires-python = ">=3.9"
 license = { text = "AGPL-3.0-only" }
 authors = [
-  { name = "LocalSend Improved contributors" }
+  { name = "NightBridge contributors" }
 ]
 dependencies = []
 
@@ -28,4 +28,4 @@ dev = [
 ]
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/localsend_improved"]
+packages = ["src/nightbridge"]

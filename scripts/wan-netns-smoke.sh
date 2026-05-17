@@ -2,19 +2,19 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-RUN_ID="${LSI_WAN_NETNS_RUN_ID:-$$}"
+RUN_ID="${NBRG_WAN_NETNS_RUN_ID:-$$}"
 NS_RV="lsi-rv-${RUN_ID}"
 NS_A="lsi-a-${RUN_ID}"
 NS_B="lsi-b-${RUN_ID}"
-RV_PORT="${LSI_WAN_RENDEZVOUS_PORT:-53410}"
-A_NATIVE_PORT="${LSI_WAN_A_NATIVE_PORT:-53401}"
-B_NATIVE_PORT="${LSI_WAN_B_NATIVE_PORT:-53402}"
+RV_PORT="${NBRG_WAN_RENDEZVOUS_PORT:-53410}"
+A_NATIVE_PORT="${NBRG_WAN_A_NATIVE_PORT:-53401}"
+B_NATIVE_PORT="${NBRG_WAN_B_NATIVE_PORT:-53402}"
 RV_ADDR="10.53.1.1"
 A_ADDR="10.53.1.2"
 B_ADDR="10.53.2.2"
 A_GW="10.53.1.1"
 B_GW="10.53.2.1"
-STATE_ROOT="$(mktemp -d "${TMPDIR:-/tmp}/lsi-wan-netns.XXXXXX")"
+STATE_ROOT="$(mktemp -d "${TMPDIR:-/tmp}/nbrg-wan-netns.XXXXXX")"
 
 require() {
   command -v "$1" >/dev/null 2>&1 || {
@@ -51,9 +51,9 @@ fi
 
 cargo build -p lsi-rendezvous -p lsi-daemon -p lsi-cli
 
-RENDEZVOUS_BIN="$ROOT_DIR/target/debug/lsi-rendezvous"
-DAEMON_BIN="$ROOT_DIR/target/debug/localsend-improved-daemon"
-CLI_BIN="$ROOT_DIR/target/debug/localsend-improved"
+RENDEZVOUS_BIN="$ROOT_DIR/target/debug/night-bridge-rendezvous"
+DAEMON_BIN="$ROOT_DIR/target/debug/night-bridge-daemon"
+CLI_BIN="$ROOT_DIR/target/debug/night-bridge"
 
 ip netns add "$NS_RV"
 ip netns add "$NS_A"

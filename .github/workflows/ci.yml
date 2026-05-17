@@ -101,7 +101,7 @@ jobs:
           cache-dependency-path: crates/webui/package-lock.json
       - run: npm ci --prefix crates/webui
       - run: bash -n scripts/gui-smoke.sh
-      - run: LSI_RUN_GUI_SMOKE=1 cargo test --test gui_smoke -- --nocapture
+      - run: NBRG_RUN_GUI_SMOKE=1 cargo test --test gui_smoke -- --nocapture
 
   release-artifact-scripts:
     name: Release artifact scripts (manual)
@@ -131,10 +131,10 @@ jobs:
   wan-netns-smoke:
     name: WAN netns smoke (manual)
     runs-on: ubuntu-latest
-    if: github.event_name == 'workflow_dispatch' && vars.LSI_RUN_NETNS_TESTS == '1'
+    if: github.event_name == 'workflow_dispatch' && vars.NBRG_RUN_NETNS_TESTS == '1'
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
       - run: bash -n scripts/wan-netns-smoke.sh
-      - run: LSI_RUN_NETNS_TESTS=1 cargo test --test wan_netns -- --nocapture
+      - run: NBRG_RUN_NETNS_TESTS=1 cargo test --test wan_netns -- --nocapture

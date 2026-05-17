@@ -5,7 +5,7 @@ daemon.
 
 ## Remote Daemon Mode
 
-Use remote daemon mode when a server already runs `localsend-improved-daemon`.
+Use remote daemon mode when a server already runs `night-bridge-daemon`.
 
 Operators need:
 

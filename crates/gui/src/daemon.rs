@@ -24,7 +24,7 @@ pub struct DaemonSpec {
 
 impl DaemonSpec {
     pub fn new() -> Result<Self, DaemonError> {
-        let dirs = ProjectDirs::from("com", "localsendimproved", "LocalSend Improved")
+        let dirs = ProjectDirs::from("com", "nightbridge", "NightBridge")
             .ok_or(DaemonError::MissingStateDir)?;
         Ok(Self::from_root(dirs.data_dir().join("standalone-daemon")))
     }
@@ -35,7 +35,7 @@ impl DaemonSpec {
         let executable = daemon_executable_path();
         let args = vec![
             "--alias".to_string(),
-            "LocalSend Improved Desktop".to_string(),
+            "NightBridge Desktop".to_string(),
             "--api-http-port".to_string(),
             API_HTTP_PORT.to_string(),
             "--api-grpc-port".to_string(),
@@ -70,7 +70,7 @@ impl DaemonSpec {
         self.state_root
             .join("Library")
             .join("Application Support")
-            .join("dev.lsi.localsend-improved")
+            .join("dev.nightbridge.night-bridge")
             .join("api.token")
     }
 
@@ -81,7 +81,7 @@ impl DaemonSpec {
 
 #[derive(Debug, Error)]
 pub enum DaemonError {
-    #[error("could not determine LocalSend Improved standalone daemon directory")]
+    #[error("could not determine NightBridge standalone daemon directory")]
     MissingStateDir,
     #[error("embedded daemon is already running")]
     AlreadyRunning,
@@ -218,9 +218,9 @@ fn daemon_executable_path() -> PathBuf {
     std::env::current_exe()
         .ok()
         .and_then(|path| path.parent().map(Path::to_path_buf))
-        .map(|dir| dir.join(format!("localsend-improved-daemon{}", std::env::consts::EXE_SUFFIX)))
+        .map(|dir| dir.join(format!("night-bridge-daemon{}", std::env::consts::EXE_SUFFIX)))
         .unwrap_or_else(|| {
-            PathBuf::from(format!("localsend-improved-daemon{}", std::env::consts::EXE_SUFFIX))
+            PathBuf::from(format!("night-bridge-daemon{}", std::env::consts::EXE_SUFFIX))
         })
 }
 

@@ -75,7 +75,7 @@
 <main class="shell">
   <header class="topbar">
     <div>
-      <h1>LocalSend Improved</h1>
+      <h1>NightBridge</h1>
       <p>{snapshot?.status.alias ?? "Daemon dashboard"}</p>
     </div>
     <button type="button" on:click={() => void refreshSnapshot().then(connectEvents)}>Refresh</button>

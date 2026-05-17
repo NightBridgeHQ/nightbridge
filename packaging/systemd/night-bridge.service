@@ -1,0 +1,29 @@
+[Unit]
+Description=NightBridge daemon
+Documentation=https://github.com/<owner>/localsend-improvements
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+DynamicUser=yes
+StateDirectory=night-bridge
+ConfigurationDirectory=night-bridge
+Environment=XDG_CONFIG_HOME=/var/lib/night-bridge/config
+Environment=XDG_DATA_HOME=/var/lib/night-bridge/data
+ExecStart=/usr/bin/night-bridge-daemon \
+  --config /etc/night-bridge/config.toml \
+  --identity /var/lib/night-bridge/identity.key \
+  --trust-db /var/lib/night-bridge/trust.db \
+  --inbox /var/lib/night-bridge/inbox
+Restart=on-failure
+RestartSec=5s
+
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=yes
+ReadWritePaths=/var/lib/night-bridge
+
+[Install]
+WantedBy=multi-user.target

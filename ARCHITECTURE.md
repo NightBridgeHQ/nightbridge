@@ -1,6 +1,6 @@
 # Architecture
 
-See the full design at [`specs/superpowers/specs/2026-05-10-localsend-improved-design.md`](specs/superpowers/specs/2026-05-10-localsend-improved-design.md).
+See the full design at [`specs/superpowers/specs/2026-05-10-night-bridge-design.md`](specs/superpowers/specs/2026-05-10-night-bridge-design.md).
 
 ## TL;DR
 

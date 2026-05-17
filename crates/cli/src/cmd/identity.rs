@@ -1,4 +1,4 @@
-//! `localsend-improved identity ...` subcommands.
+//! `night-bridge identity ...` subcommands.
 
 use anyhow::{Context, Result};
 use clap::Subcommand;

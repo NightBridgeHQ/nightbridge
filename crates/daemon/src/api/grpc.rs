@@ -424,17 +424,21 @@ mod tests {
         runtime: GrpcApiRuntime,
         state: Arc<DaemonState>,
         fingerprint: String,
+        _temp: tempfile::TempDir,
     }
 
     impl ApiFixture {
         async fn start() -> Self {
             let temp = tempfile::TempDir::new().unwrap();
+            let trust_db = temp.path().join("trust.db");
             let args = Args::parse_from([
                 "daemon",
                 "--alias",
                 "api-test",
                 "--inbox",
                 temp.path().join("inbox").to_str().unwrap(),
+                "--trust-db",
+                trust_db.to_str().unwrap(),
                 "--localsend-port",
                 "4444",
                 "--native-port",
@@ -451,7 +455,7 @@ mod tests {
             ));
             let runtime = start_grpc_runtime(Arc::clone(&state), 0).await.unwrap();
 
-            Self { runtime, state, fingerprint }
+            Self { runtime, state, fingerprint, _temp: temp }
         }
 
         async fn client(&self) -> DaemonServiceClient<tonic::transport::Channel> {

@@ -3,21 +3,21 @@ set -euo pipefail
 
 cd "$(dirname "$0")/.."
 
-: "${LSI_SOAK_BYTES:=134217728}"
-: "${LSI_SOAK_RECONNECTS:=10}"
-: "${LSI_SOAK_SEED:=0}"
-: "${LSI_SOAK_LOG:=target/soak/native-soak.log}"
+: "${NBRG_SOAK_BYTES:=134217728}"
+: "${NBRG_SOAK_RECONNECTS:=10}"
+: "${NBRG_SOAK_SEED:=0}"
+: "${NBRG_SOAK_LOG:=target/soak/native-soak.log}"
 
-mkdir -p "$(dirname "$LSI_SOAK_LOG")"
+mkdir -p "$(dirname "$NBRG_SOAK_LOG")"
 
-echo "LSI_SOAK_BYTES=$LSI_SOAK_BYTES"
-echo "LSI_SOAK_RECONNECTS=$LSI_SOAK_RECONNECTS"
-echo "LSI_SOAK_SEED=$LSI_SOAK_SEED"
-echo "LSI_SOAK_LOG=$LSI_SOAK_LOG"
+echo "NBRG_SOAK_BYTES=$NBRG_SOAK_BYTES"
+echo "NBRG_SOAK_RECONNECTS=$NBRG_SOAK_RECONNECTS"
+echo "NBRG_SOAK_SEED=$NBRG_SOAK_SEED"
+echo "NBRG_SOAK_LOG=$NBRG_SOAK_LOG"
 
-LSI_SOAK=1 \
-LSI_SOAK_BYTES="$LSI_SOAK_BYTES" \
-LSI_SOAK_RECONNECTS="$LSI_SOAK_RECONNECTS" \
-LSI_SOAK_SEED="$LSI_SOAK_SEED" \
+NBRG_SOAK=1 \
+NBRG_SOAK_BYTES="$NBRG_SOAK_BYTES" \
+NBRG_SOAK_RECONNECTS="$NBRG_SOAK_RECONNECTS" \
+NBRG_SOAK_SEED="$NBRG_SOAK_SEED" \
 cargo test -p lsi-protocol-native-v1 --test soak_resume -- --ignored --nocapture \
-  2>&1 | tee "$LSI_SOAK_LOG"
+  2>&1 | tee "$NBRG_SOAK_LOG"

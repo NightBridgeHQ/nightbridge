@@ -1,4 +1,4 @@
-//! Desktop GUI support for LocalSend Improved.
+//! Desktop GUI support for NightBridge.
 
 pub mod daemon;
 pub mod settings;
@@ -11,7 +11,7 @@ pub use settings::{gui_load_settings, gui_save_settings, GuiMode, GuiSettings};
 
 /// Stable desktop application name.
 pub fn app_name() -> &'static str {
-    "LocalSend Improved"
+    "NightBridge"
 }
 
 #[cfg(test)]
@@ -20,6 +20,6 @@ mod tests {
 
     #[test]
     fn app_name_is_stable() {
-        assert_eq!(app_name(), "LocalSend Improved");
+        assert_eq!(app_name(), "NightBridge");
     }
 }

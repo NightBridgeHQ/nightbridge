@@ -5,11 +5,11 @@
 
 use std::path::PathBuf;
 
-const APP_DIR_NAME: &str = "localsend-improved";
+const APP_DIR_NAME: &str = "night-bridge";
 
 /// Directory holding `identity.key`, `api.token`, and `config.toml`.
 pub fn config_dir() -> PathBuf {
-    if let Some(project_dirs) = directories::ProjectDirs::from("dev", "lsi", APP_DIR_NAME) {
+    if let Some(project_dirs) = directories::ProjectDirs::from("dev", "nightbridge", APP_DIR_NAME) {
         return project_dirs.config_dir().to_path_buf();
     }
     PathBuf::from("/etc").join(APP_DIR_NAME)
@@ -17,7 +17,7 @@ pub fn config_dir() -> PathBuf {
 
 /// Directory holding `trust.db`, manifests, and runtime state.
 pub fn state_dir() -> PathBuf {
-    if let Some(project_dirs) = directories::ProjectDirs::from("dev", "lsi", APP_DIR_NAME) {
+    if let Some(project_dirs) = directories::ProjectDirs::from("dev", "nightbridge", APP_DIR_NAME) {
         return project_dirs.data_dir().to_path_buf();
     }
     PathBuf::from("/var/lib").join(APP_DIR_NAME)
@@ -30,7 +30,7 @@ pub fn default_inbox() -> PathBuf {
             return downloads.join(APP_DIR_NAME);
         }
     }
-    if let Some(project_dirs) = directories::ProjectDirs::from("dev", "lsi", APP_DIR_NAME) {
+    if let Some(project_dirs) = directories::ProjectDirs::from("dev", "nightbridge", APP_DIR_NAME) {
         return project_dirs.data_dir().join("inbox");
     }
     PathBuf::from("/var/lib").join(APP_DIR_NAME).join("inbox")
@@ -74,7 +74,7 @@ mod tests {
     fn config_and_state_under_app_namespace() {
         let cfg = config_dir().to_string_lossy().to_lowercase();
         let st = state_dir().to_string_lossy().to_lowercase();
-        assert!(cfg.contains("localsend-improved"));
-        assert!(st.contains("localsend-improved"));
+        assert!(cfg.contains("night-bridge"));
+        assert!(st.contains("night-bridge"));
     }
 }

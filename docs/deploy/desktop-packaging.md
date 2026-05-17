@@ -17,7 +17,7 @@ cd crates/gui
 On this machine, the Tauri build produced:
 
 ```text
-target/release/bundle/dmg/LocalSend Improved_0.1.0_aarch64.dmg
+target/release/bundle/dmg/NightBridge_0.1.0_aarch64.dmg
 ```
 
 The Tauri CLI runs `beforeBuildCommand` from the `crates/` directory, so the

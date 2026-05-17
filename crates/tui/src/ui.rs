@@ -23,7 +23,7 @@ pub fn render(frame: &mut Frame, state: &AppState) {
     frame.render_widget(
         Tabs::new(titles)
             .select(selected)
-            .block(Block::default().borders(Borders::ALL).title("LocalSend Improved"))
+            .block(Block::default().borders(Borders::ALL).title("NightBridge"))
             .style(Style::default())
             .highlight_style(Style::default().add_modifier(Modifier::BOLD)),
         chunks[0],

@@ -11,9 +11,9 @@ cargo deb -p lsi-daemon
 
 The package installs:
 
-- `/usr/bin/localsend-improved-daemon`
-- `/lib/systemd/system/localsend-improved.service`
-- `/etc/localsend-improved/config.toml`
+- `/usr/bin/night-bridge-daemon`
+- `/lib/systemd/system/night-bridge.service`
+- `/etc/night-bridge/config.toml`
 
 Use `packaging/build-packages.sh --check-tools` to verify local tool
 availability before attempting a package build.

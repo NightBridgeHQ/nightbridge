@@ -5,10 +5,10 @@ edition.workspace = true
 license.workspace = true
 repository.workspace = true
 rust-version.workspace = true
-description = "Tauri desktop GUI for LocalSend Improved"
+description = "Tauri desktop GUI for NightBridge"
 
 [[bin]]
-name = "localsend-improved-gui"
+name = "night-bridge-gui"
 path = "src/main.rs"
 
 [dependencies]

@@ -20,11 +20,11 @@ else
   "metadata": {
     "component": {
       "type": "application",
-      "name": "localsend-improved"
+      "name": "night-bridge"
     },
     "properties": [
       {
-        "name": "localsend-improved:sbom-status",
+        "name": "night-bridge:sbom-status",
         "value": "fallback-minimal; install cyclonedx-rust-cargo for full dependency SBOM"
       }
     ]

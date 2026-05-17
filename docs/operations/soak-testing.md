@@ -10,15 +10,15 @@ regressions before longer daemon-level runs.
 Run a small deterministic soak:
 
 ```bash
-LSI_SOAK_BYTES=1048576 LSI_SOAK_RECONNECTS=2 bash scripts/native-soak.sh
+NBRG_SOAK_BYTES=1048576 NBRG_SOAK_RECONNECTS=2 bash scripts/native-soak.sh
 ```
 
 The default script run uses:
 
-- `LSI_SOAK_BYTES=134217728`
-- `LSI_SOAK_RECONNECTS=10`
-- `LSI_SOAK_SEED=0`
-- `LSI_SOAK_LOG=target/soak/native-soak.log`
+- `NBRG_SOAK_BYTES=134217728`
+- `NBRG_SOAK_RECONNECTS=10`
+- `NBRG_SOAK_SEED=0`
+- `NBRG_SOAK_LOG=target/soak/native-soak.log`
 
 ## 7-Day Run
 
@@ -30,10 +30,10 @@ deadline=$((SECONDS + 7 * 24 * 60 * 60))
 run=0
 while (( SECONDS < deadline )); do
   run=$((run + 1))
-  LSI_SOAK_BYTES=1073741824 \
-  LSI_SOAK_RECONNECTS=50 \
-  LSI_SOAK_SEED="$run" \
-  LSI_SOAK_LOG="target/soak/evidence/native-soak-$run.log" \
+  NBRG_SOAK_BYTES=1073741824 \
+  NBRG_SOAK_RECONNECTS=50 \
+  NBRG_SOAK_SEED="$run" \
+  NBRG_SOAK_LOG="target/soak/evidence/native-soak-$run.log" \
     bash scripts/native-soak.sh
 done
 ```

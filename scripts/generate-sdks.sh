@@ -76,7 +76,7 @@ for proto_file in "${proto_files[@]}"; do
 done
 
 generate_python() {
-  local out_dir="$repo_root/sdks/python/src/localsend_improved/gen"
+  local out_dir="$repo_root/sdks/python/src/nightbridge/gen"
 
   require_command "$python_bin"
   require_python_module "$python_bin" grpc_tools.protoc
@@ -110,7 +110,7 @@ generate_typescript() {
 
 generate_go() {
   local out_dir="$repo_root/sdks/go/gen"
-  local module="github.com/chrnx/localsend-improved/sdks/go/gen"
+  local module="github.com/chrnx/night-bridge/sdks/go/gen"
 
   require_command protoc
   require_command protoc-gen-go

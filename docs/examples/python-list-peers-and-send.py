@@ -1,4 +1,4 @@
-from localsend_improved import Client
+from nightbridge import Client
 
 client = Client(token_from_file=True)
 peers = client.peers.list_trusted()

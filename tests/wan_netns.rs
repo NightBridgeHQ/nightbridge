@@ -7,8 +7,8 @@ fn wan_netns_smoke_is_gated_and_runs_when_requested() {
         eprintln!("skipping WAN netns smoke: Linux network namespaces are required");
         return;
     }
-    if env::var("LSI_RUN_NETNS_TESTS").as_deref() != Ok("1") {
-        eprintln!("skipping WAN netns smoke: set LSI_RUN_NETNS_TESTS=1 to run");
+    if env::var("NBRG_RUN_NETNS_TESTS").as_deref() != Ok("1") {
+        eprintln!("skipping WAN netns smoke: set NBRG_RUN_NETNS_TESTS=1 to run");
         return;
     }
     if !command_exists("ip") {

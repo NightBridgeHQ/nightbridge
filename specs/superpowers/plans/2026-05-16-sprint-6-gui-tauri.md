@@ -18,7 +18,7 @@
 2. The app bundles the existing `crates/webui/dist` frontend.
 3. First-launch mode selection supports at least `Remote daemon` and `Standalone local daemon`.
 4. Remote mode stores endpoint and token locally, then loads status, peers, inbox, transfers, and events from the selected daemon.
-5. Standalone mode can start a local `localsend-improved-daemon` process with a local config/state root and connect to its API.
+5. Standalone mode can start a local `night-bridge-daemon` process with a local config/state root and connect to its API.
 6. GUI displays WAN/direct-path failure diagnostics from daemon/API state without hiding the actionable error string.
 7. Tauri packaging metadata exists for macOS, Windows, and Linux.
 8. Local packaging smoke is documented with exact pass/fail reasons for this machine.
@@ -165,7 +165,7 @@ In `crates/gui/src/lib.rs`, replace the stub with a minimal config helper and te
 
 ```rust
 pub fn app_name() -> &'static str {
-    "LocalSend Improved"
+    "NightBridge"
 }
 
 #[cfg(test)]
@@ -174,7 +174,7 @@ mod tests {
 
     #[test]
     fn app_name_is_stable() {
-        assert_eq!(app_name(), "LocalSend Improved");
+        assert_eq!(app_name(), "NightBridge");
     }
 }
 ```
@@ -197,7 +197,7 @@ Also define a binary target:
 
 ```toml
 [[bin]]
-name = "localsend-improved-gui"
+name = "night-bridge-gui"
 path = "src/main.rs"
 ```
 
@@ -208,9 +208,9 @@ Create `crates/gui/tauri.conf.json` with:
 ```json
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "LocalSend Improved",
+  "productName": "NightBridge",
   "version": "0.1.0",
-  "identifier": "com.localsendimproved.app",
+  "identifier": "com.nightbridge.app",
   "build": {
     "beforeBuildCommand": "npm run build --prefix ../webui",
     "frontendDist": "../webui/dist",
@@ -219,7 +219,7 @@ Create `crates/gui/tauri.conf.json` with:
   "app": {
     "windows": [
       {
-        "title": "LocalSend Improved",
+        "title": "NightBridge",
         "width": 1180,
         "height": 760,
         "minWidth": 920,
@@ -245,7 +245,7 @@ Create `crates/gui/src/main.rs`:
 fn main() {
     tauri::Builder::default()
         .run(tauri::generate_context!())
-        .expect("failed to run LocalSend Improved GUI");
+        .expect("failed to run NightBridge GUI");
 }
 ```
 
@@ -308,7 +308,7 @@ In `crates/webui/src/state.ts`, add endpoint to app state:
 apiBase: string;
 ```
 
-Initialize it from `localStorage` key `lsi.apiBase`, defaulting to `""`.
+Initialize it from `localStorage` key `nbrg.apiBase`, defaulting to `""`.
 
 **Step 4: Verify**
 
@@ -787,8 +787,8 @@ Create a root integration test that skips unless explicitly enabled:
 ```rust
 #[test]
 fn gui_smoke_is_gated() {
-    if std::env::var("LSI_RUN_GUI_SMOKE").as_deref() != Ok("1") {
-        eprintln!("skipping GUI smoke: set LSI_RUN_GUI_SMOKE=1");
+    if std::env::var("NBRG_RUN_GUI_SMOKE").as_deref() != Ok("1") {
+        eprintln!("skipping GUI smoke: set NBRG_RUN_GUI_SMOKE=1");
         return;
     }
 

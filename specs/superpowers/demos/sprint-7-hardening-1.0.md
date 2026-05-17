@@ -89,7 +89,7 @@ Result:
 
 ```text
 test local_client_uploads_file_to_local_receiver ... ok
-Official LocalSend app matrix is manual unless LSI_OFFICIAL_LOCALSEND_ARTIFACT
+Official LocalSend app matrix is manual unless NBRG_OFFICIAL_LOCALSEND_ARTIFACT
 points to a verified headless-capable artifact for this platform.
 ```
 
@@ -110,7 +110,7 @@ cargo test --test gui_smoke -- --nocapture
 Result:
 
 ```text
-skipping GUI smoke: set LSI_RUN_GUI_SMOKE=1 to run
+skipping GUI smoke: set NBRG_RUN_GUI_SMOKE=1 to run
 test gui_smoke_is_gated ... ok
 ```
 
@@ -135,11 +135,11 @@ Result: PASS.
 Produced local release binaries:
 
 ```text
-target/release/localsend-improved          8.8M
-target/release/localsend-improved-daemon    12M
-target/release/localsend-improved-gui      5.0M
-target/release/lsi-rendezvous              3.8M
-target/release/lsi-tui                     2.2M
+target/release/night-bridge          8.8M
+target/release/night-bridge-daemon    12M
+target/release/night-bridge-gui      5.0M
+target/release/night-bridge-rendezvous              3.8M
+target/release/night-bridge-tui                     2.2M
 ```
 
 WebUI build:

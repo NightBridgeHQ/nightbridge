@@ -69,7 +69,7 @@ Result:
 
 ```text
 PASS
-target/release/bundle/dmg/LocalSend Improved_0.1.0_aarch64.dmg
+target/release/bundle/dmg/NightBridge_0.1.0_aarch64.dmg
 ```
 
 Packaging fixes made during Sprint 6:
@@ -102,7 +102,7 @@ Final verification recorded for Sprint 6:
 - `npm run check --prefix crates/webui`: PASS.
 - `npm run build --prefix crates/webui`: PASS.
 - `cargo test --test gui_smoke -- --nocapture`: PASS, default gated skip.
-- `LSI_RUN_GUI_SMOKE=1 cargo test --test gui_smoke -- --nocapture`: PASS,
+- `NBRG_RUN_GUI_SMOKE=1 cargo test --test gui_smoke -- --nocapture`: PASS,
   skipped because `tauri-driver` is not installed.
 
 Commit hygiene:

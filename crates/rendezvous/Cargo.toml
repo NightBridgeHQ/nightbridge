@@ -7,6 +7,10 @@ repository.workspace = true
 rust-version.workspace = true
 description = "WAN rendezvous service (stub; implemented in Sprint 5)"
 
+[[bin]]
+name = "night-bridge-rendezvous"
+path = "src/main.rs"
+
 [dependencies]
 anyhow.workspace = true
 clap.workspace = true

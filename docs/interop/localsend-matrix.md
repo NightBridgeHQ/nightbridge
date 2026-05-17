@@ -1,6 +1,6 @@
 # LocalSend Interop Matrix
 
-LocalSend Improved keeps LocalSend v2 compatibility separate from the native
+NightBridge keeps LocalSend v2 compatibility separate from the native
 protocol. This matrix tracks official-app interoperability evidence for the 1.0
 candidate.
 
@@ -42,6 +42,6 @@ For each platform, preserve:
 - transferred file name, size, and checksum
 - discovery path used, including whether manual URL fallback was needed
 
-If `LSI_OFFICIAL_LOCALSEND_ARTIFACT` later points to a verified
+If `NBRG_OFFICIAL_LOCALSEND_ARTIFACT` later points to a verified
 headless-capable official artifact, the smoke wrapper may grow an automated
 official-app path. Until then, official-app status stays manual.

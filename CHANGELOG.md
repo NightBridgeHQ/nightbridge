@@ -1,6 +1,6 @@
 # Changelog
 
-All notable changes to LocalSend Improved will be documented in this file.
+All notable changes to NightBridge will be documented in this file.
 
 This project follows the spirit of [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
@@ -10,7 +10,7 @@ This project follows the spirit of [Keep a Changelog](https://keepachangelog.com
 
 ### Added
 
-- Rust workspace for the headless LocalSend Improved stack, including core,
+- Rust workspace for the headless NightBridge stack, including core,
   daemon, CLI, protocol, TUI, WebUI, GUI, and rendezvous crates.
 - Headless daemon for server, NAS, Raspberry Pi, and homelab deployment.
 - CLI for daemon status, inbox operations, LocalSend-compatible sends, native

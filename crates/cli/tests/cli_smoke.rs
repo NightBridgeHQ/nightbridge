@@ -15,7 +15,19 @@ fn set_isolated_dirs(cmd: &mut Command, dir: &TempDir) {
 #[test]
 fn identity_show_prints_a_fingerprint() {
     let dir = TempDir::new().unwrap();
-    let mut cmd = Command::cargo_bin("localsend-improved").unwrap();
+    let mut cmd = Command::cargo_bin("night-bridge").unwrap();
+    set_isolated_dirs(&mut cmd, &dir);
+
+    cmd.args(["identity", "show"]).assert().success().stdout(
+        predicate::str::is_match(r"fingerprint: [0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}")
+            .unwrap(),
+    );
+}
+
+#[test]
+fn nbrg_alias_prints_a_fingerprint() {
+    let dir = TempDir::new().unwrap();
+    let mut cmd = Command::cargo_bin("nbrg").unwrap();
     set_isolated_dirs(&mut cmd, &dir);
 
     cmd.args(["identity", "show"]).assert().success().stdout(
@@ -27,11 +39,11 @@ fn identity_show_prints_a_fingerprint() {
 #[test]
 fn identity_show_twice_is_stable() {
     let dir = TempDir::new().unwrap();
-    let mut first = Command::cargo_bin("localsend-improved").unwrap();
+    let mut first = Command::cargo_bin("night-bridge").unwrap();
     set_isolated_dirs(&mut first, &dir);
     let before = first.args(["identity", "show"]).output().unwrap();
 
-    let mut second = Command::cargo_bin("localsend-improved").unwrap();
+    let mut second = Command::cargo_bin("night-bridge").unwrap();
     set_isolated_dirs(&mut second, &dir);
     let after = second.args(["identity", "show"]).output().unwrap();
 
@@ -43,11 +55,11 @@ fn identity_show_twice_is_stable() {
 #[test]
 fn identity_rotate_without_yes_is_a_noop() {
     let dir = TempDir::new().unwrap();
-    let mut show_before = Command::cargo_bin("localsend-improved").unwrap();
+    let mut show_before = Command::cargo_bin("night-bridge").unwrap();
     set_isolated_dirs(&mut show_before, &dir);
     let before = show_before.args(["identity", "show"]).output().unwrap();
 
-    let mut rotate = Command::cargo_bin("localsend-improved").unwrap();
+    let mut rotate = Command::cargo_bin("night-bridge").unwrap();
     set_isolated_dirs(&mut rotate, &dir);
     rotate
         .args(["identity", "rotate"])
@@ -55,7 +67,7 @@ fn identity_rotate_without_yes_is_a_noop() {
         .success()
         .stderr(predicate::str::contains("Re-run with --yes to confirm"));
 
-    let mut show_after = Command::cargo_bin("localsend-improved").unwrap();
+    let mut show_after = Command::cargo_bin("night-bridge").unwrap();
     set_isolated_dirs(&mut show_after, &dir);
     let after = show_after.args(["identity", "show"]).output().unwrap();
 
@@ -67,11 +79,11 @@ fn identity_rotate_without_yes_is_a_noop() {
 #[test]
 fn identity_rotate_with_yes_changes_fingerprint() {
     let dir = TempDir::new().unwrap();
-    let mut show_before = Command::cargo_bin("localsend-improved").unwrap();
+    let mut show_before = Command::cargo_bin("night-bridge").unwrap();
     set_isolated_dirs(&mut show_before, &dir);
     let before = show_before.args(["identity", "show"]).output().unwrap();
 
-    let mut rotate = Command::cargo_bin("localsend-improved").unwrap();
+    let mut rotate = Command::cargo_bin("night-bridge").unwrap();
     set_isolated_dirs(&mut rotate, &dir);
     rotate
         .args(["identity", "rotate", "--yes"])
@@ -79,7 +91,7 @@ fn identity_rotate_with_yes_changes_fingerprint() {
         .success()
         .stdout(predicate::str::contains("new fingerprint: "));
 
-    let mut show_after = Command::cargo_bin("localsend-improved").unwrap();
+    let mut show_after = Command::cargo_bin("night-bridge").unwrap();
     set_isolated_dirs(&mut show_after, &dir);
     let after = show_after.args(["identity", "show"]).output().unwrap();
 
@@ -91,7 +103,7 @@ fn identity_rotate_with_yes_changes_fingerprint() {
 #[test]
 fn peers_list_requires_daemon() {
     let dir = TempDir::new().unwrap();
-    let mut cmd = Command::cargo_bin("localsend-improved").unwrap();
+    let mut cmd = Command::cargo_bin("night-bridge").unwrap();
     set_isolated_dirs(&mut cmd, &dir);
 
     cmd.args(["--daemon-grpc", "http://127.0.0.1:9", "--api-token", "test-token", "peers", "list"])
@@ -106,7 +118,7 @@ fn peers_list_requires_daemon() {
 #[test]
 fn peers_list_lan_empty_with_short_timeout() {
     let dir = TempDir::new().unwrap();
-    let mut cmd = Command::cargo_bin("localsend-improved").unwrap();
+    let mut cmd = Command::cargo_bin("night-bridge").unwrap();
     set_isolated_dirs(&mut cmd, &dir);
 
     cmd.args(["peers", "list-lan", "--timeout-ms", "1"])
@@ -118,7 +130,7 @@ fn peers_list_lan_empty_with_short_timeout() {
 #[test]
 fn lookup_wan_command_is_available() {
     let dir = TempDir::new().unwrap();
-    let mut cmd = Command::cargo_bin("localsend-improved").unwrap();
+    let mut cmd = Command::cargo_bin("night-bridge").unwrap();
     set_isolated_dirs(&mut cmd, &dir);
 
     cmd.args(["peers", "lookup-wan", "--help"])
@@ -130,7 +142,7 @@ fn lookup_wan_command_is_available() {
 #[test]
 fn send_rejects_missing_file() {
     let dir = TempDir::new().unwrap();
-    let mut cmd = Command::cargo_bin("localsend-improved").unwrap();
+    let mut cmd = Command::cargo_bin("night-bridge").unwrap();
     set_isolated_dirs(&mut cmd, &dir);
 
     cmd.args(["send", "--direct", "--url", "http://127.0.0.1:9", "missing.txt"])
@@ -144,7 +156,7 @@ fn send_defaults_to_daemon_api() {
     let dir = TempDir::new().unwrap();
     let file = dir.path().join("file.bin");
     std::fs::write(&file, b"payload").unwrap();
-    let mut cmd = Command::cargo_bin("localsend-improved").unwrap();
+    let mut cmd = Command::cargo_bin("night-bridge").unwrap();
     set_isolated_dirs(&mut cmd, &dir);
 
     cmd.args([
@@ -168,7 +180,7 @@ fn send_native_requires_url_or_peer() {
     let file = dir.path().join("file.bin");
     std::fs::write(&file, b"native payload").unwrap();
 
-    let mut cmd = Command::cargo_bin("localsend-improved").unwrap();
+    let mut cmd = Command::cargo_bin("night-bridge").unwrap();
     set_isolated_dirs(&mut cmd, &dir);
 
     cmd.args(["send", "--native", file.to_str().unwrap()])
@@ -183,7 +195,7 @@ fn direct_native_requires_certificate_fingerprint() {
     let file = dir.path().join("file.bin");
     std::fs::write(&file, b"native payload").unwrap();
 
-    let mut cmd = Command::cargo_bin("localsend-improved").unwrap();
+    let mut cmd = Command::cargo_bin("night-bridge").unwrap();
     set_isolated_dirs(&mut cmd, &dir);
 
     cmd.args([
@@ -205,7 +217,7 @@ fn send_wan_requires_peer() {
     let file = dir.path().join("file.bin");
     std::fs::write(&file, b"native payload").unwrap();
 
-    let mut cmd = Command::cargo_bin("localsend-improved").unwrap();
+    let mut cmd = Command::cargo_bin("night-bridge").unwrap();
     set_isolated_dirs(&mut cmd, &dir);
 
     cmd.args(["send", "--wan", file.to_str().unwrap()])
@@ -220,7 +232,7 @@ fn send_wan_rejects_url() {
     let file = dir.path().join("file.bin");
     std::fs::write(&file, b"native payload").unwrap();
 
-    let mut cmd = Command::cargo_bin("localsend-improved").unwrap();
+    let mut cmd = Command::cargo_bin("night-bridge").unwrap();
     set_isolated_dirs(&mut cmd, &dir);
 
     cmd.args([
@@ -243,7 +255,7 @@ fn send_wan_uses_daemon_api() {
     let file = dir.path().join("file.bin");
     std::fs::write(&file, b"native payload").unwrap();
 
-    let mut cmd = Command::cargo_bin("localsend-improved").unwrap();
+    let mut cmd = Command::cargo_bin("night-bridge").unwrap();
     set_isolated_dirs(&mut cmd, &dir);
 
     cmd.args([
@@ -265,7 +277,7 @@ fn send_wan_uses_daemon_api() {
 #[test]
 fn transfers_list_active_requires_daemon() {
     let dir = TempDir::new().unwrap();
-    let mut cmd = Command::cargo_bin("localsend-improved").unwrap();
+    let mut cmd = Command::cargo_bin("night-bridge").unwrap();
     set_isolated_dirs(&mut cmd, &dir);
 
     cmd.args([
@@ -287,7 +299,7 @@ fn transfers_list_active_requires_daemon() {
 #[test]
 fn transfers_resume_requires_transfer_id() {
     let dir = TempDir::new().unwrap();
-    let mut cmd = Command::cargo_bin("localsend-improved").unwrap();
+    let mut cmd = Command::cargo_bin("night-bridge").unwrap();
     set_isolated_dirs(&mut cmd, &dir);
 
     cmd.args(["transfers", "resume"])
@@ -299,7 +311,7 @@ fn transfers_resume_requires_transfer_id() {
 #[test]
 fn transfers_resume_requires_daemon() {
     let dir = TempDir::new().unwrap();
-    let mut cmd = Command::cargo_bin("localsend-improved").unwrap();
+    let mut cmd = Command::cargo_bin("night-bridge").unwrap();
     set_isolated_dirs(&mut cmd, &dir);
 
     cmd.args([
@@ -322,7 +334,7 @@ fn transfers_resume_requires_daemon() {
 #[test]
 fn daemon_status_rejects_missing_api_token_file() {
     let dir = TempDir::new().unwrap();
-    let mut cmd = Command::cargo_bin("localsend-improved").unwrap();
+    let mut cmd = Command::cargo_bin("night-bridge").unwrap();
     set_isolated_dirs(&mut cmd, &dir);
 
     cmd.args(["daemon", "status"]).assert().failure().stderr(
@@ -335,7 +347,7 @@ fn daemon_status_rejects_missing_api_token_file() {
 #[test]
 fn daemon_status_fails_clearly_when_daemon_unavailable() {
     let dir = TempDir::new().unwrap();
-    let mut cmd = Command::cargo_bin("localsend-improved").unwrap();
+    let mut cmd = Command::cargo_bin("night-bridge").unwrap();
     set_isolated_dirs(&mut cmd, &dir);
 
     cmd.args([

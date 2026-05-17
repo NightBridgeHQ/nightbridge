@@ -2,9 +2,9 @@ import { get, writable } from "svelte/store";
 import { invoke } from "@tauri-apps/api/core";
 import { loadSnapshot, setApiBase, streamEvents, type DaemonEvent, type DaemonSnapshot } from "./api";
 
-const TOKEN_KEY = "lsi.apiToken";
-const API_BASE_KEY = "lsi.apiBase";
-const MODE_KEY = "lsi.guiMode";
+const TOKEN_KEY = "nbrg.apiToken";
+const API_BASE_KEY = "nbrg.apiBase";
+const MODE_KEY = "nbrg.guiMode";
 
 export type GuiMode = "remote" | "standalone";
 

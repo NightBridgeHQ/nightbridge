@@ -1,4 +1,4 @@
-//! `lsi-tui` terminal dashboard entry point.
+//! `night-bridge-tui` terminal dashboard entry point.
 
 use std::io::{self, Stdout};
 use std::time::{Duration, Instant};
@@ -115,7 +115,7 @@ fn load_api_token() -> Result<String> {
 
 fn print_help() {
     println!(
-        "Usage: lsi-tui [--daemon-grpc <URL>] [--api-token <TOKEN>]\n\n\
+        "Usage: night-bridge-tui [--daemon-grpc <URL>] [--api-token <TOKEN>]\n\n\
          Options:\n  \
          --daemon-grpc <URL>   Daemon gRPC endpoint [default: {DEFAULT_DAEMON_GRPC}]\n  \
          --api-token <TOKEN>   Local daemon API bearer token\n  \

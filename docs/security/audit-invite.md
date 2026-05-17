@@ -5,7 +5,7 @@ Improved 1.0 candidate.
 
 ## Project Overview
 
-LocalSend Improved adds a headless daemon, CLI, API, WebUI/TUI, native QUIC
+NightBridge adds a headless daemon, CLI, API, WebUI/TUI, native QUIC
 protocol, WAN rendezvous, and desktop GUI scaffolding around LocalSend v2
 compatibility. The target users are homelab, NAS, server, and workstation
 operators who need file transfer without keeping the official desktop app open.

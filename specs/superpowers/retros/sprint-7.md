@@ -96,7 +96,7 @@ cargo test --test gui_smoke -- --nocapture
 ```
 
 Result: `gui_smoke_is_gated` passed and skipped the real GUI run because
-`LSI_RUN_GUI_SMOKE=1` was not set.
+`NBRG_RUN_GUI_SMOKE=1` was not set.
 
 The harness is strict-capable when `tauri-driver` exists, but real interactive
 WebDriver GUI smoke was not run on this host.
@@ -128,11 +128,11 @@ cargo build --workspace --release
 
 Local release binaries were produced for:
 
-- `localsend-improved`
-- `localsend-improved-daemon`
-- `localsend-improved-gui`
-- `lsi-rendezvous`
-- `lsi-tui`
+- `night-bridge`
+- `night-bridge-daemon`
+- `night-bridge-gui`
+- `night-bridge-rendezvous`
+- `night-bridge-tui`
 
 WebUI production build passed:
 

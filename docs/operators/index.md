@@ -1,6 +1,6 @@
 # Operator Guide
 
-This guide is for people running LocalSend Improved on a server, workstation,
+This guide is for people running NightBridge on a server, workstation,
 or small homelab fleet.
 
 ## Guides

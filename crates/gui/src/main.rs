@@ -9,5 +9,5 @@ fn main() {
             lsi_gui::gui_stop_embedded_daemon
         ])
         .run(tauri::generate_context!())
-        .expect("failed to run LocalSend Improved GUI");
+        .expect("failed to run NightBridge GUI");
 }

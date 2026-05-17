@@ -1,6 +1,6 @@
 # Quickstart
 
-LocalSend Improved is for headless and desktop-adjacent workflows where a NAS,
+NightBridge is for headless and desktop-adjacent workflows where a NAS,
 server, Raspberry Pi, or workstation should participate in the LocalSend
 ecosystem without keeping the official desktop app open.
 
@@ -15,7 +15,7 @@ ecosystem without keeping the official desktop app open.
 2. Start the daemon with an inbox path and LocalSend port.
 
    ```bash
-   target/release/localsend-improved-daemon \
+   target/release/night-bridge-daemon \
      --alias "NAS" \
      --inbox "$HOME/LocalSendInbox" \
      --localsend-port 53317
@@ -33,13 +33,13 @@ self-signed HTTPS compatibility expectations.
 Use an explicit LocalSend peer URL when discovery is not wired into your flow:
 
 ```bash
-localsend-improved send --direct --url http://192.168.1.20:53317 ./photo.jpg
+night-bridge send --direct --url http://192.168.1.20:53317 ./photo.jpg
 ```
 
 For daemon-mediated sends:
 
 ```bash
-localsend-improved send --url http://192.168.1.20:53317 ./photo.jpg
+night-bridge send --url http://192.168.1.20:53317 ./photo.jpg
 ```
 
 Native direct sends are separate from LocalSend compatibility and require
@@ -54,9 +54,9 @@ available.
 Typical checks:
 
 ```bash
-localsend-improved daemon status
-localsend-improved peers list-lan
-localsend-improved peers list-trusted
+night-bridge daemon status
+night-bridge peers list-lan
+night-bridge peers list-trusted
 ```
 
 The daemon API is protected by a bearer token. Treat the token like a password.

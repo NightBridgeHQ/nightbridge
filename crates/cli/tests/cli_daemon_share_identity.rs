@@ -39,7 +39,7 @@ impl EnvLike for std::process::Command {
 fn cli_and_daemon_see_same_fingerprint() {
     let dir = TempDir::new().unwrap();
 
-    let mut cli_show = Command::cargo_bin("localsend-improved").unwrap();
+    let mut cli_show = Command::cargo_bin("night-bridge").unwrap();
     set_isolated_dirs(&mut cli_show, &dir);
     let cli_output = cli_show.args(["identity", "show"]).output().unwrap();
     assert!(cli_output.status.success());
@@ -102,7 +102,7 @@ fn parse_json_string_field(line: &str, field: &str) -> Option<String> {
 }
 
 fn daemon_bin_path() -> std::path::PathBuf {
-    let path = assert_cmd::cargo::cargo_bin("localsend-improved-daemon");
+    let path = assert_cmd::cargo::cargo_bin("night-bridge-daemon");
     if path.exists() {
         return path;
     }

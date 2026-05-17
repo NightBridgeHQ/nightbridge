@@ -1,4 +1,4 @@
-//! CLI entry point.
+// CLI entry point.
 
 use anyhow::Result;
 use clap::{Parser, Subcommand};
@@ -8,9 +8,9 @@ mod daemon_client;
 
 #[derive(Parser)]
 #[command(
-    name = "localsend-improved",
+    name = "night-bridge",
     version,
-    about = "CLI for LocalSend Improved",
+    about = "CLI for NightBridge",
     long_about = None
 )]
 struct Cli {

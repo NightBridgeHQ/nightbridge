@@ -62,7 +62,7 @@ impl GuiSettings {
 
 #[derive(Debug, Error)]
 pub enum SettingsError {
-    #[error("could not determine LocalSend Improved config directory")]
+    #[error("could not determine NightBridge config directory")]
     MissingConfigDir,
     #[error("invalid remote endpoint `{endpoint}`: {reason}")]
     InvalidEndpoint { endpoint: String, reason: String },
@@ -77,7 +77,7 @@ pub enum SettingsError {
 }
 
 pub fn default_settings_path() -> Result<PathBuf, SettingsError> {
-    let dirs = ProjectDirs::from("com", "localsendimproved", "LocalSend Improved")
+    let dirs = ProjectDirs::from("com", "nightbridge", "NightBridge")
         .ok_or(SettingsError::MissingConfigDir)?;
     Ok(dirs.config_dir().join(SETTINGS_FILE_NAME))
 }

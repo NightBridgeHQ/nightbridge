@@ -10,8 +10,8 @@ Symptoms:
 Checks:
 
 ```bash
-ls -l /var/lib/localsend-improved/api.token
-systemctl status localsend-improved.service
+ls -l /var/lib/night-bridge/api.token
+systemctl status night-bridge.service
 ```
 
 Fix the state path permissions or restart the daemon with a writable state
@@ -21,7 +21,7 @@ directory. Treat the token as a secret.
 
 Symptoms:
 
-- `localsend-improved peers list-lan` returns no peers.
+- `night-bridge peers list-lan` returns no peers.
 - Official LocalSend devices do not see the daemon.
 
 Checks:

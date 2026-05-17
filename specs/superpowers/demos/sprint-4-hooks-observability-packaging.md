@@ -31,10 +31,10 @@ test result: ok. 11 passed; 0 failed; 0 ignored; 0 measured; 44 filtered out
 Covered evidence:
 
 - webhook POST sends parseable JSON
-- `X-LSI-Signature: sha256=<hmac>` is verified in test
-- `X-LSI-Event` carries the stable event type
+- `X-NBRG-Signature: sha256=<hmac>` is verified in test
+- `X-NBRG-Event` carries the stable event type
 - webhook retries 5xx responses
-- exec hook exports `LSI_EVENT_ID`, `LSI_EVENT_TYPE`, and `LSI_EVENT_JSON`
+- exec hook exports `NBRG_EVENT_ID`, `NBRG_EVENT_TYPE`, and `NBRG_EVENT_JSON`
 - dispatcher fans out an `InboxChanged` daemon event to a configured sink
 
 ## Health And Metrics Evidence
@@ -125,7 +125,7 @@ For a full manual LAN demo:
 1. Install `cargo-deb`, `cargo-generate-rpm`, and start Docker.
 2. Start a webhook receiver that records headers and request body.
 3. Create a config with webhook, exec hook, and metrics enabled.
-4. Start `localsend-improved-daemon` with that config.
+4. Start `night-bridge-daemon` with that config.
 5. Send a file through LocalSend v2 or native transfer.
 6. Capture webhook JSON, signature verification, exec env output, `/metrics`,
    `/healthz`, `/readyz`, and packaging smoke output.

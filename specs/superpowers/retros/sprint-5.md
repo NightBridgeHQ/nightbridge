@@ -2,7 +2,7 @@
 
 ## What Shipped
 
-- QUIC-based `lsi-rendezvous` service for WAN peer metadata exchange.
+- QUIC-based `night-bridge-rendezvous` service for WAN peer metadata exchange.
 - Signed rendezvous register, lookup, and notify request/response messages.
 - In-memory rendezvous registry with TTL capping, expiry, replacement, and queued notifications.
 - Rendezvous client library with local client/server integration coverage.
@@ -29,7 +29,7 @@ specs/superpowers/demos/sprint-5-wan-rendezvous.md
 The demo evidence records:
 
 - `cargo build --workspace`
-- local `lsi-rendezvous` startup on `127.0.0.1:53410`
+- local `night-bridge-rendezvous` startup on `127.0.0.1:53410`
 - focused rendezvous, candidate, hole-punch, daemon WAN, and CLI WAN tests
 - full `cargo test --workspace`
 - macOS netns skip reason and the Linux commands required for the full smoke path
@@ -94,7 +94,7 @@ test wan_netns_smoke_is_gated_and_runs_when_requested ... ok
 The full topology still needs a Linux host with root or `CAP_NET_ADMIN`:
 
 ```bash
-LSI_RUN_NETNS_TESTS=1 cargo test --test wan_netns -- --nocapture
+NBRG_RUN_NETNS_TESTS=1 cargo test --test wan_netns -- --nocapture
 sudo bash scripts/wan-netns-smoke.sh
 ```
 

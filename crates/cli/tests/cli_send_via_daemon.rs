@@ -45,7 +45,7 @@ async fn send_uploads_file_through_daemon_api() {
     let mut daemon = spawn_daemon(&dir, grpc_port, http_port);
     let token = wait_for_api_token(&dir, &mut daemon);
 
-    let mut cmd = Command::cargo_bin("localsend-improved").unwrap();
+    let mut cmd = Command::cargo_bin("night-bridge").unwrap();
     set_isolated_dirs_assert(&mut cmd, &dir);
     let assert = cmd
         .timeout(Duration::from_secs(10))
@@ -170,7 +170,7 @@ fn unused_port() -> u16 {
 }
 
 fn daemon_bin_path() -> std::path::PathBuf {
-    let path = assert_cmd::cargo::cargo_bin("localsend-improved-daemon");
+    let path = assert_cmd::cargo::cargo_bin("night-bridge-daemon");
     let status = std::process::Command::new(env!("CARGO"))
         .args(["build", "-p", "lsi-daemon"])
         .status()

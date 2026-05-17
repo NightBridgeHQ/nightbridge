@@ -27,9 +27,9 @@ impl ExecSink {
         let mut command = Command::new(program);
         command
             .args(parts)
-            .env("LSI_EVENT_ID", &event.event_id)
-            .env("LSI_EVENT_TYPE", event.event_type.as_str())
-            .env("LSI_EVENT_JSON", event_json)
+            .env("NBRG_EVENT_ID", &event.event_id)
+            .env("NBRG_EVENT_TYPE", event.event_type.as_str())
+            .env("NBRG_EVENT_JSON", event_json)
             .kill_on_drop(true);
 
         let output = timeout(self.timeout, command.output())
@@ -90,7 +90,7 @@ mod tests {
         let output = dir.path().join("env.out");
         fs::write(
             &script,
-            "#!/bin/sh\nprintf '%s\\n%s\\n%s\\n' \"$LSI_EVENT_ID\" \"$LSI_EVENT_TYPE\" \"$LSI_EVENT_JSON\" > \"$1\"\n",
+            "#!/bin/sh\nprintf '%s\\n%s\\n%s\\n' \"$NBRG_EVENT_ID\" \"$NBRG_EVENT_TYPE\" \"$NBRG_EVENT_JSON\" > \"$1\"\n",
         )
         .unwrap();
         make_executable(&script);

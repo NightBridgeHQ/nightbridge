@@ -59,7 +59,7 @@ impl DaemonClientConfig {
             .with_context(|| format!("invalid daemon gRPC endpoint {}", self.endpoint))?;
         endpoint.connect().await.with_context(|| {
             format!(
-                "daemon API unavailable at {}; start localsend-improved-daemon or use offline command",
+                "daemon API unavailable at {}; start night-bridge-daemon or use offline command",
                 self.endpoint
             )
         })

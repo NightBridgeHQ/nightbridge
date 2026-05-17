@@ -1,4 +1,4 @@
-//! `localsend-improved send ...` command.
+//! `night-bridge send ...` command.
 
 use std::path::PathBuf;
 
@@ -159,7 +159,7 @@ fn sender_info() -> Result<DeviceInfo> {
     let fingerprint = Fingerprint::from_pubkey(&keypair.public_bytes()).to_string();
 
     Ok(DeviceInfo {
-        alias: "localsend-improved".to_string(),
+        alias: "night-bridge".to_string(),
         version: "2.0".to_string(),
         device_model: None,
         device_type: Some("desktop".to_string()),

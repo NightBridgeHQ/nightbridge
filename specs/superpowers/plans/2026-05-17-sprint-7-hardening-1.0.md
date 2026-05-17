@@ -2,7 +2,7 @@
 
 > **For Claude:** REQUIRED SUB-SKILL: Use `superpowers:executing-plans` to implement this plan task-by-task. Use `superpowers:test-driven-development` for code changes, `superpowers:systematic-debugging` for failures, and `superpowers:subagent-driven-development` only when explicitly asked to parallelize.
 
-**Goal:** Stabilize LocalSend Improved for a credible 1.0 candidate with security hardening, repeatable soak/interop verification, release artifacts, operator docs, and clear remaining-risk disclosure.
+**Goal:** Stabilize NightBridge for a credible 1.0 candidate with security hardening, repeatable soak/interop verification, release artifacts, operator docs, and clear remaining-risk disclosure.
 
 **Architecture:** Keep the daemon and protocol crates as the security boundary. Harden native transfers by binding trusted peer identity to Ed25519 fingerprints and TLS certificate material before investing in release automation. Treat platform packaging, docs, and release metadata as downstream work that can proceed only after the production trust gate and baseline verification are green.
 
@@ -496,9 +496,9 @@ git commit -s -m "docs(security): add threat model"
 
 Extend `crates/protocol-native-v1/tests/soak_resume.rs` to honor:
 
-- `LSI_SOAK_BYTES`
-- `LSI_SOAK_RECONNECTS`
-- `LSI_SOAK_SEED`
+- `NBRG_SOAK_BYTES`
+- `NBRG_SOAK_RECONNECTS`
+- `NBRG_SOAK_SEED`
 
 Keep existing defaults fast enough for local manual runs.
 
@@ -512,21 +512,21 @@ set -euo pipefail
 
 cd "$(dirname "$0")/.."
 
-: "${LSI_SOAK_BYTES:=134217728}"
-: "${LSI_SOAK_RECONNECTS:=10}"
-: "${LSI_SOAK_LOG:=target/soak/native-soak.log}"
+: "${NBRG_SOAK_BYTES:=134217728}"
+: "${NBRG_SOAK_RECONNECTS:=10}"
+: "${NBRG_SOAK_LOG:=target/soak/native-soak.log}"
 
-mkdir -p "$(dirname "$LSI_SOAK_LOG")"
+mkdir -p "$(dirname "$NBRG_SOAK_LOG")"
 
-echo "LSI_SOAK_BYTES=$LSI_SOAK_BYTES"
-echo "LSI_SOAK_RECONNECTS=$LSI_SOAK_RECONNECTS"
-echo "LSI_SOAK_LOG=$LSI_SOAK_LOG"
+echo "NBRG_SOAK_BYTES=$NBRG_SOAK_BYTES"
+echo "NBRG_SOAK_RECONNECTS=$NBRG_SOAK_RECONNECTS"
+echo "NBRG_SOAK_LOG=$NBRG_SOAK_LOG"
 
-LSI_SOAK=1 \
-LSI_SOAK_BYTES="$LSI_SOAK_BYTES" \
-LSI_SOAK_RECONNECTS="$LSI_SOAK_RECONNECTS" \
+NBRG_SOAK=1 \
+NBRG_SOAK_BYTES="$NBRG_SOAK_BYTES" \
+NBRG_SOAK_RECONNECTS="$NBRG_SOAK_RECONNECTS" \
 cargo test -p lsi-protocol-native-v1 --test soak_resume -- --ignored --nocapture \
-  2>&1 | tee "$LSI_SOAK_LOG"
+  2>&1 | tee "$NBRG_SOAK_LOG"
 ```
 
 **Step 3: Document 7-day run**
@@ -546,8 +546,8 @@ Run:
 ```bash
 bash -n scripts/native-soak.sh
 cargo test -p lsi-protocol-native-v1 --test soak_resume patterned_bytes_have_stable_hash
-LSI_SOAK_BYTES=1048576 LSI_SOAK_RECONNECTS=2 bash scripts/native-soak.sh
-rg -n "7-day|heaptrack|valgrind|LSI_SOAK_BYTES|pass/fail" docs/operations/soak-testing.md
+NBRG_SOAK_BYTES=1048576 NBRG_SOAK_RECONNECTS=2 bash scripts/native-soak.sh
+rg -n "7-day|heaptrack|valgrind|NBRG_SOAK_BYTES|pass/fail" docs/operations/soak-testing.md
 ```
 
 Expected: PASS.
@@ -595,7 +595,7 @@ cd "$(dirname "$0")/.."
 cargo test -p lsi-protocol-localsend-v2 --test interop_receive -- --nocapture
 
 cat <<'MSG'
-Official LocalSend app matrix is manual unless LSI_OFFICIAL_LOCALSEND_ARTIFACT
+Official LocalSend app matrix is manual unless NBRG_OFFICIAL_LOCALSEND_ARTIFACT
 points to a verified headless-capable artifact for this platform.
 MSG
 ```
@@ -645,13 +645,13 @@ Update `scripts/gui-smoke.sh` to:
 1. Build WebUI.
 2. Check `lsi-gui`.
 3. Check `tauri-driver`.
-4. If `LSI_GUI_SMOKE_STRICT=1`, fail when `tauri-driver` is missing.
+4. If `NBRG_GUI_SMOKE_STRICT=1`, fail when `tauri-driver` is missing.
 5. If present, start `tauri-driver`, run a bounded Tauri/WebDriver launch check, then clean up.
 
 Keep the first implementation minimal if WebDriver selectors are not stable:
 
 ```bash
-if [[ "${LSI_GUI_SMOKE_STRICT:-0}" == "1" ]] && ! command -v tauri-driver >/dev/null 2>&1; then
+if [[ "${NBRG_GUI_SMOKE_STRICT:-0}" == "1" ]] && ! command -v tauri-driver >/dev/null 2>&1; then
   echo "missing: tauri-driver"
   exit 1
 fi
@@ -661,8 +661,8 @@ fi
 
 Update `tests/gui_smoke.rs` so:
 
-- default remains a skip unless `LSI_RUN_GUI_SMOKE=1`
-- strict mode failure is test-visible when `LSI_GUI_SMOKE_STRICT=1`
+- default remains a skip unless `NBRG_RUN_GUI_SMOKE=1`
+- strict mode failure is test-visible when `NBRG_GUI_SMOKE_STRICT=1`
 
 **Step 3: Document**
 
@@ -680,8 +680,8 @@ Run:
 ```bash
 bash -n scripts/gui-smoke.sh
 cargo test --test gui_smoke -- --nocapture
-LSI_RUN_GUI_SMOKE=1 cargo test --test gui_smoke -- --nocapture
-rg -n "tauri-driver|LSI_RUN_GUI_SMOKE|LSI_GUI_SMOKE_STRICT" docs/operations/gui-smoke.md scripts/gui-smoke.sh tests/gui_smoke.rs
+NBRG_RUN_GUI_SMOKE=1 cargo test --test gui_smoke -- --nocapture
+rg -n "tauri-driver|NBRG_RUN_GUI_SMOKE|NBRG_GUI_SMOKE_STRICT" docs/operations/gui-smoke.md scripts/gui-smoke.sh tests/gui_smoke.rs
 ```
 
 Expected: PASS, with non-strict skip allowed if `tauri-driver` is absent.
@@ -964,7 +964,7 @@ Use mdBook only as a docs-site wrapper over existing docs. Do not move all docs 
 
 ```toml
 [book]
-title = "LocalSend Improved"
+title = "NightBridge"
 language = "en"
 src = "src"
 
@@ -992,7 +992,7 @@ Install mdBook and build docs.
 Run:
 
 ```bash
-test ! -f docs/book.toml || rg -n "LocalSend Improved|SUMMARY|Operators|Security" docs/book.toml docs/src
+test ! -f docs/book.toml || rg -n "NightBridge|SUMMARY|Operators|Security" docs/book.toml docs/src
 git diff --check
 ```
 

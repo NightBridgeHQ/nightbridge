@@ -1,6 +1,6 @@
-# LocalSend Improved
+# NightBridge
 
-LocalSend Improved documentation is organized as a small site wrapper around the canonical repository docs.
+NightBridge documentation is organized as a small site wrapper around the canonical repository docs.
 
 - [Users](users.md)
 - [Operators](operators.md)

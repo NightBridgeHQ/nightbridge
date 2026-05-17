@@ -26,7 +26,7 @@ Result:
 
 ```text
 Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.07s
-Running `target/debug/lsi-rendezvous --bind '127.0.0.1:53410' --max-ttl-seconds 300`
+Running `target/debug/night-bridge-rendezvous --bind '127.0.0.1:53410' --max-ttl-seconds 300`
 2026-05-16T03:21:50.150711Z  INFO lsi_rendezvous::server: rendezvous server started addr=127.0.0.1:53410
 2026-05-16T03:21:50.150776Z  INFO lsi_rendezvous: rendezvous server ready addr=127.0.0.1:53410
 ```
@@ -49,7 +49,7 @@ cargo test -p lsi-cli wan
 Results:
 
 ```text
-lsi-rendezvous: 17 passed; 0 failed
+night-bridge-rendezvous: 17 passed; 0 failed
 lsi-protocol-native-v1 candidates: 8 passed; 0 failed; 63 filtered out
 lsi-protocol-native-v1 hole_punch: 7 passed; 0 failed; 64 filtered out
 lsi-daemon wan: 9 passed; 0 failed; 57 filtered out
@@ -104,7 +104,7 @@ The full smoke path is intentionally gated because it needs Linux network
 namespaces and root or `CAP_NET_ADMIN`:
 
 ```bash
-LSI_RUN_NETNS_TESTS=1 cargo test --test wan_netns -- --nocapture
+NBRG_RUN_NETNS_TESTS=1 cargo test --test wan_netns -- --nocapture
 ```
 
 or:
@@ -122,7 +122,7 @@ advertised candidates and opens a direct candidate connection.
 
 Code and test coverage reflect that boundary:
 
-- `lsi-rendezvous` tests exercise protocol metadata, candidate exchange, and notification queues
+- `night-bridge-rendezvous` tests exercise protocol metadata, candidate exchange, and notification queues
 - `lsi-daemon` WAN tests exercise lookup and API routing, not byte relay
 - `lsi-protocol-native-v1` transfer tests write files through direct native listeners
 - there is no relay server, relay stream, or upload/download byte path in the rendezvous crate

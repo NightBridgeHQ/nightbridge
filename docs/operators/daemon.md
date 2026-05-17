@@ -14,14 +14,14 @@ cargo build --release -p lsi-daemon
 Install the binary and systemd unit:
 
 ```bash
-sudo install -D -m 0755 target/release/localsend-improved-daemon \
-  /usr/bin/localsend-improved-daemon
-sudo install -D -m 0644 packaging/systemd/localsend-improved.service \
-  /etc/systemd/system/localsend-improved.service
-sudo install -d -m 0755 /etc/localsend-improved
-sudo install -d -m 0750 /var/lib/localsend-improved
+sudo install -D -m 0755 target/release/night-bridge-daemon \
+  /usr/bin/night-bridge-daemon
+sudo install -D -m 0644 packaging/systemd/night-bridge.service \
+  /etc/systemd/system/night-bridge.service
+sudo install -d -m 0755 /etc/night-bridge
+sudo install -d -m 0750 /var/lib/night-bridge
 sudo systemctl daemon-reload
-sudo systemctl enable --now localsend-improved.service
+sudo systemctl enable --now night-bridge.service
 ```
 
 Package builds use:
@@ -32,11 +32,11 @@ bash packaging/build-packages.sh
 
 ## Paths
 
-- Config path: `/etc/localsend-improved/config.toml`
-- State path: `/var/lib/localsend-improved`
-- API token path: `/var/lib/localsend-improved/api.token`
-- Trust store: `/var/lib/localsend-improved/trust.db`
-- Default inbox: `/var/lib/localsend-improved/inbox`
+- Config path: `/etc/night-bridge/config.toml`
+- State path: `/var/lib/night-bridge`
+- API token path: `/var/lib/night-bridge/api.token`
+- Trust store: `/var/lib/night-bridge/trust.db`
+- Default inbox: `/var/lib/night-bridge/inbox`
 
 For local development, the same paths are derived from the configured state
 root and inbox arguments.
@@ -92,7 +92,7 @@ refreshed before native WAN auto-send is allowed.
 Useful commands:
 
 ```bash
-localsend-improved peers list-trusted
-localsend-improved peers list-lan
-localsend-improved send --wan --peer <fingerprint> <file>
+night-bridge peers list-trusted
+night-bridge peers list-lan
+night-bridge send --wan --peer <fingerprint> <file>
 ```

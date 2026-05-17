@@ -1,4 +1,4 @@
-"""Small Python facade for the LocalSend Improved local HTTP API."""
+"""Small Python facade for the NightBridge local HTTP API."""
 
 from __future__ import annotations
 
@@ -67,8 +67,8 @@ def _load_token() -> str:
     override = os.environ.get("LOCALSEND_IMPROVED_API_TOKEN_FILE")
     candidates = [
         Path(override) if override else None,
-        Path.home() / ".config" / "localsend-improved" / "api.token",
-        Path.home() / "Library" / "Application Support" / "dev.lsi.localsend-improved" / "api.token",
+        Path.home() / ".config" / "night-bridge" / "api.token",
+        Path.home() / "Library" / "Application Support" / "dev.nightbridge.night-bridge" / "api.token",
     ]
     for candidate in candidates:
         if candidate and candidate.exists():

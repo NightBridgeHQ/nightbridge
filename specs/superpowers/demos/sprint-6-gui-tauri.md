@@ -28,7 +28,7 @@ PASS: dist/index.html and dist/assets generated
 cargo test --test gui_smoke -- --nocapture
 PASS: gated smoke test skipped by default
 
-LSI_RUN_GUI_SMOKE=1 cargo test --test gui_smoke -- --nocapture
+NBRG_RUN_GUI_SMOKE=1 cargo test --test gui_smoke -- --nocapture
 PASS: skipped because tauri-driver is not installed
 ```
 
@@ -61,10 +61,10 @@ Result:
 ```text
 PASS
 Built application:
-target/release/localsend-improved-gui
+target/release/night-bridge-gui
 
 Built bundle:
-target/release/bundle/dmg/LocalSend Improved_0.1.0_aarch64.dmg
+target/release/bundle/dmg/NightBridge_0.1.0_aarch64.dmg
 ```
 
 Two MSRV-related packaging findings were fixed during this task:
@@ -93,7 +93,7 @@ Automated evidence:
 
 Standalone mode is implemented by the Rust-side embedded daemon manager:
 
-- starts `localsend-improved-daemon` with a private config/state/data root
+- starts `night-bridge-daemon` with a private config/state/data root
 - uses loopback-only API ports
 - reads the generated daemon API token from the private config root
 - exposes start, stop, and status commands to the WebUI

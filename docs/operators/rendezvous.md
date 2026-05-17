@@ -19,7 +19,7 @@ cargo build --release -p lsi-rendezvous
 Example run:
 
 ```bash
-target/release/lsi-rendezvous --bind 0.0.0.0:53410 --max-ttl-seconds 300
+target/release/night-bridge-rendezvous --bind 0.0.0.0:53410 --max-ttl-seconds 300
 ```
 
 Open the configured UDP port on the VPS firewall. The current examples use
@@ -46,5 +46,5 @@ ss -lunp | grep ':53410'
 Functional smoke:
 
 ```bash
-LSI_RUN_NETNS_TESTS=1 cargo test --test wan_netns -- --nocapture
+NBRG_RUN_NETNS_TESTS=1 cargo test --test wan_netns -- --nocapture
 ```

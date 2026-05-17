@@ -1,4 +1,4 @@
-//! Embedded WebUI assets for the LocalSend Improved daemon.
+//! Embedded WebUI assets for the NightBridge daemon.
 
 use std::borrow::Cow;
 

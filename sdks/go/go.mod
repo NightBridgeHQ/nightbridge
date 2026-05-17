@@ -1,4 +1,4 @@
-module github.com/chrnx/localsend-improved/sdks/go
+module github.com/chrnx/night-bridge/sdks/go
 
 go 1.22
 

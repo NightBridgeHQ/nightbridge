@@ -115,7 +115,7 @@ async fn send_prepared_native_files(
 
     let hello = Hello {
         protocol_version: PROTOCOL_VERSION,
-        alias: "localsend-improved".to_string(),
+        alias: "night-bridge".to_string(),
         pubkey: keypair.public_bytes(),
         nonce: request.transfer_id.as_bytes().to_vec(),
         extensions: default_extensions(),
