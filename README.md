@@ -3,7 +3,7 @@
 > Headless-first file transfer for homelab and server use cases.
 > Bidirectional compatibility with LocalSend v2 plus a native QUIC+TLS1.3+Ed25519 protocol.
 
-**Status:** pre-alpha. The repository now includes the headless daemon, CLI, LocalSend v2 receive/send paths, native QUIC transfer foundations, Sprint 5 WAN rendezvous work, and Sprint 6 Tauri desktop GUI scaffolding. Desktop packages are pre-release until signing, notarization, and updater infrastructure are configured. See [the v1 roadmap](specs/superpowers/plans/2026-05-10-localsend-improved-v1.md), [Sprint 5 plan](specs/superpowers/plans/2026-05-15-sprint-5-wan-rendezvous.md), and [Sprint 6 GUI plan](specs/superpowers/plans/2026-05-16-sprint-6-gui-tauri.md).
+**Status:** pre-alpha. The repository now includes the headless daemon, CLI, LocalSend v2 receive/send paths, native QUIC transfer foundations, WAN rendezvous work, and Tauri desktop GUI scaffolding. Desktop packages are pre-release until signing, notarization, and updater infrastructure are configured. See the [1.0 release notes draft](docs/release/1.0-notes.md), [release artifact matrix](docs/release/artifacts.md), and [operator guide](docs/operators/index.md).
 
 ## Why?
 
@@ -58,6 +58,12 @@ Packaging and signing notes live in
 Operator setup, service management, and troubleshooting live in the
 [operator guide](docs/operators/index.md).
 
+## Release
+
+- Changelog: [CHANGELOG.md](CHANGELOG.md)
+- 1.0 release notes draft: [docs/release/1.0-notes.md](docs/release/1.0-notes.md)
+- Release artifact matrix: [docs/release/artifacts.md](docs/release/artifacts.md)
+
 ## Security
 
 Security design and operator-facing risk notes:
@@ -76,4 +82,4 @@ Security design and operator-facing risk notes:
   required, and by deliberate design, **no CLA exists**, so the base cannot be
   relicensed away from AGPL-3.0 by maintainers alone.
 
-See [the design spec](specs/superpowers/specs/2026-05-10-localsend-improved-design.md) for the full architecture.
+See the [threat model](docs/security/threat-model.md) and [operator guide](docs/operators/index.md) for the current architecture and deployment boundaries.
