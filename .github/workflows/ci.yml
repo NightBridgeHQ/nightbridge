@@ -117,6 +117,17 @@ jobs:
           bash packaging/release/sbom.sh dist
           bash packaging/release/checksums.sh dist
 
+  docs-site:
+    name: Docs site
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo install mdbook --locked
+      - run: mdbook build docs
+
   wan-netns-smoke:
     name: WAN netns smoke (manual)
     runs-on: ubuntu-latest
