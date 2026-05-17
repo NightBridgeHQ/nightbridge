@@ -17,3 +17,9 @@ The package installs:
 
 Use `packaging/build-packages.sh --check-tools` to verify local tool
 availability before attempting a package build.
+
+NightBridge 26.5 pins Rust 1.78, so install a compatible `cargo-deb` release:
+
+```bash
+cargo install cargo-deb --version 3.6.2 --locked
+```

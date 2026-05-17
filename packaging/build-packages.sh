@@ -6,7 +6,7 @@ check_tools() {
 
   if ! cargo deb --version >/dev/null 2>&1; then
     echo "missing: cargo-deb"
-    echo "install: cargo install cargo-deb --locked"
+    echo "install: cargo install cargo-deb --version 3.6.2 --locked"
     missing=1
   fi
 
