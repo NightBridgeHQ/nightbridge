@@ -103,6 +103,20 @@ jobs:
       - run: bash -n scripts/gui-smoke.sh
       - run: LSI_RUN_GUI_SMOKE=1 cargo test --test gui_smoke -- --nocapture
 
+  release-artifact-scripts:
+    name: Release artifact scripts (manual)
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch'
+    steps:
+      - uses: actions/checkout@v4
+      - run: bash -n packaging/release/checksums.sh
+      - run: bash -n packaging/release/sbom.sh
+      - run: |
+          mkdir -p dist
+          touch dist/placeholder.txt
+          bash packaging/release/sbom.sh dist
+          bash packaging/release/checksums.sh dist
+
   wan-netns-smoke:
     name: WAN netns smoke (manual)
     runs-on: ubuntu-latest
