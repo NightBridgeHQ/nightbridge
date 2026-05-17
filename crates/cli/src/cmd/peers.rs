@@ -6,7 +6,7 @@ use clap::Subcommand;
 use lsi_core::identity::{Fingerprint, FsVault, IdentityVault, Keypair};
 use lsi_core::paths;
 use lsi_core::trust::TrustStore;
-use lsi_proto::peers::v1::{PeerPolicy, TrustedPeer};
+use lsi_proto::peers::v1::{LocalSendPeer, LocalSendPeerStatus, PeerPolicy, TrustedPeer};
 use lsi_protocol_localsend_v2::discovery::DiscoveryBrowser;
 use lsi_rendezvous::client::RendezvousClient;
 use lsi_rendezvous::protocol::{CandidateKind, LookupRequest};
@@ -30,17 +30,40 @@ pub enum Cmd {
         #[arg(long)]
         rendezvous: String,
     },
+    /// List official LocalSend peers waiting for receive approval.
+    PendingLocalSend,
+    /// Approve an official LocalSend fingerprint for future receives.
+    ApproveLocalSend {
+        /// LocalSend fingerprint to approve.
+        fingerprint: String,
+        /// Optional admin label.
+        #[arg(long)]
+        label: Option<String>,
+    },
+    /// Deny an official LocalSend fingerprint.
+    DenyLocalSend {
+        /// LocalSend fingerprint to deny.
+        fingerprint: String,
+    },
 }
 
 pub fn run(command: Cmd, daemon_config: &DaemonClientConfig) -> Result<()> {
     match command {
         Cmd::ListLan { timeout_ms } => return list_lan(timeout_ms),
         Cmd::LookupWan { target, rendezvous } => return lookup_wan(&target, &rendezvous),
-        Cmd::List => {}
+        Cmd::List
+        | Cmd::PendingLocalSend
+        | Cmd::ApproveLocalSend { .. }
+        | Cmd::DenyLocalSend { .. } => {}
     }
 
     match command {
         Cmd::List => list(daemon_config),
+        Cmd::PendingLocalSend => list_pending_localsend(daemon_config),
+        Cmd::ApproveLocalSend { fingerprint, label } => {
+            approve_localsend(daemon_config, fingerprint, label)
+        }
+        Cmd::DenyLocalSend { fingerprint } => deny_localsend(daemon_config, fingerprint),
         Cmd::ListLan { .. } => unreachable!("list-lan is handled before connecting to daemon"),
         Cmd::LookupWan { .. } => unreachable!("lookup-wan is handled before connecting to daemon"),
     }
@@ -75,6 +98,66 @@ fn print_trusted_peer(peer: TrustedPeer) {
     let last_seen =
         peer.last_seen_unix_seconds.map(|timestamp| format!("{timestamp}")).unwrap_or("-".into());
     println!("{:<22} {:<24} {:<11} {:<19}", fingerprint, peer.label, policy, last_seen);
+}
+
+fn list_pending_localsend(config: &DaemonClientConfig) -> Result<()> {
+    let runtime = tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()
+        .context("creating async runtime")?;
+    let peers = runtime.block_on(daemon_client::list_pending_localsend_peers(config))?;
+    if peers.is_empty() {
+        println!("no pending LocalSend peers");
+        return Ok(());
+    }
+
+    println!("{:<66} {:<24} {:<8} {:<8} LAST SEEN", "FINGERPRINT", "ALIAS", "STATUS", "ATTEMPTS");
+    for peer in peers {
+        print_localsend_peer(peer);
+    }
+    Ok(())
+}
+
+fn approve_localsend(
+    config: &DaemonClientConfig,
+    fingerprint: String,
+    label: Option<String>,
+) -> Result<()> {
+    let runtime = tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()
+        .context("creating async runtime")?;
+    let peer =
+        runtime.block_on(daemon_client::approve_localsend_peer(config, fingerprint, label))?;
+    println!("approved LocalSend peer:");
+    print_localsend_peer(peer);
+    Ok(())
+}
+
+fn deny_localsend(config: &DaemonClientConfig, fingerprint: String) -> Result<()> {
+    let runtime = tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()
+        .context("creating async runtime")?;
+    let peer = runtime.block_on(daemon_client::deny_localsend_peer(config, fingerprint))?;
+    println!("denied LocalSend peer:");
+    print_localsend_peer(peer);
+    Ok(())
+}
+
+fn print_localsend_peer(peer: LocalSendPeer) {
+    let status = match LocalSendPeerStatus::try_from(peer.status)
+        .unwrap_or(LocalSendPeerStatus::LocalsendPeerStatusUnspecified)
+    {
+        LocalSendPeerStatus::LocalsendPeerStatusPending => "pending",
+        LocalSendPeerStatus::LocalsendPeerStatusTrusted => "trusted",
+        LocalSendPeerStatus::LocalsendPeerStatusBlocked => "blocked",
+        LocalSendPeerStatus::LocalsendPeerStatusUnspecified => "unknown",
+    };
+    println!(
+        "{:<66} {:<24} {:<8} {:<8} {}",
+        peer.fingerprint, peer.alias, status, peer.attempt_count, peer.last_seen_unix_seconds
+    );
 }
 
 fn list_lan(timeout_ms: u64) -> Result<()> {

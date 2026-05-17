@@ -7,6 +7,9 @@ import "lsi/common/v1/common.proto";
 service PeersService {
   rpc ListTrusted(ListTrustedPeersRequest) returns (ListTrustedPeersResponse);
   rpc ListLan(ListLanPeersRequest) returns (ListLanPeersResponse);
+  rpc ListPendingLocalSend(ListPendingLocalSendPeersRequest) returns (ListPendingLocalSendPeersResponse);
+  rpc ApproveLocalSend(ApproveLocalSendPeerRequest) returns (LocalSendPeerResponse);
+  rpc DenyLocalSend(DenyLocalSendPeerRequest) returns (LocalSendPeerResponse);
 }
 
 message ListTrustedPeersRequest {}
@@ -23,6 +26,25 @@ message ListLanPeersResponse {
   repeated LanPeer peers = 1;
 }
 
+message ListPendingLocalSendPeersRequest {}
+
+message ListPendingLocalSendPeersResponse {
+  repeated LocalSendPeer peers = 1;
+}
+
+message ApproveLocalSendPeerRequest {
+  string fingerprint = 1;
+  optional string label = 2;
+}
+
+message DenyLocalSendPeerRequest {
+  string fingerprint = 1;
+}
+
+message LocalSendPeerResponse {
+  LocalSendPeer peer = 1;
+}
+
 enum PeerPolicy {
   PEER_POLICY_UNSPECIFIED = 0;
   PEER_POLICY_AUTO_ACCEPT = 1;
@@ -34,6 +56,13 @@ enum PeerProtocol {
   PEER_PROTOCOL_UNSPECIFIED = 0;
   PEER_PROTOCOL_LOCALSEND_V2 = 1;
   PEER_PROTOCOL_NATIVE_V1 = 2;
+}
+
+enum LocalSendPeerStatus {
+  LOCALSEND_PEER_STATUS_UNSPECIFIED = 0;
+  LOCALSEND_PEER_STATUS_PENDING = 1;
+  LOCALSEND_PEER_STATUS_TRUSTED = 2;
+  LOCALSEND_PEER_STATUS_BLOCKED = 3;
 }
 
 message TrustedPeer {
@@ -56,4 +85,15 @@ message LanPeer {
   optional string device_type = 7;
   bool download = 8;
   repeated string extensions = 9;
+}
+
+message LocalSendPeer {
+  string fingerprint = 1;
+  string alias = 2;
+  optional string label = 3;
+  LocalSendPeerStatus status = 4;
+  int64 first_seen_unix_seconds = 5;
+  int64 last_seen_unix_seconds = 6;
+  uint64 attempt_count = 7;
+  optional string source_ip = 8;
 }

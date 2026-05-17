@@ -63,10 +63,16 @@ cargo run -p lsi-cli --bin night-bridge -- send --direct --url https://10.16.20.
 ```toml
 [localsend]
 receive_policy = "trusted"
-trusted_fingerprints_file = "/etc/night-bridge/localsend-trusted.txt"
 ```
 
-- Optional command-line override:
+- Approval flow:
+
+```bash
+night-bridge peers pending-local-send
+night-bridge peers approve-local-send <ios-local-send-fingerprint> --label "iOS LocalSend"
+```
+
+- Optional static allowlist or command-line override:
 
 ```bash
 night-bridge-daemon \
@@ -75,7 +81,8 @@ night-bridge-daemon \
 ```
 
 - Expected: unknown iOS fingerprints are rejected before upload session
-  creation; allowlisted iOS fingerprint can send.
+  creation and recorded as pending; approved or allowlisted iOS fingerprint can
+  send without daemon restart.
 
 ## Manual Evidence
 

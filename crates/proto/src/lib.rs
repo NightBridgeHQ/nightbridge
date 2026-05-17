@@ -26,6 +26,7 @@ pub mod peers {
     /// Version 1 peer listing API.
     pub mod v1 {
         #![allow(missing_docs)]
+        #![allow(clippy::enum_variant_names)]
         tonic::include_proto!("lsi.peers.v1");
     }
 }

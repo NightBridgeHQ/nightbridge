@@ -12,16 +12,15 @@ ecosystem without keeping the official desktop app open.
    cargo build --release -p lsi-daemon
    ```
 
-2. Configure the LocalSend receive policy and trusted fingerprints.
+2. Configure the LocalSend receive policy.
 
    ```toml
    # ~/.config/night-bridge/config.toml or /etc/night-bridge/config.toml
    [localsend]
    receive_policy = "trusted"
-   trusted_fingerprints_file = "/etc/night-bridge/localsend-trusted.txt"
    ```
 
-   Add one official-app fingerprint per line:
+   Optional static allowlist files are still supported:
 
    ```text
    # /etc/night-bridge/localsend-trusted.txt
@@ -38,16 +37,25 @@ ecosystem without keeping the official desktop app open.
    ```
 
 4. Open the official LocalSend app on your phone or desktop.
-5. Select the daemon by alias and send a file.
-6. Check the daemon inbox.
+5. Select the daemon by alias and send a file. The first attempt from an
+   unknown device is rejected and recorded as pending.
+6. Approve or deny the pending fingerprint.
+
+   ```bash
+   night-bridge peers pending-local-send
+   night-bridge peers approve-local-send <fingerprint> --label "My phone"
+   ```
+
+7. Ask the sender to retry, then check the daemon inbox.
 
 The daemon defaults to `--localsend-receive-policy prompt`, which rejects
 incoming LocalSend uploads until an approval workflow is available. Use
-`trusted` with `trusted_fingerprints` or `trusted_fingerprints_file` for
-unattended receive from known devices. The fingerprint file is read for each new
-upload session, so adding a device does not require restarting the daemon. Use
-`auto` only on a trusted test LAN; it accepts any LocalSend-compatible sender
-that can reach the daemon port.
+`trusted` for unattended receive from devices approved in the daemon trust
+database, listed in `trusted_fingerprints`, or listed in
+`trusted_fingerprints_file`. Approved fingerprints and fingerprint files are read
+for each new upload session, so adding a device does not require restarting the
+daemon. Use `auto` only on a trusted test LAN; it accepts any
+LocalSend-compatible sender that can reach the daemon port.
 
 The LocalSend v2 compatibility path keeps official app behavior, including
 self-signed HTTPS compatibility expectations, but receive authorization remains

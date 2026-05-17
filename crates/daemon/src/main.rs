@@ -362,6 +362,7 @@ async fn start_localsend_v2(state: &DaemonState) -> Result<LocalSendRuntime> {
         receive_policy: state.localsend_receive_policy,
         trusted_fingerprints: state.trusted_localsend_fingerprints.clone(),
         trusted_fingerprints_file: state.trusted_localsend_fingerprints_file.clone(),
+        trust_db_path: Some(state.trust_db_path.clone()),
         tls_identity: Some(tls_identity),
     })
     .await?;

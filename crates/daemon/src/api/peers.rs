@@ -1,12 +1,18 @@
 use std::sync::Arc;
 use std::time::Duration;
 
-use lsi_core::trust::{Peer, PeerPolicy as CorePeerPolicy, TrustStore};
+use lsi_core::trust::{
+    LocalSendPeer as CoreLocalSendPeer, LocalSendPeerStatus as CoreLocalSendPeerStatus, Peer,
+    PeerPolicy as CorePeerPolicy, TrustStore,
+};
 use lsi_proto::{
     common::v1::Fingerprint,
     peers::v1::{
-        peers_service_server::PeersService, LanPeer, ListLanPeersRequest, ListLanPeersResponse,
-        ListTrustedPeersRequest, ListTrustedPeersResponse, PeerPolicy, PeerProtocol, TrustedPeer,
+        peers_service_server::PeersService, ApproveLocalSendPeerRequest, DenyLocalSendPeerRequest,
+        LanPeer, ListLanPeersRequest, ListLanPeersResponse, ListPendingLocalSendPeersRequest,
+        ListPendingLocalSendPeersResponse, ListTrustedPeersRequest, ListTrustedPeersResponse,
+        LocalSendPeer, LocalSendPeerResponse, LocalSendPeerStatus, PeerPolicy, PeerProtocol,
+        TrustedPeer,
     },
 };
 use lsi_protocol_localsend_v2::discovery::DiscoveryBrowser;
@@ -61,6 +67,42 @@ impl PeersService for PeersApi {
 
         Ok(Response::new(ListLanPeersResponse { peers }))
     }
+
+    async fn list_pending_local_send(
+        &self,
+        _request: Request<ListPendingLocalSendPeersRequest>,
+    ) -> Result<Response<ListPendingLocalSendPeersResponse>, Status> {
+        let store = TrustStore::open(&self.state.trust_db_path).map_err(internal_status)?;
+        let peers = store
+            .list_pending_localsend_peers()
+            .map_err(internal_status)?
+            .into_iter()
+            .map(localsend_peer)
+            .collect();
+        Ok(Response::new(ListPendingLocalSendPeersResponse { peers }))
+    }
+
+    async fn approve_local_send(
+        &self,
+        request: Request<ApproveLocalSendPeerRequest>,
+    ) -> Result<Response<LocalSendPeerResponse>, Status> {
+        let request = request.into_inner();
+        let store = TrustStore::open(&self.state.trust_db_path).map_err(internal_status)?;
+        let peer = store
+            .approve_localsend_peer(&request.fingerprint, request.label.as_deref())
+            .map_err(internal_status)?;
+        Ok(Response::new(LocalSendPeerResponse { peer: Some(localsend_peer(peer)) }))
+    }
+
+    async fn deny_local_send(
+        &self,
+        request: Request<DenyLocalSendPeerRequest>,
+    ) -> Result<Response<LocalSendPeerResponse>, Status> {
+        let request = request.into_inner();
+        let store = TrustStore::open(&self.state.trust_db_path).map_err(internal_status)?;
+        let peer = store.deny_localsend_peer(&request.fingerprint).map_err(internal_status)?;
+        Ok(Response::new(LocalSendPeerResponse { peer: Some(localsend_peer(peer)) }))
+    }
 }
 
 fn trusted_peer(peer: Peer) -> TrustedPeer {
@@ -80,6 +122,27 @@ fn peer_policy(policy: CorePeerPolicy) -> PeerPolicy {
         CorePeerPolicy::AutoAccept => PeerPolicy::AutoAccept,
         CorePeerPolicy::Prompt => PeerPolicy::Prompt,
         CorePeerPolicy::Block => PeerPolicy::Block,
+    }
+}
+
+fn localsend_peer(peer: CoreLocalSendPeer) -> LocalSendPeer {
+    LocalSendPeer {
+        fingerprint: peer.fingerprint,
+        alias: peer.alias,
+        label: peer.label,
+        status: localsend_peer_status(peer.status) as i32,
+        first_seen_unix_seconds: peer.first_seen,
+        last_seen_unix_seconds: peer.last_seen,
+        attempt_count: peer.attempt_count,
+        source_ip: peer.source_ip,
+    }
+}
+
+fn localsend_peer_status(status: CoreLocalSendPeerStatus) -> LocalSendPeerStatus {
+    match status {
+        CoreLocalSendPeerStatus::Pending => LocalSendPeerStatus::LocalsendPeerStatusPending,
+        CoreLocalSendPeerStatus::Trusted => LocalSendPeerStatus::LocalsendPeerStatusTrusted,
+        CoreLocalSendPeerStatus::Blocked => LocalSendPeerStatus::LocalsendPeerStatusBlocked,
     }
 }
 

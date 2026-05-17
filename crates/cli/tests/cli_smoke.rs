@@ -116,6 +116,29 @@ fn peers_list_requires_daemon() {
 }
 
 #[test]
+fn peers_localsend_admin_commands_are_available() {
+    let mut pending = Command::cargo_bin("night-bridge").unwrap();
+    pending
+        .args(["peers", "pending-local-send", "--help"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("List official LocalSend peers"));
+
+    let mut approve = Command::cargo_bin("night-bridge").unwrap();
+    approve
+        .args(["peers", "approve-local-send", "--help"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("Approve an official LocalSend fingerprint"));
+
+    let mut deny = Command::cargo_bin("night-bridge").unwrap();
+    deny.args(["peers", "deny-local-send", "--help"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("Deny an official LocalSend fingerprint"));
+}
+
+#[test]
 fn peers_list_lan_empty_with_short_timeout() {
     let dir = TempDir::new().unwrap();
     let mut cmd = Command::cargo_bin("night-bridge").unwrap();

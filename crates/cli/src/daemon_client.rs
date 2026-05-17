@@ -8,7 +8,11 @@ use lsi_core::{
 use lsi_proto::{
     common::v1::Empty,
     daemon::v1::{daemon_service_client::DaemonServiceClient, DaemonStatus},
-    peers::v1::{peers_service_client::PeersServiceClient, ListTrustedPeersRequest, TrustedPeer},
+    peers::v1::{
+        peers_service_client::PeersServiceClient, ApproveLocalSendPeerRequest,
+        DenyLocalSendPeerRequest, ListPendingLocalSendPeersRequest, ListTrustedPeersRequest,
+        LocalSendPeer, TrustedPeer,
+    },
     transfers::v1::{
         transfers_service_client::TransfersServiceClient, ActiveTransfer,
         ListActiveTransfersRequest, ResumeRequest, ResumeResponse, SendRequest, SendResponse,
@@ -105,6 +109,45 @@ pub async fn list_trusted_peers(config: &DaemonClientConfig) -> Result<Vec<Trust
         .await
         .context("trusted peers request failed")?;
     Ok(response.into_inner().peers)
+}
+
+/// List pending official LocalSend peers through the authenticated daemon API.
+pub async fn list_pending_localsend_peers(
+    config: &DaemonClientConfig,
+) -> Result<Vec<LocalSendPeer>> {
+    let mut client = config.peers_client().await?;
+    let response = client
+        .list_pending_local_send(Request::new(ListPendingLocalSendPeersRequest {}))
+        .await
+        .context("pending LocalSend peers request failed")?;
+    Ok(response.into_inner().peers)
+}
+
+/// Approve an official LocalSend peer fingerprint through the daemon API.
+pub async fn approve_localsend_peer(
+    config: &DaemonClientConfig,
+    fingerprint: String,
+    label: Option<String>,
+) -> Result<LocalSendPeer> {
+    let mut client = config.peers_client().await?;
+    let response = client
+        .approve_local_send(Request::new(ApproveLocalSendPeerRequest { fingerprint, label }))
+        .await
+        .context("approve LocalSend peer request failed")?;
+    response.into_inner().peer.context("daemon returned no LocalSend peer")
+}
+
+/// Deny an official LocalSend peer fingerprint through the daemon API.
+pub async fn deny_localsend_peer(
+    config: &DaemonClientConfig,
+    fingerprint: String,
+) -> Result<LocalSendPeer> {
+    let mut client = config.peers_client().await?;
+    let response = client
+        .deny_local_send(Request::new(DenyLocalSendPeerRequest { fingerprint }))
+        .await
+        .context("deny LocalSend peer request failed")?;
+    response.into_inner().peer.context("daemon returned no LocalSend peer")
 }
 
 /// List active transfers through the authenticated daemon API.

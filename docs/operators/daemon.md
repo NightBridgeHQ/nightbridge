@@ -77,17 +77,32 @@ prepared, so adding or removing fingerprints in that file does not require a
 daemon restart. Changing `receive_policy` still requires config reload/restart
 until live config reload exists.
 
-In `prompt` or `trusted` mode, rejected incoming upload attempts are logged with
-the LocalSend alias and fingerprint. Use that log entry to add a newly approved
-device to `trusted_fingerprints_file`, then retry the send.
+In `trusted` mode, rejected unknown upload attempts are logged and persisted as
+pending LocalSend peers in the daemon trust database. The upload is still
+rejected before a session is created. An admin can approve or deny later:
+
+```bash
+night-bridge peers pending-local-send
+night-bridge peers approve-local-send <fingerprint> --label "Diego iPhone"
+night-bridge peers deny-local-send <fingerprint>
+```
+
+After approval, ask the sender to retry the upload. The daemon reads approved
+LocalSend fingerprints from the trust database for each upload session, so this
+does not require a daemon restart. HTTP API equivalents are:
+
+- `GET /api/v1/localsend/pending-peers`
+- `POST /api/v1/localsend/pending-peers/{fingerprint}/approve`
+- `POST /api/v1/localsend/pending-peers/{fingerprint}/deny`
 
 Policies:
 
 - `prompt`: default. Reject incoming uploads until an operator approval flow is
   available.
 - `trusted`: accept only peers whose LocalSend fingerprint is listed with
-  `trusted_fingerprints`, `trusted_fingerprints_file`, or a one-off
-  `--trusted-localsend-fingerprint` override.
+  `trusted_fingerprints`, `trusted_fingerprints_file`, approved in the daemon
+  trust database, or supplied as a one-off `--trusted-localsend-fingerprint`
+  override.
 - `auto`: accept any LocalSend-compatible sender that can reach the daemon
   port. Use only on trusted test LANs.
 

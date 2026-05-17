@@ -18,6 +18,7 @@ use futures_util::TryStreamExt;
 use hyper_util::rt::{TokioExecutor, TokioIo};
 use hyper_util::server::conn::auto::Builder as ConnectionBuilder;
 use hyper_util::service::TowerToHyperService;
+use lsi_core::trust::TrustStore;
 use rustls::pki_types::{CertificateDer, PrivateKeyDer, PrivatePkcs8KeyDer};
 use serde::Deserialize;
 use serde_json::json;
@@ -66,6 +67,8 @@ pub struct LocalSendServerConfig {
     pub trusted_fingerprints: BTreeSet<String>,
     /// Optional newline-delimited fingerprint allowlist read for each new upload session.
     pub trusted_fingerprints_file: Option<PathBuf>,
+    /// Optional trust database used for pending/approved official LocalSend peers.
+    pub trust_db_path: Option<PathBuf>,
     /// Optional TLS identity. When set, the listener serves HTTPS with rustls.
     pub tls_identity: Option<TlsIdentity>,
 }
@@ -86,6 +89,7 @@ struct ServerState {
     receive_policy: LocalSendReceivePolicy,
     trusted_fingerprints: BTreeSet<String>,
     trusted_fingerprints_file: Option<PathBuf>,
+    trust_db_path: Option<PathBuf>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -120,6 +124,7 @@ impl LocalSendServer {
             receive_policy: config.receive_policy,
             trusted_fingerprints: normalize_trusted_fingerprints(config.trusted_fingerprints),
             trusted_fingerprints_file: config.trusted_fingerprints_file,
+            trust_db_path: config.trust_db_path,
         };
 
         Ok(Self { listener, state, tls_identity: config.tls_identity })
@@ -280,6 +285,7 @@ fn authorize_prepare_upload(state: &ServerState, peer: &DeviceInfo) -> Result<()
             if trusted_fingerprints.contains(&fingerprint) {
                 Ok(())
             } else {
+                record_pending_localsend_peer(state, peer, &fingerprint)?;
                 warn!(
                     peer_alias = %peer.alias,
                     peer_fingerprint = %peer.fingerprint,
@@ -299,7 +305,37 @@ fn trusted_fingerprints(state: &ServerState) -> Result<BTreeSet<String>> {
     if let Some(path) = &state.trusted_fingerprints_file {
         fingerprints.extend(read_trusted_fingerprints_file(path)?);
     }
+    if let Some(path) = &state.trust_db_path {
+        let store = TrustStore::open(path).map_err(|error| {
+            LocalSendError::Session(format!("failed to open LocalSend trust store: {error}"))
+        })?;
+        fingerprints.extend(store.trusted_localsend_fingerprints().map_err(|error| {
+            LocalSendError::Session(format!("failed to read trusted LocalSend peers: {error}"))
+        })?);
+    }
     Ok(fingerprints)
+}
+
+fn record_pending_localsend_peer(
+    state: &ServerState,
+    peer: &DeviceInfo,
+    fingerprint: &str,
+) -> Result<()> {
+    let Some(path) = &state.trust_db_path else {
+        return Ok(());
+    };
+    let store = TrustStore::open(path).map_err(|error| {
+        LocalSendError::Session(format!("failed to open LocalSend trust store: {error}"))
+    })?;
+    if store.is_localsend_peer_blocked(fingerprint).map_err(|error| {
+        LocalSendError::Session(format!("failed to read LocalSend peer status: {error}"))
+    })? {
+        return Ok(());
+    }
+    store.record_pending_localsend_peer(fingerprint, &peer.alias, None).map_err(|error| {
+        LocalSendError::Session(format!("failed to record pending LocalSend peer: {error}"))
+    })?;
+    Ok(())
 }
 
 fn read_trusted_fingerprints_file(path: &Path) -> Result<BTreeSet<String>> {
@@ -461,6 +497,7 @@ mod tests {
     use std::net::SocketAddr;
     use std::time::Duration;
 
+    use lsi_core::trust::TrustStore;
     use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
     use crate::dto::{
@@ -507,6 +544,7 @@ mod tests {
             receive_policy: LocalSendReceivePolicy::Auto,
             trusted_fingerprints: Default::default(),
             trusted_fingerprints_file: None,
+            trust_db_path: None,
             tls_identity: None,
         };
         let server = LocalSendServer::bind(config).await.unwrap();
@@ -531,6 +569,7 @@ mod tests {
             receive_policy: LocalSendReceivePolicy::Auto,
             trusted_fingerprints: Default::default(),
             trusted_fingerprints_file: None,
+            trust_db_path: None,
             tls_identity: Some(TlsIdentity::generate("Receiver").unwrap()),
         };
         let server = LocalSendServer::bind(config).await.unwrap();
@@ -557,6 +596,7 @@ mod tests {
             receive_policy,
             trusted_fingerprints: trusted_fingerprints.into_iter().collect(),
             trusted_fingerprints_file: None,
+            trust_db_path: None,
             tls_identity: None,
         };
         let server = LocalSendServer::bind(config).await.unwrap();
@@ -806,6 +846,7 @@ mod tests {
             receive_policy: LocalSendReceivePolicy::Trusted,
             trusted_fingerprints: Default::default(),
             trusted_fingerprints_file: Some(allowlist.clone()),
+            trust_db_path: None,
             tls_identity: None,
         };
         let server = LocalSendServer::bind(config).await.unwrap();
@@ -844,6 +885,67 @@ mod tests {
         .await;
 
         assert_eq!(first_status, 403);
+        assert_eq!(second_status, 200);
+
+        let _ = shutdown_tx.send(());
+        task.await.unwrap().unwrap();
+    }
+
+    #[tokio::test]
+    async fn trusted_policy_records_pending_peer_and_accepts_after_approval() {
+        let temp = tempfile::tempdir().unwrap();
+        let trust_db = temp.path().join("trust.db");
+        let config = LocalSendServerConfig {
+            bind_addr: "127.0.0.1:0".parse().unwrap(),
+            info: device_info("Receiver", 0),
+            inbox_dir: temp.path().join("inbox"),
+            session_ttl: Duration::from_secs(60),
+            receive_policy: LocalSendReceivePolicy::Trusted,
+            trusted_fingerprints: Default::default(),
+            trusted_fingerprints_file: None,
+            trust_db_path: Some(trust_db.clone()),
+            tls_identity: None,
+        };
+        let server = LocalSendServer::bind(config).await.unwrap();
+        let addr = server.local_addr();
+        let (shutdown_tx, shutdown_rx) = tokio::sync::oneshot::channel();
+        let task = tokio::spawn(server.serve_until_shutdown(async {
+            let _ = shutdown_rx.await;
+        }));
+        let body = b"hello";
+        let prepare_request = PrepareUploadRequest {
+            info: device_info("Sender", 53317),
+            files: BTreeMap::from([(
+                "file-1".to_string(),
+                file_meta("file-1", "note.txt", body.len() as u64),
+            )]),
+        };
+
+        let (first_status, _) = request(
+            addr,
+            "POST",
+            "/api/localsend/v2/prepare-upload",
+            Some("application/json"),
+            &serde_json::to_vec(&prepare_request).unwrap(),
+        )
+        .await;
+        let store = TrustStore::open(&trust_db).unwrap();
+        let pending = store.list_pending_localsend_peers().unwrap();
+
+        store.approve_localsend_peer("test-fingerprint", Some("sender")).unwrap();
+        let (second_status, _) = request(
+            addr,
+            "POST",
+            "/api/localsend/v2/prepare-upload",
+            Some("application/json"),
+            &serde_json::to_vec(&prepare_request).unwrap(),
+        )
+        .await;
+
+        assert_eq!(first_status, 403);
+        assert_eq!(pending.len(), 1);
+        assert_eq!(pending[0].fingerprint, "testfingerprint");
+        assert_eq!(pending[0].alias, "Sender");
         assert_eq!(second_status, 200);
 
         let _ = shutdown_tx.send(());

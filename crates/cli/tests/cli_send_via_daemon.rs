@@ -156,6 +156,7 @@ async fn spawn_localsend_receiver(
         receive_policy: LocalSendReceivePolicy::Auto,
         trusted_fingerprints: Default::default(),
         trusted_fingerprints_file: None,
+        trust_db_path: None,
         tls_identity: None,
     };
     let server = LocalSendServer::bind(config).await.unwrap();

@@ -155,7 +155,9 @@ mod tests {
         },
         inbox::v1::{inbox_service_client::InboxServiceClient, ListInboxRequest},
         peers::v1::{
-            peers_service_client::PeersServiceClient, ListTrustedPeersRequest, PeerPolicy,
+            peers_service_client::PeersServiceClient, ApproveLocalSendPeerRequest,
+            DenyLocalSendPeerRequest, ListPendingLocalSendPeersRequest, ListTrustedPeersRequest,
+            LocalSendPeerStatus, PeerPolicy,
         },
         transfers::v1::{
             send_request, transfers_service_client::TransfersServiceClient,
@@ -271,6 +273,61 @@ mod tests {
         assert_eq!(peer.native_certificate_fingerprint, trusted.native_certificate_fingerprint);
         assert_eq!(peer.policy, PeerPolicy::AutoAccept as i32);
 
+        fixture.stop().await;
+    }
+
+    #[tokio::test]
+    async fn grpc_lists_pending_localsend_peers_and_approves_or_denies() {
+        let fixture = ApiFixture::start().await;
+        lsi_core::trust::TrustStore::open(&fixture.state.trust_db_path)
+            .unwrap()
+            .record_pending_localsend_peer("AA:BB", "Diego iPhone", Some("10.16.20.53"))
+            .unwrap();
+        let mut client = fixture.peers_client().await;
+
+        let pending = client
+            .list_pending_local_send(authenticated_peers_request(
+                "test-token",
+                ListPendingLocalSendPeersRequest {},
+            ))
+            .await
+            .unwrap()
+            .into_inner();
+
+        assert_eq!(pending.peers.len(), 1);
+        assert_eq!(pending.peers[0].fingerprint, "aabb");
+        assert_eq!(pending.peers[0].alias, "Diego iPhone");
+        assert_eq!(pending.peers[0].status, LocalSendPeerStatus::LocalsendPeerStatusPending as i32);
+
+        let approved = client
+            .approve_local_send(authenticated_peers_request(
+                "test-token",
+                ApproveLocalSendPeerRequest {
+                    fingerprint: "aa-bb".to_string(),
+                    label: Some("personal phone".to_string()),
+                },
+            ))
+            .await
+            .unwrap()
+            .into_inner()
+            .peer
+            .unwrap();
+
+        assert_eq!(approved.status, LocalSendPeerStatus::LocalsendPeerStatusTrusted as i32);
+        assert_eq!(approved.label.as_deref(), Some("personal phone"));
+
+        let denied = client
+            .deny_local_send(authenticated_peers_request(
+                "test-token",
+                DenyLocalSendPeerRequest { fingerprint: "aa-bb".to_string() },
+            ))
+            .await
+            .unwrap()
+            .into_inner()
+            .peer
+            .unwrap();
+
+        assert_eq!(denied.status, LocalSendPeerStatus::LocalsendPeerStatusBlocked as i32);
         fixture.stop().await;
     }
 
@@ -564,6 +621,7 @@ mod tests {
             receive_policy: LocalSendReceivePolicy::Auto,
             trusted_fingerprints: Default::default(),
             trusted_fingerprints_file: None,
+            trust_db_path: None,
             tls_identity: None,
         };
         let server = LocalSendServer::bind(config).await.unwrap();

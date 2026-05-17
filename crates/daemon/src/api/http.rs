@@ -81,6 +81,9 @@ fn router(state: HttpState) -> Router {
         .route("/api/v1/status", get(status))
         .route("/api/v1/peers/trusted", get(list_trusted))
         .route("/api/v1/peers/lan", get(list_lan))
+        .route("/api/v1/localsend/pending-peers", get(list_pending_localsend))
+        .route("/api/v1/localsend/pending-peers/:fingerprint/approve", post(approve_localsend))
+        .route("/api/v1/localsend/pending-peers/:fingerprint/deny", post(deny_localsend))
         .route("/api/v1/inbox", get(list_inbox))
         .route("/api/v1/transfers/active", get(list_active_transfers))
         .route("/api/v1/transfers/send", post(send_transfer))
@@ -130,6 +133,23 @@ fn webui_response(path: &str) -> Result<Response, StatusCode> {
     let asset = lsi_webui::asset(path).ok_or(StatusCode::NOT_FOUND)?;
     Ok(([(header::CONTENT_TYPE, asset.content_type)], Body::from(asset.data.into_owned()))
         .into_response())
+}
+
+fn local_send_peer_dto(peer: lsi_core::trust::LocalSendPeer) -> LocalSendPeerDto {
+    LocalSendPeerDto {
+        fingerprint: peer.fingerprint,
+        alias: peer.alias,
+        label: peer.label,
+        status: match peer.status {
+            lsi_core::trust::LocalSendPeerStatus::Pending => "pending",
+            lsi_core::trust::LocalSendPeerStatus::Trusted => "trusted",
+            lsi_core::trust::LocalSendPeerStatus::Blocked => "blocked",
+        },
+        first_seen_unix_seconds: peer.first_seen,
+        last_seen_unix_seconds: peer.last_seen,
+        attempt_count: peer.attempt_count,
+        source_ip: peer.source_ip,
+    }
 }
 
 async fn status(
@@ -197,6 +217,46 @@ async fn list_lan(
         None => Vec::new(),
     };
     Ok(Json(LanPeersDto { peers }))
+}
+
+async fn list_pending_localsend(
+    State(state): State<HttpState>,
+    headers: HeaderMap,
+) -> Result<Json<LocalSendPeersDto>, ApiError> {
+    authorize(&headers, &state.token)?;
+    let store = TrustStore::open(&state.daemon.trust_db_path).map_err(ApiError::internal)?;
+    let peers = store
+        .list_pending_localsend_peers()
+        .map_err(ApiError::internal)?
+        .into_iter()
+        .map(local_send_peer_dto)
+        .collect();
+    Ok(Json(LocalSendPeersDto { peers }))
+}
+
+async fn approve_localsend(
+    State(state): State<HttpState>,
+    headers: HeaderMap,
+    Path(fingerprint): Path<String>,
+    Json(request): Json<ApproveLocalSendPeerDto>,
+) -> Result<Json<LocalSendPeerDto>, ApiError> {
+    authorize(&headers, &state.token)?;
+    let store = TrustStore::open(&state.daemon.trust_db_path).map_err(ApiError::internal)?;
+    let peer = store
+        .approve_localsend_peer(&fingerprint, request.label.as_deref())
+        .map_err(ApiError::internal)?;
+    Ok(Json(local_send_peer_dto(peer)))
+}
+
+async fn deny_localsend(
+    State(state): State<HttpState>,
+    headers: HeaderMap,
+    Path(fingerprint): Path<String>,
+) -> Result<Json<LocalSendPeerDto>, ApiError> {
+    authorize(&headers, &state.token)?;
+    let store = TrustStore::open(&state.daemon.trust_db_path).map_err(ApiError::internal)?;
+    let peer = store.deny_localsend_peer(&fingerprint).map_err(ApiError::internal)?;
+    Ok(Json(local_send_peer_dto(peer)))
 }
 
 async fn list_inbox(
@@ -552,6 +612,29 @@ struct LanPeerDto {
 }
 
 #[derive(Serialize)]
+struct LocalSendPeersDto {
+    peers: Vec<LocalSendPeerDto>,
+}
+
+#[derive(Serialize)]
+struct LocalSendPeerDto {
+    fingerprint: String,
+    alias: String,
+    label: Option<String>,
+    status: &'static str,
+    first_seen_unix_seconds: i64,
+    last_seen_unix_seconds: i64,
+    attempt_count: u64,
+    source_ip: Option<String>,
+}
+
+#[derive(Deserialize)]
+struct ApproveLocalSendPeerDto {
+    #[serde(default)]
+    label: Option<String>,
+}
+
+#[derive(Serialize)]
 struct InboxDto {
     entries: Vec<InboxEntryDto>,
 }
@@ -693,6 +776,51 @@ mod tests {
 
         assert_eq!(body["alias"], "http-test");
         assert_eq!(body["fingerprint"], fixture.fingerprint);
+        fixture.stop().await;
+    }
+
+    #[tokio::test]
+    async fn http_lists_and_approves_pending_localsend_peers() {
+        let fixture = HttpFixture::start().await;
+        TrustStore::open(&fixture.state.trust_db_path)
+            .unwrap()
+            .record_pending_localsend_peer("AA:BB", "Diego iPhone", Some("10.16.20.53"))
+            .unwrap();
+        let client = reqwest::Client::new();
+
+        let pending: serde_json::Value = client
+            .get(format!("http://{}/api/v1/localsend/pending-peers", fixture.runtime.local_addr()))
+            .bearer_auth("test-token")
+            .send()
+            .await
+            .unwrap()
+            .error_for_status()
+            .unwrap()
+            .json()
+            .await
+            .unwrap();
+
+        assert_eq!(pending["peers"][0]["fingerprint"], "aabb");
+        assert_eq!(pending["peers"][0]["status"], "pending");
+
+        let approved: serde_json::Value = client
+            .post(format!(
+                "http://{}/api/v1/localsend/pending-peers/aa-bb/approve",
+                fixture.runtime.local_addr()
+            ))
+            .bearer_auth("test-token")
+            .json(&serde_json::json!({ "label": "personal phone" }))
+            .send()
+            .await
+            .unwrap()
+            .error_for_status()
+            .unwrap()
+            .json()
+            .await
+            .unwrap();
+
+        assert_eq!(approved["status"], "trusted");
+        assert_eq!(approved["label"], "personal phone");
         fixture.stop().await;
     }
 
@@ -871,6 +999,7 @@ mod tests {
         runtime: HttpApiRuntime,
         state: Arc<DaemonState>,
         fingerprint: String,
+        _temp: tempfile::TempDir,
     }
 
     impl HttpFixture {
@@ -899,6 +1028,8 @@ mod tests {
                 "http-test",
                 "--inbox",
                 temp.path().join("inbox").to_str().unwrap(),
+                "--trust-db",
+                temp.path().join("trust.db").to_str().unwrap(),
             ]);
             let identity = Keypair::generate();
             let fingerprint = Fingerprint::from_pubkey(&identity.public_bytes()).to_string();
@@ -911,7 +1042,7 @@ mod tests {
                 metrics,
             ));
             let runtime = start_http_runtime(Arc::clone(&state), 0).await.unwrap();
-            Self { runtime, state, fingerprint }
+            Self { runtime, state, fingerprint, _temp: temp }
         }
 
         async fn stop(self) {
