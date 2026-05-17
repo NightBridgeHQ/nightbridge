@@ -7,7 +7,7 @@ candidate.
 | Platform | LocalSend version | Receive official app to daemon | Send daemon/CLI to official app | Discovery method | Evidence path | Status |
 | --- | --- | --- | --- | --- | --- | --- |
 | Android | TBD | Manual | Manual | LAN multicast / manual URL | `target/interop/android/` | Pending official-device run |
-| iOS | TBD | Passed with `trusted` policy, pending-peer approval, and no daemon restart | Passed manual accept from daemon/CLI to official app before receive-policy hardening; current retest pending listener availability | Manual URL `https://10.16.20.53:53317`; LAN multicast discovery did not find peer | `specs/manual-test/release-p3-inbox/` | Partial current 26.5 evidence |
+| iOS | 2.1 | Passed with `trusted` policy, pending-peer approval, and no daemon restart | Passed manual URL send from CLI to official app | Manual URL `https://10.16.20.53:53317`; LAN multicast discovery did not find peer | `specs/manual-test/release-p3-inbox/` | Current 26.5 iOS bidirectional pass |
 | Desktop macOS | TBD | Manual | Manual | LAN multicast / manual URL | `target/interop/macos/` | Pending official-app run |
 | Desktop Windows | TBD | Manual | Manual | LAN multicast / manual URL | `target/interop/windows/` | Pending official-app run |
 | Desktop Linux | TBD | Manual | Manual | LAN multicast / manual URL | `target/interop/linux/` | Pending official-app run |
@@ -29,8 +29,7 @@ matrix above.
 - iOS official LocalSend app can send files to the daemon with `trusted`
   receive policy after pending-peer approval and without daemon restart.
 - iOS official LocalSend app can receive from the NightBridge CLI through
-  manual URL send before receive-policy hardening. Current retest is blocked by
-  the iOS app not listening on the previously verified manual URL.
+  manual URL send.
 - The iOS receive test sent `docs/release/versioning.md` to
   `https://10.16.20.53:53317` and the user confirmed the file was present on
   the device.
@@ -62,21 +61,26 @@ cargo run -p lsi-cli --bin night-bridge -- send --direct --url https://10.16.20.
 Current 26.5 retest:
 
 - Date: 2026-05-17
-- Commit: `5da324d`
+- Commit: `1771fc5`
+- Receiver version: LocalSend iOS `2.1`
+- Receiver info: alias `Diego Personal iPhone`, fingerprint
+  `639969AE9CE2CD7C05A9C084423DA4739EEBD454A112B335B0CF8F2ED0E73046`
 - Command:
 
 ```bash
 cargo run -p lsi-cli --bin night-bridge -- send --direct --url https://10.16.20.53:53317 docs/release/versioning.md
 ```
 
-- Result: blocked before upload because the iOS app was not listening on
-  `10.16.20.53:53317`; `curl -k https://10.16.20.53:53317/api/localsend/v2/info`
-  returned connection refused from the same host.
+- CLI result: `sent 1 file(s)`
+- Notes: the first retest attempt failed while the iOS listener was unavailable,
+  and one diagnostic `prepare-upload` probe briefly caused `409 Conflict` until
+  the app cleared the stale session. The final CLI transfer completed.
 
 ### Official iOS App To Daemon
 
 - Date: 2026-05-17
 - Commit: `5da324d`
+- Sender version: LocalSend iOS `2.1`
 - Sender: official LocalSend app on iOS
 - Receiver: NightBridge daemon on macOS
 - Daemon address: `10.16.20.123:53317`

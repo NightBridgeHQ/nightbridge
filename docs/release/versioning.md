@@ -28,8 +28,8 @@ NightBridge `26.5.0` must not be tagged until:
   is attached to the release notes
 - real 7-day native soak evidence passes
 - official LocalSend app interop is completed or explicitly scoped down; iOS
-  app-to-daemon has current trusted-policy evidence, while current
-  daemon/CLI-to-iOS still needs a listener-available retest
+  has current bidirectional official-app evidence, while Android and desktop
+  official-app coverage still need platform runs or explicit scoping
 - release artifacts are reproducible from a clean final `dist/` directory
 - checksums and SBOM are generated for the final artifacts
 - Docker and systemd validation run on representative target hosts or are
