@@ -62,7 +62,9 @@ Operator setup, service management, and troubleshooting live in the
 
 Security design and operator-facing risk notes:
 
+- Security policy: [SECURITY.md](SECURITY.md)
 - Threat model: [docs/security/threat-model.md](docs/security/threat-model.md)
+- Audit invite packet: [docs/security/audit-invite.md](docs/security/audit-invite.md)
 - Rendezvous privacy model: [docs/security/rendezvous-privacy.md](docs/security/rendezvous-privacy.md)
 - WebUI token bootstrap: [docs/security/webui-token-bootstrap.md](docs/security/webui-token-bootstrap.md)
 
