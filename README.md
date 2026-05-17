@@ -13,6 +13,11 @@ CLI, no daemon, and no API. This project fills that gap while staying
 compatible with the LocalSend ecosystem, so users can send files between
 LocalSend on their phone and this daemon on their server without extra setup.
 
+## User Docs
+
+- Quickstart: [docs/users/quickstart.md](docs/users/quickstart.md)
+- Migration from LocalSend: [docs/users/migration-from-localsend.md](docs/users/migration-from-localsend.md)
+
 ## WAN Rendezvous
 
 Sprint 5 adds a self-hosted rendezvous service for WAN discovery. Rendezvous is
