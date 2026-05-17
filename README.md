@@ -48,6 +48,14 @@ cd crates/gui
 Packaging and signing notes live in
 [docs/deploy/desktop-packaging.md](docs/deploy/desktop-packaging.md).
 
+## Security
+
+Security design and operator-facing risk notes:
+
+- Threat model: [docs/security/threat-model.md](docs/security/threat-model.md)
+- Rendezvous privacy model: [docs/security/rendezvous-privacy.md](docs/security/rendezvous-privacy.md)
+- WebUI token bootstrap: [docs/security/webui-token-bootstrap.md](docs/security/webui-token-bootstrap.md)
+
 ## License
 
 - **Base** (this repo): AGPL-3.0-only.
