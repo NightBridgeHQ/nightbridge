@@ -66,12 +66,15 @@ VIP relay services.
 ## Known Limitations
 
 - Desktop packages are unsigned until platform signing and notarization
-  credentials are configured.
+  credentials are configured. NightBridge 26.5 treats desktop GUI bundles as
+  pre-release artifacts.
 - LocalSend v2 compatibility intentionally permits official-app self-signed TLS
   behavior inside that protocol path.
 - Rendezvous server certificates still need an operator trust model before
   public deployment.
-- There is no completed third-party security audit.
+- There is no completed third-party security audit. The project is open source
+  and has an audit packet prepared, but a funded external review has not been
+  scheduled for 26.5.
 - Existing trusted peers without native certificate metadata cannot auto-send
   over native WAN until they are re-paired or refreshed.
 - Local daemon compromise can expose inbox contents, tokens, hook secrets, and
@@ -79,6 +82,6 @@ VIP relay services.
 
 ## Disclosure
 
-Until a dedicated security contact is published, report security issues through
-the private maintainer channel for this repository. Do not publish exploit
-details before the maintainer has confirmed receipt and a remediation window.
+Report security issues to `diego.resendez@zero-oneit.com`. Do not publish
+exploit details before the maintainer has confirmed receipt and a remediation
+window.

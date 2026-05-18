@@ -13,17 +13,19 @@ public CalVer release.
 
 ## Reporting
 
-TODO before public release: publish the private security reporting email.
+Report security issues by email:
 
-Until then, report security issues through the private maintainer channel for
-this repository. Do not open public issues for vulnerabilities.
+```text
+diego.resendez@zero-oneit.com
+```
+
+Do not open public issues for vulnerabilities.
 
 ## PGP
 
-TODO before public release: publish a PGP key or explicitly state that encrypted
-mail is unavailable.
-
-Current status: PGP key pending.
+Encrypted security mail is not available yet. If you need to send sensitive
+details before a PGP key is published, send a short initial report first and
+coordinate a safer channel with the maintainer.
 
 ## Response Timeline
 

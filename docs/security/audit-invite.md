@@ -31,7 +31,10 @@ operators who need file transfer without keeping the official desktop app open.
 
 ## Preferred Auditors To Contact
 
-TODO before public release: shortlist preferred auditors and contact path.
+No third-party auditor has been selected for 26.5. Because NightBridge is open
+source, the first practical path is to publish the audit packet, invite public
+review, and then seek a focused paid review for the protocol and release
+pipeline when budget is available.
 
 Suggested profiles:
 
@@ -41,11 +44,9 @@ Suggested profiles:
 
 ## Budget Range
 
-TODO before public release: confirm budget from the roadmap before contacting
-auditors.
-
-Planning placeholder: small fixed-scope review first, then focused follow-up if
-native trust or release signing findings require deeper work.
+Budget is not allocated for the 26.5 release candidate. The expected paid audit
+shape is a small fixed-scope review first, then focused follow-up if native
+trust or release signing findings require deeper work.
 
 ## Artifacts To Send
 
@@ -60,6 +61,8 @@ native trust or release signing findings require deeper work.
 ## Known Risks
 
 - No completed third-party audit yet.
+- Public open-source review is welcome, but it is not equivalent to a completed
+  independent audit.
 - Desktop package signing and notarization are not production-ready.
 - Rendezvous server certificate trust model still needs operator hardening
   before public deployment.

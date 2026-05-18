@@ -35,11 +35,12 @@ NightBridge `26.5.0` must not be tagged until:
 - Docker, systemd, and DEB validation evidence is recorded for representative
   Ubuntu hosts; final release artifacts still need to be regenerated from the
   release commit
-- RPM package status is decided after `cargo-generate-rpm` is available, or RPM
-  is explicitly deferred
+- RPM packaging is deferred for 26.5
 - desktop signing, notarization, updater, Windows packaging, and Linux desktop
-  packaging decisions are explicit
-- GUI WebDriver smoke runs on an interactive-capable host with `tauri-driver`,
-  or that check is explicitly scoped out
-- security disclosure contact is real
-- third-party audit expectations are documented
+  packaging decisions are explicit; production desktop artifacts are deferred
+  and unsigned desktop artifacts must be labeled pre-release
+- GUI WebDriver strict mode is scoped out for 26.5 unless `tauri-driver` and an
+  interactive host are available before tagging
+- security disclosure contact is real: `diego.resendez@zero-oneit.com`
+- third-party audit expectations are documented: no completed audit for 26.5,
+  public open-source review is welcome, and a paid audit remains future work

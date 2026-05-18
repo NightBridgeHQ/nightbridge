@@ -17,10 +17,10 @@ are available.
 | Windows CLI binary | `night-bridge.exe` | release workflow Rust build | Required |
 | Windows daemon binary | `night-bridge-daemon.exe` | release workflow Rust build | Required |
 | Windows TUI binary | `night-bridge-tui.exe` | release workflow Rust build | Required |
-| Tauri desktop bundles | platform-specific app bundle, installer, or archive | Tauri build job | Required before desktop GA |
+| Tauri desktop bundles | platform-specific app bundle, installer, or archive | Tauri build job | Deferred for production 26.5; unsigned builds are pre-release only |
 | Docker image | `night-bridge:<version>` | Docker build job | Validated on Ubuntu host; final tag still required |
 | Debian package | `.deb` | `packaging/build-packages.sh` | Validated on Ubuntu host; final artifact still required |
-| RPM package | `.rpm` | `packaging/build-packages.sh` | Required when `cargo-generate-rpm` is available |
+| RPM package | `.rpm` | `packaging/build-packages.sh` | Deferred for 26.5 |
 | Checksums | `dist/SHA256SUMS` | `packaging/release/checksums.sh` | Always generated |
 | SBOM | `dist/sbom.cdx.json` | `packaging/release/sbom.sh` | Always generated, may be fallback metadata |
 | Signatures | detached signatures or platform signatures | signing jobs | Opt-in only |
@@ -39,11 +39,13 @@ tool-generated SBOM is still pending.
 
 ## Signing And Notarization
 
-Signing is opt-in:
+Signing is deferred for 26.5 desktop artifacts:
 
 - local `workflow_dispatch` runs do not sign by default
-- macOS notarization requires Apple Developer credentials and signing identity
-- Windows Authenticode requires certificate secrets
+- macOS notarization requires Apple Developer Program membership, a Developer
+  ID Application certificate, Apple account credentials, and Team ID metadata
+- Windows signing requires an Authenticode certificate from a trusted CA or a
+  managed service such as Azure Artifact Signing
 - detached artifact signatures require a configured signing key
 
 Unsigned artifacts must remain labeled pre-release until platform signing and
@@ -95,3 +97,15 @@ Debian package and systemd smoke:
   `~/nightbridge-release/1d18b86/target/release-evidence/systemd-deb/deb-build-retry.log`
   and
   `~/nightbridge-release/1d18b86/target/release-evidence/systemd-deb/install-systemd.log`
+
+Release script smoke:
+
+- Date: 2026-05-17
+- Host: local macOS workstation
+- Command:
+  `packaging/release/sbom.sh /private/tmp/nightbridge-dist-smoke` and
+  `packaging/release/checksums.sh /private/tmp/nightbridge-dist-smoke`
+- Result: fallback CycloneDX SBOM and `SHA256SUMS` were generated for a
+  temporary artifact directory
+- Notes: final release must rerun these scripts against the clean final
+  `dist/` directory on the release commit

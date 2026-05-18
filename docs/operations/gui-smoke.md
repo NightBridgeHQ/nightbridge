@@ -32,6 +32,19 @@ NBRG_RUN_GUI_SMOKE=1 cargo test --test gui_smoke -- --nocapture
 If `tauri-driver` is missing, this exits successfully in non-strict mode and
 prints the install hint.
 
+This macOS workstation can run the non-strict GUI smoke path. Strict WebDriver
+coverage also requires `tauri-driver`; without it, strict mode remains scoped
+out for the 26.5 release candidate.
+
+Local 26.5 evidence:
+
+- Date: 2026-05-17
+- Host: local macOS workstation
+- Command: `NBRG_RUN_GUI_SMOKE=1 cargo test --test gui_smoke -- --nocapture`
+- Result: passed in non-strict mode; WebUI production build and `lsi-gui`
+  crate check succeeded
+- Strict WebDriver status: skipped because `tauri-driver` is not installed
+
 ## Strict CI Run
 
 Strict mode fails when `tauri-driver` is missing or does not expose WebDriver
