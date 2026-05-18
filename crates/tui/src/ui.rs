@@ -34,11 +34,18 @@ pub fn render(frame: &mut Frame, state: &AppState) {
         Line::from(format!("fingerprint: {}", state.fingerprint.as_deref().unwrap_or("-"))),
         Line::from(format!("version: {}", state.version.as_deref().unwrap_or("-"))),
         Line::from(format!("inbox: {}", state.inbox_dir.as_deref().unwrap_or("-"))),
-        Line::from(format!(
-            "ports: localsend={} native={}",
-            state.localsend_port.map(|port| port.to_string()).unwrap_or_else(|| "-".into()),
-            state.native_port.map(|port| port.to_string()).unwrap_or_else(|| "-".into())
-        )),
+        if state.advanced {
+            Line::from(format!(
+                "ports: LocalSend={} native={}",
+                state.localsend_port.map(|port| port.to_string()).unwrap_or_else(|| "-".into()),
+                state.native_port.map(|port| port.to_string()).unwrap_or_else(|| "-".into())
+            ))
+        } else {
+            Line::from(format!(
+                "LocalSend port: {}",
+                state.localsend_port.map(|port| port.to_string()).unwrap_or_else(|| "-".into())
+            ))
+        },
     ];
     frame.render_widget(
         Paragraph::new(status).block(Block::default().borders(Borders::ALL).title("Daemon")),
@@ -54,24 +61,30 @@ pub fn render(frame: &mut Frame, state: &AppState) {
         ])
         .split(chunks[2]);
 
-    frame.render_widget(peer_list(state), columns[0]);
+    frame.render_widget(localsend_peer_list(state), columns[0]);
     frame.render_widget(transfer_list(state), columns[1]);
     frame.render_widget(inbox_list(state), columns[2]);
 }
 
-fn peer_list(state: &AppState) -> List {
-    let items = if state.trusted_peers.is_empty() {
-        vec![ListItem::new("no trusted peers")]
+fn localsend_peer_list(state: &AppState) -> List {
+    let items = if state.pending_localsend_peers.is_empty() {
+        vec![ListItem::new("no pending LocalSend peers")]
     } else {
         state
-            .trusted_peers
+            .pending_localsend_peers
             .iter()
-            .map(|peer| {
-                ListItem::new(format!("{} {} {}", peer.label, peer.policy, peer.fingerprint))
+            .enumerate()
+            .map(|(index, peer)| {
+                let source = peer.source_ip.as_deref().unwrap_or("-");
+                let marker = if index == state.selected_localsend_peer { ">" } else { " " };
+                ListItem::new(format!(
+                    "{} {} {} attempts={} source={} {}",
+                    marker, peer.alias, peer.status, peer.attempt_count, source, peer.fingerprint
+                ))
             })
             .collect()
     };
-    List::new(items).block(Block::default().borders(Borders::ALL).title("Peers"))
+    List::new(items).block(Block::default().borders(Borders::ALL).title("LocalSend approvals"))
 }
 
 fn transfer_list(state: &AppState) -> List {
@@ -114,7 +127,7 @@ mod tests {
     use ratatui::{backend::TestBackend, Terminal};
 
     use super::*;
-    use crate::app::{AppState, InboxEntry, Tab, Transfer, TrustedPeer};
+    use crate::app::{AppState, InboxEntry, LocalSendPeer, Tab, Transfer};
 
     #[test]
     fn dashboard_renders_daemon_state() {
@@ -122,11 +135,13 @@ mod tests {
             alias: Some("workstation".to_string()),
             fingerprint: Some("abcd-1234".to_string()),
             selected_tab: Tab::Dashboard,
-            trusted_peers: vec![TrustedPeer {
+            pending_localsend_peers: vec![LocalSendPeer {
                 fingerprint: "peer-1".to_string(),
-                label: "phone".to_string(),
-                policy: "auto_accept".to_string(),
-                last_seen_unix_seconds: Some(42),
+                alias: "phone".to_string(),
+                label: None,
+                status: "pending".to_string(),
+                attempt_count: 1,
+                source_ip: None,
             }],
             active_transfers: vec![Transfer {
                 transfer_id: "transfer-1".to_string(),
@@ -155,5 +170,48 @@ mod tests {
         assert!(rendered.contains("phone"), "{rendered}");
         assert!(rendered.contains("transfer-1"), "{rendered}");
         assert!(rendered.contains("note.txt"), "{rendered}");
+    }
+
+    #[test]
+    fn default_dashboard_hides_native_details_and_shows_localsend_pending_peers() {
+        let state = AppState {
+            alias: Some("receiver".to_string()),
+            localsend_port: Some(53317),
+            native_port: Some(53400),
+            pending_localsend_peers: vec![LocalSendPeer {
+                fingerprint: "ios-fingerprint".to_string(),
+                alias: "Diego iPhone".to_string(),
+                label: None,
+                status: "pending".to_string(),
+                attempt_count: 2,
+                source_ip: Some("10.16.20.53".to_string()),
+            }],
+            ..AppState::default()
+        };
+
+        let backend = TestBackend::new(100, 30);
+        let mut terminal = Terminal::new(backend).unwrap();
+        terminal.draw(|frame| render(frame, &state)).unwrap();
+
+        let rendered = format!("{:?}", terminal.backend().buffer());
+        assert!(rendered.contains("LocalSend"), "{rendered}");
+        assert!(rendered.contains("Diego iPhone"), "{rendered}");
+        assert!(rendered.contains("pending"), "{rendered}");
+        assert!(!rendered.contains("native"), "{rendered}");
+        assert!(!rendered.contains("QUIC"), "{rendered}");
+        assert!(!rendered.contains("WAN"), "{rendered}");
+    }
+
+    #[test]
+    fn advanced_dashboard_can_show_native_details() {
+        let state = AppState { native_port: Some(53400), advanced: true, ..AppState::default() };
+
+        let backend = TestBackend::new(100, 30);
+        let mut terminal = Terminal::new(backend).unwrap();
+        terminal.draw(|frame| render(frame, &state)).unwrap();
+
+        let rendered = format!("{:?}", terminal.backend().buffer());
+        assert!(rendered.contains("native"), "{rendered}");
+        assert!(rendered.contains("53400"), "{rendered}");
     }
 }

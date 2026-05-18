@@ -14,7 +14,7 @@ use lsi_core::{
     paths,
 };
 use lsi_tui::{
-    app::AppState,
+    app::{AppAction, AppState},
     client::{DaemonApiClient, DaemonApiConfig},
     ui,
 };
@@ -30,15 +30,18 @@ async fn main() -> Result<()> {
         Ok(state) => state,
         Err(error) => AppState { last_error: Some(error.to_string()), ..AppState::default() },
     };
+    state.advanced = config.advanced;
 
     let mut terminal = TerminalSession::enter()?;
-    run_app(&mut terminal.terminal, client, config.poll_interval(), &mut state).await
+    run_app(&mut terminal.terminal, client, config.poll_interval(), config.advanced, &mut state)
+        .await
 }
 
 async fn run_app(
     terminal: &mut Terminal<CrosstermBackend<Stdout>>,
     client: DaemonApiClient,
     poll_interval: Duration,
+    advanced: bool,
     state: &mut AppState,
 ) -> Result<()> {
     let mut last_poll = Instant::now();
@@ -51,13 +54,35 @@ async fn run_app(
 
         if event::poll(Duration::from_millis(100))? {
             if let Event::Key(key) = event::read()? {
-                state.handle_key(key);
+                match state.handle_key(key) {
+                    AppAction::None => {}
+                    AppAction::ApproveLocalSend { fingerprint, label } => {
+                        if let Err(error) = client.approve_localsend_peer(fingerprint, label).await
+                        {
+                            state.last_error = Some(error.to_string());
+                        } else if let Ok(mut next) = client.fetch_once().await {
+                            next.advanced = advanced;
+                            *state = next;
+                        }
+                    }
+                    AppAction::DenyLocalSend { fingerprint } => {
+                        if let Err(error) = client.deny_localsend_peer(fingerprint).await {
+                            state.last_error = Some(error.to_string());
+                        } else if let Ok(mut next) = client.fetch_once().await {
+                            next.advanced = advanced;
+                            *state = next;
+                        }
+                    }
+                }
             }
         }
 
         if last_poll.elapsed() >= poll_interval {
             match client.fetch_once().await {
-                Ok(next) => *state = next,
+                Ok(mut next) => {
+                    next.advanced = advanced;
+                    *state = next;
+                }
                 Err(error) => state.last_error = Some(error.to_string()),
             }
             last_poll = Instant::now();
@@ -73,6 +98,7 @@ where
 {
     let mut endpoint = DEFAULT_DAEMON_GRPC.to_string();
     let mut api_token = None;
+    let mut advanced = false;
     let mut args = args.into_iter();
 
     while let Some(arg) = args.next() {
@@ -87,6 +113,9 @@ where
                 print_help();
                 std::process::exit(0);
             }
+            "--advanced" => {
+                advanced = true;
+            }
             other => bail!("unknown argument: {other}"),
         }
     }
@@ -96,7 +125,9 @@ where
         None => load_api_token()?,
     };
 
-    Ok(DaemonApiConfig::new(endpoint, api_token))
+    let mut config = DaemonApiConfig::new(endpoint, api_token);
+    config.advanced = advanced;
+    Ok(config)
 }
 
 fn load_api_token() -> Result<String> {
@@ -115,10 +146,11 @@ fn load_api_token() -> Result<String> {
 
 fn print_help() {
     println!(
-        "Usage: night-bridge-tui [--daemon-grpc <URL>] [--api-token <TOKEN>]\n\n\
+        "Usage: night-bridge-tui [--daemon-grpc <URL>] [--api-token <TOKEN>] [--advanced]\n\n\
          Options:\n  \
          --daemon-grpc <URL>   Daemon gRPC endpoint [default: {DEFAULT_DAEMON_GRPC}]\n  \
          --api-token <TOKEN>   Local daemon API bearer token\n  \
+         --advanced            Show native protocol details\n  \
          -h, --help            Show this help"
     );
 }
@@ -162,5 +194,17 @@ mod tests {
 
         assert_eq!(config.endpoint, "http://127.0.0.1:1");
         assert_eq!(config.api_token, "token");
+    }
+
+    #[test]
+    fn config_parses_advanced_mode() {
+        let config = config_from_args([
+            "--api-token".to_string(),
+            "token".to_string(),
+            "--advanced".to_string(),
+        ])
+        .unwrap();
+
+        assert!(config.advanced);
     }
 }

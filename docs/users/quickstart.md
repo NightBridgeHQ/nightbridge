@@ -84,6 +84,14 @@ testing.
 Use the WebUI or TUI for status and operations once the daemon API token is
 available.
 
+The TUI defaults to the 26.5 LocalSend receiver view. It shows daemon status,
+pending official LocalSend senders, active transfers, and inbox entries. Use
+`j`/`k` to select a pending LocalSend sender, `a` to approve it, `d` to deny
+it, and `q` to quit.
+
+Native protocol details stay hidden by default. Use `night-bridge-tui
+--advanced` only when validating native/QUIC behavior.
+
 Typical checks:
 
 ```bash

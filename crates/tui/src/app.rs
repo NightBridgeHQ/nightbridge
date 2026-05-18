@@ -7,8 +7,8 @@ use crossterm::event::{KeyCode, KeyEvent};
 pub enum Tab {
     /// High-level daemon status.
     Dashboard,
-    /// Trusted peers.
-    Peers,
+    /// LocalSend receive approvals.
+    LocalSend,
     /// Active transfers.
     Transfers,
     /// Inbox entries.
@@ -17,13 +17,13 @@ pub enum Tab {
 
 impl Tab {
     /// All tabs in display order.
-    pub const ALL: [Self; 4] = [Self::Dashboard, Self::Peers, Self::Transfers, Self::Inbox];
+    pub const ALL: [Self; 4] = [Self::Dashboard, Self::LocalSend, Self::Transfers, Self::Inbox];
 
     /// User-facing tab title.
     pub fn title(self) -> &'static str {
         match self {
             Self::Dashboard => "Dashboard",
-            Self::Peers => "Peers",
+            Self::LocalSend => "LocalSend",
             Self::Transfers => "Transfers",
             Self::Inbox => "Inbox",
         }
@@ -47,8 +47,14 @@ pub struct AppState {
     pub localsend_port: Option<u32>,
     /// Daemon native port.
     pub native_port: Option<u32>,
+    /// Show native/QUIC/WAN details intended for advanced releases.
+    pub advanced: bool,
     /// Trusted peers from the API.
     pub trusted_peers: Vec<TrustedPeer>,
+    /// Official LocalSend peers waiting for approval.
+    pub pending_localsend_peers: Vec<LocalSendPeer>,
+    /// Selected pending LocalSend peer index.
+    pub selected_localsend_peer: usize,
     /// Active transfers from the API.
     pub active_transfers: Vec<Transfer>,
     /// Inbox entries from the API.
@@ -71,12 +77,85 @@ impl AppState {
     }
 
     /// Apply a keyboard event to the app state.
-    pub fn handle_key(&mut self, key: KeyEvent) {
+    pub fn handle_key(&mut self, key: KeyEvent) -> AppAction {
         match key.code {
             KeyCode::Char('q') | KeyCode::Esc => self.should_quit = true,
+            KeyCode::Char('j') | KeyCode::Down => self.select_next_localsend_peer(),
+            KeyCode::Char('k') | KeyCode::Up => self.select_previous_localsend_peer(),
+            KeyCode::Char('a') => return self.approve_selected_localsend_peer(),
+            KeyCode::Char('d') => return self.deny_selected_localsend_peer(),
             _ => {}
         }
+        AppAction::None
     }
+
+    fn select_next_localsend_peer(&mut self) {
+        if self.pending_localsend_peers.is_empty() {
+            self.selected_localsend_peer = 0;
+            return;
+        }
+        self.selected_localsend_peer =
+            (self.selected_localsend_peer + 1).min(self.pending_localsend_peers.len() - 1);
+    }
+
+    fn select_previous_localsend_peer(&mut self) {
+        self.selected_localsend_peer = self.selected_localsend_peer.saturating_sub(1);
+    }
+
+    fn selected_localsend_peer(&self) -> Option<&LocalSendPeer> {
+        self.pending_localsend_peers.get(self.selected_localsend_peer)
+    }
+
+    fn approve_selected_localsend_peer(&self) -> AppAction {
+        self.selected_localsend_peer()
+            .map(|peer| AppAction::ApproveLocalSend {
+                fingerprint: peer.fingerprint.clone(),
+                label: Some(peer.label.clone().unwrap_or_else(|| peer.alias.clone())),
+            })
+            .unwrap_or(AppAction::None)
+    }
+
+    fn deny_selected_localsend_peer(&self) -> AppAction {
+        self.selected_localsend_peer()
+            .map(|peer| AppAction::DenyLocalSend { fingerprint: peer.fingerprint.clone() })
+            .unwrap_or(AppAction::None)
+    }
+}
+
+/// TUI action that needs a daemon API call.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum AppAction {
+    /// No API action.
+    None,
+    /// Approve a pending official LocalSend peer.
+    ApproveLocalSend {
+        /// LocalSend fingerprint.
+        fingerprint: String,
+        /// Operator label.
+        label: Option<String>,
+    },
+    /// Deny a pending official LocalSend peer.
+    DenyLocalSend {
+        /// LocalSend fingerprint.
+        fingerprint: String,
+    },
+}
+
+/// Official LocalSend peer row.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct LocalSendPeer {
+    /// Normalized LocalSend fingerprint.
+    pub fingerprint: String,
+    /// Last advertised LocalSend alias.
+    pub alias: String,
+    /// Operator label.
+    pub label: Option<String>,
+    /// Approval status.
+    pub status: String,
+    /// Number of rejected attempts observed.
+    pub attempt_count: u64,
+    /// Last source IP, when observed.
+    pub source_ip: Option<String>,
 }
 
 impl Default for Tab {
@@ -138,11 +217,57 @@ mod tests {
     fn q_and_escape_quit_the_app() {
         let mut state = AppState::default();
 
-        state.handle_key(KeyEvent::new(KeyCode::Char('q'), KeyModifiers::NONE));
+        assert_eq!(
+            state.handle_key(KeyEvent::new(KeyCode::Char('q'), KeyModifiers::NONE)),
+            AppAction::None
+        );
         assert!(state.should_quit);
 
         let mut state = AppState::default();
-        state.handle_key(KeyEvent::new(KeyCode::Esc, KeyModifiers::NONE));
+        assert_eq!(
+            state.handle_key(KeyEvent::new(KeyCode::Esc, KeyModifiers::NONE)),
+            AppAction::None
+        );
         assert!(state.should_quit);
+    }
+
+    #[test]
+    fn local_send_peer_keys_select_approve_and_deny() {
+        let mut state = AppState {
+            pending_localsend_peers: vec![
+                LocalSendPeer {
+                    fingerprint: "one".to_string(),
+                    alias: "phone one".to_string(),
+                    label: None,
+                    status: "pending".to_string(),
+                    attempt_count: 1,
+                    source_ip: None,
+                },
+                LocalSendPeer {
+                    fingerprint: "two".to_string(),
+                    alias: "phone two".to_string(),
+                    label: None,
+                    status: "pending".to_string(),
+                    attempt_count: 1,
+                    source_ip: None,
+                },
+            ],
+            ..AppState::default()
+        };
+
+        assert_eq!(state.selected_localsend_peer, 0);
+        state.handle_key(KeyEvent::new(KeyCode::Char('j'), KeyModifiers::NONE));
+        assert_eq!(state.selected_localsend_peer, 1);
+        assert_eq!(
+            state.handle_key(KeyEvent::new(KeyCode::Char('a'), KeyModifiers::NONE)),
+            AppAction::ApproveLocalSend {
+                fingerprint: "two".to_string(),
+                label: Some("phone two".to_string())
+            }
+        );
+        assert_eq!(
+            state.handle_key(KeyEvent::new(KeyCode::Char('d'), KeyModifiers::NONE)),
+            AppAction::DenyLocalSend { fingerprint: "two".to_string() }
+        );
     }
 }

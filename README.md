@@ -1,9 +1,16 @@
 # NightBridge
 
-> Headless-first file transfer for homelab and server use cases.
-> Bidirectional compatibility with LocalSend v2 plus a native QUIC+TLS1.3+Ed25519 protocol.
+> A LocalSend-compatible headless server for homelabs, NAS boxes, and always-on machines.
 
-**Status:** pre-alpha. The repository now includes the headless daemon, CLI, LocalSend v2 receive/send paths, native QUIC transfer foundations, WAN rendezvous work, and Tauri desktop GUI scaffolding. Desktop packages are pre-release until signing, notarization, and updater infrastructure are configured. See the [26.5 release notes draft](docs/release/26.5-notes.md), [release artifact matrix](docs/release/artifacts.md), and [operator guide](docs/operators/index.md).
+**Status:** pre-alpha. The first release is focused on the original problem:
+run a LocalSend-compatible receiver without a desktop app open. The repository
+now includes the headless daemon, CLI, LocalSend v2 receive/send paths, TUI,
+Docker/systemd/DEB packaging work, native QUIC transfer foundations, WAN
+rendezvous work, and Tauri desktop GUI scaffolding. Desktop packages are
+pre-release until signing, notarization, and updater infrastructure are
+configured. See the [26.5 release notes draft](docs/release/26.5-notes.md),
+[release artifact matrix](docs/release/artifacts.md), and
+[operator guide](docs/operators/index.md).
 
 ## Why?
 
@@ -12,6 +19,21 @@ Raspberry Pi, or a homelab server: there is no headless mode, no first-class
 CLI, no daemon, and no API. This project fills that gap while staying
 compatible with the LocalSend ecosystem, so users can send files between
 LocalSend on their phone and this daemon on their server without extra setup.
+
+## First Release Focus
+
+NightBridge 26.5 is aimed at operators who want a LocalSend endpoint on a
+headless machine:
+
+- run `night-bridge-daemon` as an always-on receiver
+- receive from official LocalSend apps into a configured inbox
+- approve unknown LocalSend peers before accepting files
+- operate the daemon through `night-bridge` / `nbrg`, HTTP/gRPC APIs, or TUI
+- deploy with systemd, Docker, or release binaries
+
+Native QUIC, WAN rendezvous, WebUI, and desktop GUI work are useful
+differentiators, but they are not the core promise of the first release. The
+core promise is LocalSend-to-headless-server.
 
 ## User Docs
 

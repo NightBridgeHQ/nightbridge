@@ -1,8 +1,13 @@
 # Migration From LocalSend
 
 NightBridge does not replace the official LocalSend app for phones and
-general desktop users. It adds a headless daemon, CLI, API, WebUI/TUI, native
-protocol work, and WAN rendezvous support for server-style deployments.
+general desktop users. It adds the missing server side: a headless daemon,
+CLI, API, and TUI for machines where keeping a GUI app open is the wrong
+operating model.
+
+The main 26.5 migration story is simple: keep using the official LocalSend app
+on your phone or desktop, but send files to a NightBridge daemon running on
+your NAS, Raspberry Pi, homelab server, or always-on workstation.
 
 ## What Stays Compatible
 
@@ -19,9 +24,11 @@ protocol work, and WAN rendezvous support for server-style deployments.
 Instead of keeping a desktop app open, you can run a daemon as a service:
 
 - files land in a configured inbox
+- unknown LocalSend senders can be recorded as pending before approval
 - CLI commands can inspect status and send files
 - API/WebUI/TUI surfaces can be used for operations
 - systemd packaging can keep the daemon running after reboot
+- Docker can run the same receiver in containerized deployments
 
 This is the main migration path for a NAS, Raspberry Pi, homelab server, or
 always-on workstation.

@@ -7,7 +7,11 @@ use lsi_proto::{
     common::v1::Empty,
     daemon::v1::daemon_service_client::DaemonServiceClient,
     inbox::v1::{inbox_service_client::InboxServiceClient, ListInboxRequest},
-    peers::v1::{peers_service_client::PeersServiceClient, ListTrustedPeersRequest, PeerPolicy},
+    peers::v1::{
+        peers_service_client::PeersServiceClient, ApproveLocalSendPeerRequest,
+        DenyLocalSendPeerRequest, ListPendingLocalSendPeersRequest, ListTrustedPeersRequest,
+        LocalSendPeerStatus, PeerPolicy,
+    },
     transfers::v1::{
         transfers_service_client::TransfersServiceClient, ListActiveTransfersRequest,
         TransferDirection, TransferState,
@@ -20,7 +24,7 @@ use tonic::{
     Request, Status,
 };
 
-use crate::app::{AppState, InboxEntry, Transfer, TrustedPeer};
+use crate::app::{AppState, InboxEntry, LocalSendPeer, Transfer, TrustedPeer};
 
 /// gRPC configuration for polling daemon state.
 #[derive(Clone, Debug)]
@@ -31,6 +35,8 @@ pub struct DaemonApiConfig {
     pub api_token: String,
     /// Poll interval for live dashboards.
     pub poll_interval: Duration,
+    /// Show native/QUIC/WAN fields.
+    pub advanced: bool,
 }
 
 impl DaemonApiConfig {
@@ -40,6 +46,7 @@ impl DaemonApiConfig {
             endpoint: endpoint.into(),
             api_token: api_token.into(),
             poll_interval: Duration::from_secs(1),
+            advanced: false,
         }
     }
 
@@ -77,21 +84,41 @@ impl DaemonApiClient {
             .await
             .context("daemon status request failed")?
             .into_inner();
-        let trusted_peers = peers
-            .list_trusted(Request::new(ListTrustedPeersRequest {}))
+        let trusted_peers = if self.config.advanced {
+            peers
+                .list_trusted(Request::new(ListTrustedPeersRequest {}))
+                .await
+                .context("trusted peers request failed")?
+                .into_inner()
+                .peers
+                .into_iter()
+                .map(|peer| TrustedPeer {
+                    fingerprint: peer
+                        .fingerprint
+                        .map(|fingerprint| fingerprint.value)
+                        .unwrap_or_default(),
+                    label: peer.label,
+                    policy: peer_policy(peer.policy).to_string(),
+                    last_seen_unix_seconds: peer.last_seen_unix_seconds,
+                })
+                .collect()
+        } else {
+            Vec::new()
+        };
+        let pending_localsend_peers = peers
+            .list_pending_local_send(Request::new(ListPendingLocalSendPeersRequest {}))
             .await
-            .context("trusted peers request failed")?
+            .context("pending LocalSend peers request failed")?
             .into_inner()
             .peers
             .into_iter()
-            .map(|peer| TrustedPeer {
-                fingerprint: peer
-                    .fingerprint
-                    .map(|fingerprint| fingerprint.value)
-                    .unwrap_or_default(),
+            .map(|peer| LocalSendPeer {
+                fingerprint: peer.fingerprint,
+                alias: peer.alias,
                 label: peer.label,
-                policy: peer_policy(peer.policy).to_string(),
-                last_seen_unix_seconds: peer.last_seen_unix_seconds,
+                status: localsend_peer_status(peer.status).to_string(),
+                attempt_count: peer.attempt_count,
+                source_ip: peer.source_ip,
             })
             .collect();
         let active_transfers = transfers
@@ -125,12 +152,41 @@ impl DaemonApiClient {
             })
             .collect();
 
-        let mut state = AppState::default();
+        let mut state = AppState { advanced: self.config.advanced, ..AppState::default() };
         state.set_status(status);
         state.trusted_peers = trusted_peers;
+        state.pending_localsend_peers = pending_localsend_peers;
         state.active_transfers = active_transfers;
         state.inbox_entries = inbox_entries;
         Ok(state)
+    }
+
+    /// Approve a pending official LocalSend peer.
+    pub async fn approve_localsend_peer(
+        &self,
+        fingerprint: String,
+        label: Option<String>,
+    ) -> Result<()> {
+        let channel = self.channel().await?;
+        let interceptor = self.interceptor()?;
+        let mut peers = PeersServiceClient::with_interceptor(channel, interceptor);
+        peers
+            .approve_local_send(Request::new(ApproveLocalSendPeerRequest { fingerprint, label }))
+            .await
+            .context("approve LocalSend peer request failed")?;
+        Ok(())
+    }
+
+    /// Deny a pending official LocalSend peer.
+    pub async fn deny_localsend_peer(&self, fingerprint: String) -> Result<()> {
+        let channel = self.channel().await?;
+        let interceptor = self.interceptor()?;
+        let mut peers = PeersServiceClient::with_interceptor(channel, interceptor);
+        peers
+            .deny_local_send(Request::new(DenyLocalSendPeerRequest { fingerprint }))
+            .await
+            .context("deny LocalSend peer request failed")?;
+        Ok(())
     }
 
     async fn channel(&self) -> Result<Channel> {
@@ -144,6 +200,17 @@ impl DaemonApiClient {
 
     fn interceptor(&self) -> Result<BearerTokenInterceptor> {
         BearerTokenInterceptor::new(self.config.api_token.clone())
+    }
+}
+
+fn localsend_peer_status(status: i32) -> &'static str {
+    match LocalSendPeerStatus::try_from(status)
+        .unwrap_or(LocalSendPeerStatus::LocalsendPeerStatusUnspecified)
+    {
+        LocalSendPeerStatus::LocalsendPeerStatusPending => "pending",
+        LocalSendPeerStatus::LocalsendPeerStatusTrusted => "trusted",
+        LocalSendPeerStatus::LocalsendPeerStatusBlocked => "blocked",
+        LocalSendPeerStatus::LocalsendPeerStatusUnspecified => "unknown",
     }
 }
 
