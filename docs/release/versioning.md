@@ -32,10 +32,11 @@ NightBridge `26.5.0` must not be tagged until:
   official-app coverage still need platform runs or explicit scoping
 - release artifacts are reproducible from a clean final `dist/` directory
 - checksums and SBOM are generated for the final artifacts
-- Docker and systemd validation run on representative target hosts or are
-  explicitly deferred
-- DEB/RPM package status is decided after `cargo-deb` and
-  `cargo-generate-rpm` are available, or those package formats are deferred
+- Docker, systemd, and DEB validation evidence is recorded for representative
+  Ubuntu hosts; final release artifacts still need to be regenerated from the
+  release commit
+- RPM package status is decided after `cargo-generate-rpm` is available, or RPM
+  is explicitly deferred
 - desktop signing, notarization, updater, Windows packaging, and Linux desktop
   packaging decisions are explicit
 - GUI WebDriver smoke runs on an interactive-capable host with `tauri-driver`,

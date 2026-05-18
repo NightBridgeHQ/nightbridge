@@ -18,8 +18,8 @@ are available.
 | Windows daemon binary | `night-bridge-daemon.exe` | release workflow Rust build | Required |
 | Windows TUI binary | `night-bridge-tui.exe` | release workflow Rust build | Required |
 | Tauri desktop bundles | platform-specific app bundle, installer, or archive | Tauri build job | Required before desktop GA |
-| Docker image | `night-bridge:<version>` | Docker build job | Required |
-| Debian package | `.deb` | `packaging/build-packages.sh` | Required when `cargo-deb` is available |
+| Docker image | `night-bridge:<version>` | Docker build job | Validated on Ubuntu host; final tag still required |
+| Debian package | `.deb` | `packaging/build-packages.sh` | Validated on Ubuntu host; final artifact still required |
 | RPM package | `.rpm` | `packaging/build-packages.sh` | Required when `cargo-generate-rpm` is available |
 | Checksums | `dist/SHA256SUMS` | `packaging/release/checksums.sh` | Always generated |
 | SBOM | `dist/sbom.cdx.json` | `packaging/release/sbom.sh` | Always generated, may be fallback metadata |
@@ -58,3 +58,40 @@ notarization are wired for the release channel.
 - package build logs
 - signing/notarization logs when enabled
 - explicit list of missing platform credentials or tools
+
+## Local Host Evidence
+
+Docker smoke:
+
+- Date: 2026-05-17
+- Host: `link` (`10.16.20.130`)
+- Commit: `1d18b86`
+- Docker server: `29.1.3`
+- Command: `bash packaging/docker/smoke.sh`
+- Result: image `night-bridge:sprint4` built and
+  `night-bridge-daemon --help` ran successfully
+- Image ID:
+  `sha256:6aaae986812a532abd441ae43ddf1d2308e3266dbaf3f4f1f295331686d70ca1`
+- Image size: `44077739`
+- Evidence log:
+  `~/nightbridge-release/1d18b86/target/release-evidence/docker/smoke.log`
+
+Debian package and systemd smoke:
+
+- Date: 2026-05-18
+- Host: `zelda` (`10.16.20.129`)
+- Commit: `1d18b86`
+- Tooling: `rustc 1.78.0`, `cargo 1.78.0`, `cargo-deb 3.6.2`,
+  `libprotoc 3.21.12`
+- Package:
+  `target/debian/night-bridge-daemon_26.5.0-1_amd64.deb`
+- Package size: `4523220`
+- Package contents verified with `dpkg-deb -I` and `dpkg-deb -c`
+- Installed with `dpkg -i`, verified with `systemd-analyze verify`, started
+  through `systemctl start night-bridge.service`, reported `active`, and
+  `/healthz` on `127.0.0.1:53501` returned success
+- Service was stopped after validation
+- Evidence logs:
+  `~/nightbridge-release/1d18b86/target/release-evidence/systemd-deb/deb-build-retry.log`
+  and
+  `~/nightbridge-release/1d18b86/target/release-evidence/systemd-deb/install-systemd.log`
