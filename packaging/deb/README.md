@@ -23,3 +23,9 @@ NightBridge 26.5 pins Rust 1.78, so install a compatible `cargo-deb` release:
 ```bash
 cargo install cargo-deb --version 3.6.2 --locked
 ```
+
+The daemon build also requires `protoc`:
+
+```bash
+sudo apt-get install protobuf-compiler
+```

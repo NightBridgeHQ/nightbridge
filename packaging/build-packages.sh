@@ -4,6 +4,12 @@ set -euo pipefail
 check_tools() {
   local missing=0
 
+  if ! command -v protoc >/dev/null 2>&1; then
+    echo "missing: protoc"
+    echo "install: sudo apt-get install protobuf-compiler"
+    missing=1
+  fi
+
   if ! cargo deb --version >/dev/null 2>&1; then
     echo "missing: cargo-deb"
     echo "install: cargo install cargo-deb --version 3.6.2 --locked"
