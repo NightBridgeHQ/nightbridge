@@ -5,7 +5,7 @@
 **Status:** pre-alpha. The first release is focused on the original problem:
 run a LocalSend-compatible receiver without a desktop app open. The repository
 now includes the headless daemon, CLI, LocalSend v2 receive/send paths, TUI,
-Docker/systemd/DEB packaging work, native QUIC transfer foundations, WAN
+Docker/systemd/DEB packaging work, Native Mesh LAN preview, WAN
 rendezvous work, and Tauri desktop GUI scaffolding. Desktop packages are
 pre-release until signing, notarization, and updater infrastructure are
 configured. See the [26.5 release notes draft](docs/release/26.5-notes.md),
@@ -31,9 +31,26 @@ headless machine:
 - operate the daemon through `night-bridge` / `nbrg`, HTTP/gRPC APIs, or TUI
 - deploy with systemd, Docker, or release binaries
 
-Native QUIC, WAN rendezvous, WebUI, and desktop GUI work are useful
-differentiators, but they are not the core promise of the first release. The
-core promise is LocalSend-to-headless-server.
+Native Mesh LAN is the alpha differentiator: trusted NightBridge daemons on the
+same network can discover each other and send files over native QUIC by peer
+alias. WAN rendezvous, WebUI, and desktop GUI work remain advanced paths; the
+core promise is LocalSend-to-headless-server plus a preview of stricter
+server-to-server mesh transfers.
+
+## Native Mesh LAN Preview
+
+Use LocalSend compatibility for phones and desktops. Use Native Mesh LAN for
+trusted NightBridge servers on the same LAN:
+
+```bash
+night-bridge peers list-native
+night-bridge peers approve-native "Home NAS" --label "Home NAS"
+night-bridge send --native --peer "Home NAS" ./backup.tar
+```
+
+The alpha mesh path uses native QUIC with pinned TLS certificate metadata and
+the daemon trust database. It is a LAN preview, not a WAN relay or multi-hop
+router.
 
 ## User Docs
 

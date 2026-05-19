@@ -111,6 +111,31 @@ pub struct LocalSendPeer {
     pub source_ip: Option<String>,
 }
 
+/// A recently discovered official LocalSend LAN peer.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct LocalSendLanPeer {
+    /// Normalized LocalSend fingerprint.
+    pub fingerprint: String,
+    /// Last advertised LocalSend alias.
+    pub alias: String,
+    /// Last known source IP.
+    pub source_ip: String,
+    /// Advertised LocalSend API port.
+    pub port: u16,
+    /// Advertised protocol, usually `https`.
+    pub protocol: String,
+    /// Advertised device model, when available.
+    pub device_model: Option<String>,
+    /// Advertised device type, when available.
+    pub device_type: Option<String>,
+    /// Whether the peer advertises download support.
+    pub download: bool,
+    /// Unix timestamp when first seen.
+    pub first_seen: i64,
+    /// Unix timestamp when most recently seen.
+    pub last_seen: i64,
+}
+
 /// Thread-safe handle to the on-disk trust store.
 pub struct TrustStore {
     conn: Mutex<Connection>,
@@ -266,6 +291,110 @@ impl TrustStore {
     /// List LocalSend peers waiting for admin approval.
     pub fn list_pending_localsend_peers(&self) -> Result<Vec<LocalSendPeer>> {
         self.list_localsend_peers_by_status(LocalSendPeerStatus::Pending)
+    }
+
+    /// List LocalSend peers approved for future receives.
+    pub fn list_trusted_localsend_peers(&self) -> Result<Vec<LocalSendPeer>> {
+        self.list_localsend_peers_by_status(LocalSendPeerStatus::Trusted)
+    }
+
+    /// Record an approved incoming LocalSend peer sighting.
+    pub fn record_trusted_localsend_peer(
+        &self,
+        fingerprint: &str,
+        alias: &str,
+        source_ip: Option<&str>,
+    ) -> Result<LocalSendPeer> {
+        let fingerprint = normalize_localsend_fingerprint(fingerprint)?;
+        require_nonblank("LocalSend alias", alias)?;
+        let now = now_unix();
+        let conn = self.conn.lock().expect("trust store mutex poisoned");
+        conn.execute(
+            "INSERT INTO localsend_peers
+               (fingerprint, alias, status, first_seen, last_seen, attempt_count, source_ip)
+             VALUES (?, ?, 'trusted', ?, ?, 0, ?)
+             ON CONFLICT(fingerprint) DO UPDATE SET
+               alias = excluded.alias,
+               last_seen = excluded.last_seen,
+               source_ip = COALESCE(excluded.source_ip, localsend_peers.source_ip)",
+            params![fingerprint, alias, now, now, source_ip],
+        )?;
+        drop(conn);
+        self.get_localsend_peer(&fingerprint)?
+            .ok_or_else(|| CoreError::TrustStore("LocalSend peer disappeared after insert".into()))
+    }
+
+    /// Record a LocalSend peer observed through LAN discovery registration.
+    pub fn record_localsend_lan_peer(&self, peer: LocalSendLanPeer) -> Result<LocalSendLanPeer> {
+        let fingerprint = normalize_localsend_fingerprint(&peer.fingerprint)?;
+        require_nonblank("LocalSend alias", &peer.alias)?;
+        require_nonblank("LocalSend source IP", &peer.source_ip)?;
+        require_nonblank("LocalSend protocol", &peer.protocol)?;
+        let now = now_unix();
+        let conn = self.conn.lock().expect("trust store mutex poisoned");
+        conn.execute(
+            "INSERT INTO localsend_lan_peers
+               (fingerprint, alias, source_ip, port, protocol, device_model, device_type,
+                download, first_seen, last_seen)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+             ON CONFLICT(fingerprint) DO UPDATE SET
+               alias = excluded.alias,
+               source_ip = excluded.source_ip,
+               port = excluded.port,
+               protocol = excluded.protocol,
+               device_model = excluded.device_model,
+               device_type = excluded.device_type,
+               download = excluded.download,
+               last_seen = excluded.last_seen",
+            params![
+                fingerprint,
+                peer.alias,
+                peer.source_ip,
+                i64::from(peer.port),
+                peer.protocol,
+                peer.device_model,
+                peer.device_type,
+                if peer.download { 1 } else { 0 },
+                now,
+                now
+            ],
+        )?;
+        drop(conn);
+        self.get_localsend_lan_peer(&fingerprint)?.ok_or_else(|| {
+            CoreError::TrustStore("LocalSend LAN peer disappeared after insert".into())
+        })
+    }
+
+    /// List recently discovered LocalSend LAN peers.
+    pub fn list_localsend_lan_peers(&self) -> Result<Vec<LocalSendLanPeer>> {
+        let conn = self.conn.lock().expect("trust store mutex poisoned");
+        let mut stmt = conn.prepare(
+            "SELECT fingerprint, alias, source_ip, port, protocol, device_model, device_type,
+                    download, first_seen, last_seen
+             FROM localsend_lan_peers
+             ORDER BY last_seen DESC, first_seen DESC",
+        )?;
+        let mut rows = stmt.query([])?;
+        let mut peers = Vec::new();
+        while let Some(row) = rows.next()? {
+            peers.push(row_to_localsend_lan_peer(row)?);
+        }
+        Ok(peers)
+    }
+
+    fn get_localsend_lan_peer(&self, fingerprint: &str) -> Result<Option<LocalSendLanPeer>> {
+        let fingerprint = normalize_localsend_fingerprint(fingerprint)?;
+        let conn = self.conn.lock().expect("trust store mutex poisoned");
+        let mut stmt = conn.prepare(
+            "SELECT fingerprint, alias, source_ip, port, protocol, device_model, device_type,
+                    download, first_seen, last_seen
+             FROM localsend_lan_peers WHERE fingerprint = ?",
+        )?;
+        let mut rows = stmt.query(params![fingerprint])?;
+        match rows.next()? {
+            Some(row) => Ok(Some(row_to_localsend_lan_peer(row)?)),
+            None => Ok(None),
+        }
     }
 
     /// Approve a LocalSend peer fingerprint for future receives.
@@ -460,6 +589,26 @@ fn row_to_localsend_peer(row: &rusqlite::Row<'_>) -> Result<LocalSendPeer> {
     })
 }
 
+fn row_to_localsend_lan_peer(row: &rusqlite::Row<'_>) -> Result<LocalSendLanPeer> {
+    let port: i64 = row.get(3)?;
+    if !(0..=u16::MAX as i64).contains(&port) {
+        return Err(CoreError::TrustStore("LocalSend LAN peer port is out of range".into()));
+    }
+    let download: i64 = row.get(7)?;
+    Ok(LocalSendLanPeer {
+        fingerprint: row.get(0)?,
+        alias: row.get(1)?,
+        source_ip: row.get(2)?,
+        port: port as u16,
+        protocol: row.get(4)?,
+        device_model: row.get(5)?,
+        device_type: row.get(6)?,
+        download: download != 0,
+        first_seen: row.get(8)?,
+        last_seen: row.get(9)?,
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -596,6 +745,64 @@ mod tests {
 
         assert_eq!(pending.len(), 1);
         assert_eq!(pending[0].fingerprint, "aa");
+    }
+
+    #[test]
+    fn lists_trusted_localsend_peers_with_source_ip() {
+        let store = TrustStore::open_in_memory().unwrap();
+        store.record_pending_localsend_peer("AA:BB", "Android", Some("10.16.20.81")).unwrap();
+        store.approve_localsend_peer("aa-bb", None).unwrap();
+
+        let trusted = store.list_trusted_localsend_peers().unwrap();
+
+        assert_eq!(trusted.len(), 1);
+        assert_eq!(trusted[0].fingerprint, "aabb");
+        assert_eq!(trusted[0].source_ip.as_deref(), Some("10.16.20.81"));
+    }
+
+    #[test]
+    fn records_trusted_localsend_peer_sighting_without_counting_rejected_attempt() {
+        let store = TrustStore::open_in_memory().unwrap();
+        store.approve_localsend_peer("AA:BB", Some("Android")).unwrap();
+
+        let seen =
+            store.record_trusted_localsend_peer("aa-bb", "Rich Pear", Some("10.16.20.81")).unwrap();
+
+        assert_eq!(seen.status, LocalSendPeerStatus::Trusted);
+        assert_eq!(seen.alias, "Rich Pear");
+        assert_eq!(seen.label.as_deref(), Some("Android"));
+        assert_eq!(seen.attempt_count, 0);
+        assert_eq!(seen.source_ip.as_deref(), Some("10.16.20.81"));
+    }
+
+    #[test]
+    fn records_localsend_lan_peer_without_changing_receive_approval_state() {
+        let store = TrustStore::open_in_memory().unwrap();
+
+        let seen = store
+            .record_localsend_lan_peer(LocalSendLanPeer {
+                fingerprint: "AA:BB".to_string(),
+                alias: "Rich Pear".to_string(),
+                source_ip: "10.16.20.81".to_string(),
+                port: 53317,
+                protocol: "https".to_string(),
+                device_model: Some("Pixel".to_string()),
+                device_type: Some("mobile".to_string()),
+                download: true,
+                first_seen: 0,
+                last_seen: 0,
+            })
+            .unwrap();
+
+        let lan = store.list_localsend_lan_peers().unwrap();
+
+        assert_eq!(seen.fingerprint, "aabb");
+        assert_eq!(lan.len(), 1);
+        assert_eq!(lan[0].alias, "Rich Pear");
+        assert_eq!(lan[0].source_ip, "10.16.20.81");
+        assert_eq!(lan[0].port, 53317);
+        assert_eq!(lan[0].device_model.as_deref(), Some("Pixel"));
+        assert!(store.list_pending_localsend_peers().unwrap().is_empty());
     }
 
     #[test]

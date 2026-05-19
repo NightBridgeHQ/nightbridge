@@ -20,6 +20,7 @@ fn peer() -> NativePeerInfo {
         fingerprint: "soak-peer-fingerprint".to_string(),
         pubkey: [17; 32],
         quic_port: 53_401,
+        native_certificate_fingerprint: None,
         extensions: default_extensions(),
     }
 }

@@ -10,8 +10,8 @@ use lsi_proto::{
     daemon::v1::{daemon_service_client::DaemonServiceClient, DaemonStatus},
     peers::v1::{
         peers_service_client::PeersServiceClient, ApproveLocalSendPeerRequest,
-        DenyLocalSendPeerRequest, ListPendingLocalSendPeersRequest, ListTrustedPeersRequest,
-        LocalSendPeer, TrustedPeer,
+        DenyLocalSendPeerRequest, LanPeer, ListLanPeersRequest, ListPendingLocalSendPeersRequest,
+        ListTrustedPeersRequest, LocalSendPeer, TrustNativeLanPeerRequest, TrustedPeer,
     },
     transfers::v1::{
         transfers_service_client::TransfersServiceClient, ActiveTransfer,
@@ -109,6 +109,49 @@ pub async fn list_trusted_peers(config: &DaemonClientConfig) -> Result<Vec<Trust
         .await
         .context("trusted peers request failed")?;
     Ok(response.into_inner().peers)
+}
+
+/// List LocalSend LAN peers through the authenticated daemon API.
+pub async fn list_lan_peers(config: &DaemonClientConfig, timeout_ms: u32) -> Result<Vec<LanPeer>> {
+    let mut client = config.peers_client().await?;
+    let response = client
+        .list_lan(Request::new(ListLanPeersRequest { timeout_ms }))
+        .await
+        .context("LAN peers request failed")?;
+    Ok(response.into_inner().peers)
+}
+
+/// List native NightBridge LAN peers through the authenticated daemon API.
+pub async fn list_native_lan_peers(
+    config: &DaemonClientConfig,
+    timeout_ms: u32,
+) -> Result<Vec<LanPeer>> {
+    let mut client = config.peers_client().await?;
+    let response = client
+        .list_native_lan(Request::new(ListLanPeersRequest { timeout_ms }))
+        .await
+        .context("native LAN peers request failed")?;
+    Ok(response.into_inner().peers)
+}
+
+/// Trust a discovered native NightBridge LAN peer through the daemon API.
+pub async fn trust_native_lan_peer(
+    config: &DaemonClientConfig,
+    peer: String,
+    label: Option<String>,
+    timeout_ms: u32,
+) -> Result<TrustedPeer> {
+    let mut client = config.peers_client().await?;
+    let response = client
+        .trust_native_lan(Request::new(TrustNativeLanPeerRequest {
+            peer,
+            label,
+            policy: lsi_proto::peers::v1::PeerPolicy::AutoAccept as i32,
+            timeout_ms,
+        }))
+        .await
+        .context("trust native LAN peer request failed")?;
+    response.into_inner().peer.context("daemon returned no trusted peer")
 }
 
 /// List pending official LocalSend peers through the authenticated daemon API.

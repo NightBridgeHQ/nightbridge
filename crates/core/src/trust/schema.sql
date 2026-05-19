@@ -25,3 +25,19 @@ CREATE TABLE IF NOT EXISTS localsend_peers (
 
 CREATE INDEX IF NOT EXISTS idx_localsend_peers_status_seen
     ON localsend_peers(status, last_seen);
+
+CREATE TABLE IF NOT EXISTS localsend_lan_peers (
+    fingerprint   TEXT PRIMARY KEY NOT NULL,
+    alias         TEXT NOT NULL DEFAULT '',
+    source_ip     TEXT NOT NULL,
+    port          INTEGER NOT NULL,
+    protocol      TEXT NOT NULL DEFAULT 'https',
+    device_model  TEXT,
+    device_type   TEXT,
+    download      INTEGER NOT NULL DEFAULT 1,
+    first_seen    INTEGER NOT NULL,
+    last_seen     INTEGER NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_localsend_lan_peers_seen
+    ON localsend_lan_peers(last_seen);

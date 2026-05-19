@@ -2,12 +2,11 @@ use std::convert::Infallible;
 use std::fmt::Write as _;
 use std::net::{Ipv4Addr, SocketAddr};
 use std::sync::Arc;
-use std::time::Duration;
 
 use anyhow::{Context, Result};
 use axum::{
     body::Body,
-    extract::{Path, Query, State},
+    extract::{Path, State},
     http::{header, HeaderMap, StatusCode, Uri},
     response::{
         sse::{Event, KeepAlive, Sse},
@@ -19,7 +18,6 @@ use axum::{
 use lsi_core::trust::{PeerPolicy as CorePeerPolicy, TrustStore};
 use lsi_proto::events::v1::{daemon_event, DaemonEventType};
 use lsi_proto::transfers::v1::{send_request, SendRequest};
-use lsi_protocol_localsend_v2::discovery::DiscoveryBrowser;
 use serde::{Deserialize, Serialize};
 use tokio::task::JoinHandle;
 
@@ -197,26 +195,28 @@ async fn list_trusted(
 async fn list_lan(
     State(state): State<HttpState>,
     headers: HeaderMap,
-    Query(query): Query<ListLanQuery>,
 ) -> Result<Json<LanPeersDto>, ApiError> {
     authorize(&headers, &state.token)?;
-    let timeout_ms = query.timeout_ms.or(query.timeout_ms_camel).unwrap_or(1500);
-    let browser = DiscoveryBrowser::new(&state.daemon.fingerprint)
-        .with_timeout(Duration::from_millis(timeout_ms));
-    let peers = match browser.listen_once().await.map_err(ApiError::internal)? {
-        Some(peer) => vec![LanPeerDto {
-            alias: peer.info.alias,
-            address: peer.address.ip().to_string(),
-            port: peer.address.port(),
-            protocol: "localsend_v2",
-            fingerprint: peer.info.fingerprint,
-            device_model: peer.info.device_model,
-            device_type: peer.info.device_type,
-            download: peer.info.download,
-        }],
-        None => Vec::new(),
-    };
+    let peers = crate::localsend_lan::scan_and_cache(&state.daemon.trust_db_path)
+        .await
+        .map_err(ApiError::internal)?
+        .into_iter()
+        .map(localsend_lan_peer)
+        .collect();
     Ok(Json(LanPeersDto { peers }))
+}
+
+fn localsend_lan_peer(peer: lsi_core::trust::LocalSendLanPeer) -> LanPeerDto {
+    LanPeerDto {
+        alias: peer.alias,
+        address: peer.source_ip,
+        port: peer.port,
+        protocol: "localsend_v2",
+        fingerprint: peer.fingerprint,
+        device_model: peer.device_model,
+        device_type: peer.device_type,
+        download: peer.download,
+    }
 }
 
 async fn list_pending_localsend(
@@ -584,14 +584,6 @@ struct TrustedPeerDto {
     last_seen_unix_seconds: Option<i64>,
     native_certificate_fingerprint: Option<String>,
     policy: &'static str,
-}
-
-#[derive(Deserialize)]
-struct ListLanQuery {
-    #[serde(default)]
-    timeout_ms: Option<u64>,
-    #[serde(default, rename = "timeoutMs")]
-    timeout_ms_camel: Option<u64>,
 }
 
 #[derive(Serialize)]

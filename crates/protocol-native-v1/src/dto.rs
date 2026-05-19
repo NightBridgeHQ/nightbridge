@@ -27,6 +27,8 @@ pub struct NativePeerInfo {
     pub pubkey: [u8; 32],
     /// QUIC UDP port used by the native protocol listener.
     pub quic_port: u16,
+    /// Lowercase SHA-256 fingerprint of the peer's native TLS certificate.
+    pub native_certificate_fingerprint: Option<String>,
     /// Extensions supported by this peer.
     pub extensions: Vec<String>,
 }

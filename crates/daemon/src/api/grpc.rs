@@ -156,8 +156,8 @@ mod tests {
         inbox::v1::{inbox_service_client::InboxServiceClient, ListInboxRequest},
         peers::v1::{
             peers_service_client::PeersServiceClient, ApproveLocalSendPeerRequest,
-            DenyLocalSendPeerRequest, ListPendingLocalSendPeersRequest, ListTrustedPeersRequest,
-            LocalSendPeerStatus, PeerPolicy,
+            DenyLocalSendPeerRequest, ListLanPeersRequest, ListPendingLocalSendPeersRequest,
+            ListTrustedPeersRequest, LocalSendPeerStatus, PeerPolicy,
         },
         transfers::v1::{
             send_request, transfers_service_client::TransfersServiceClient,
@@ -332,6 +332,68 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn grpc_list_lan_does_not_treat_trusted_source_ip_as_discovery() {
+        let fixture = ApiFixture::start().await;
+        let store = lsi_core::trust::TrustStore::open(&fixture.state.trust_db_path).unwrap();
+        store.record_pending_localsend_peer("AA:BB", "Rich Pear", Some("10.16.20.81")).unwrap();
+        store.approve_localsend_peer("aa-bb", Some("Android LocalSend")).unwrap();
+        let mut client = fixture.peers_client().await;
+
+        let response = client
+            .list_lan(authenticated_peers_request(
+                "test-token",
+                ListLanPeersRequest { timeout_ms: 1 },
+            ))
+            .await
+            .unwrap()
+            .into_inner();
+
+        assert!(response.peers.is_empty());
+
+        fixture.stop().await;
+    }
+
+    #[tokio::test]
+    async fn grpc_list_lan_returns_registered_localsend_discovery_peer() {
+        let fixture = ApiFixture::start().await;
+        let store = lsi_core::trust::TrustStore::open(&fixture.state.trust_db_path).unwrap();
+        store
+            .record_localsend_lan_peer(lsi_core::trust::LocalSendLanPeer {
+                fingerprint: "AA:BB".to_string(),
+                alias: "Rich Pear".to_string(),
+                source_ip: "10.16.20.81".to_string(),
+                port: 53317,
+                protocol: "https".to_string(),
+                device_model: Some("Android".to_string()),
+                device_type: Some("mobile".to_string()),
+                download: true,
+                first_seen: 0,
+                last_seen: 0,
+            })
+            .unwrap();
+        let mut client = fixture.peers_client().await;
+
+        let response = client
+            .list_lan(authenticated_peers_request(
+                "test-token",
+                ListLanPeersRequest { timeout_ms: 1 },
+            ))
+            .await
+            .unwrap()
+            .into_inner();
+
+        assert_eq!(response.peers.len(), 1);
+        let peer = &response.peers[0];
+        assert_eq!(peer.alias, "Rich Pear");
+        assert_eq!(peer.address, "10.16.20.81");
+        assert_eq!(peer.port, 53317);
+        assert_eq!(peer.device_type.as_deref(), Some("mobile"));
+        assert_eq!(peer.fingerprint.as_ref().unwrap().value, "aabb");
+
+        fixture.stop().await;
+    }
+
+    #[tokio::test]
     async fn grpc_list_inbox_returns_file_entries() {
         let fixture = ApiFixture::start().await;
         tokio::fs::create_dir_all(&fixture.state.inbox_dir).await.unwrap();
@@ -446,6 +508,55 @@ mod tests {
         assert!(!response.transfer_id.is_empty());
         let uploaded = tokio::fs::read(receiver_dir.path().join("note.txt")).await.unwrap();
         assert_eq!(uploaded, b"hello from api");
+
+        let _ = shutdown.send(());
+        server_task.await.unwrap().unwrap();
+        fixture.stop().await;
+    }
+
+    #[tokio::test]
+    async fn grpc_send_localsend_peer_uses_discovered_lan_endpoint() {
+        let fixture = ApiFixture::start().await;
+        let source_dir = tempfile::TempDir::new().unwrap();
+        let receiver_dir = tempfile::TempDir::new().unwrap();
+        let source = source_dir.path().join("note.txt");
+        tokio::fs::write(&source, b"hello discovered peer").await.unwrap();
+        let (addr, shutdown, server_task) = spawn_localsend_receiver(receiver_dir.path()).await;
+        lsi_core::trust::TrustStore::open(&fixture.state.trust_db_path)
+            .unwrap()
+            .record_localsend_lan_peer(lsi_core::trust::LocalSendLanPeer {
+                fingerprint: "receiver-fingerprint".to_string(),
+                alias: "receiver".to_string(),
+                source_ip: addr.ip().to_string(),
+                port: addr.port(),
+                protocol: "http".to_string(),
+                device_model: None,
+                device_type: Some("desktop".to_string()),
+                download: true,
+                first_seen: 0,
+                last_seen: 0,
+            })
+            .unwrap();
+        let mut client = fixture.transfers_client().await;
+
+        let response = client
+            .send(authenticated_transfers_request(
+                "test-token",
+                SendRequest {
+                    paths: vec![source.display().to_string()],
+                    target: Some(send_request::Target::PeerFingerprint(
+                        "receiver-fingerprint".to_string(),
+                    )),
+                    native: false,
+                },
+            ))
+            .await
+            .unwrap()
+            .into_inner();
+
+        assert!(!response.transfer_id.is_empty());
+        let uploaded = tokio::fs::read(receiver_dir.path().join("note.txt")).await.unwrap();
+        assert_eq!(uploaded, b"hello discovered peer");
 
         let _ = shutdown.send(());
         server_task.await.unwrap().unwrap();

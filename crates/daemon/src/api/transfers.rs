@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use lsi_core::identity::Fingerprint;
-use lsi_core::trust::{Peer, PeerPolicy, TrustStore};
+use lsi_core::trust::{LocalSendLanPeer, Peer, PeerPolicy, TrustStore};
 use lsi_proto::transfers::v1::{
     send_request, transfers_service_server::TransfersService, CancelRequest, CancelResponse,
     ListActiveTransfersRequest, ListActiveTransfersResponse, ResumeRequest, ResumeResponse,
@@ -82,8 +82,12 @@ pub(crate) async fn send_files(
         send_request::Target::NativeUrl(_url) => Err(Status::failed_precondition(
             "native URL sends require pinned certificate metadata; use CLI --direct --native --native-cert-fingerprint or trusted WAN peer metadata",
         )),
-        send_request::Target::PeerFingerprint(_) => {
-            Err(Status::unimplemented("trusted-peer send is not wired yet"))
+        send_request::Target::PeerFingerprint(peer) => {
+            if request.native {
+                send_files_to_native_lan_peer(state, peer, paths).await
+            } else {
+                send_files_to_localsend_lan_peer(state, peer, paths).await
+            }
         }
         send_request::Target::WanPeer(fingerprint) => {
             send_files_to_wan_peer(state, fingerprint, paths).await
@@ -104,6 +108,100 @@ pub(crate) async fn send_files(
             Err(status)
         }
     }
+}
+
+async fn send_files_to_native_lan_peer(
+    state: &DaemonState,
+    peer_ref: String,
+    paths: Vec<std::path::PathBuf>,
+) -> Result<(), Status> {
+    let peers =
+        crate::native_lan::discover(std::time::Duration::from_millis(1500), &state.fingerprint)
+            .await
+            .map_err(internal_status)?;
+    let peer = crate::native_lan::resolve_peer_ref(peers, &peer_ref).map_err(not_found_status)?;
+    let fingerprint = peer.fingerprint.parse::<Fingerprint>().map_err(|error| {
+        Status::invalid_argument(format!("invalid native peer fingerprint: {error}"))
+    })?;
+    let trust_store = TrustStore::open(&state.trust_db_path)
+        .map_err(|error| Status::internal(format!("failed to open trust store: {error}")))?;
+    let trusted = trust_store
+        .get(&fingerprint)
+        .map_err(|error| Status::internal(format!("failed to read trusted peer: {error}")))?
+        .ok_or_else(|| {
+            Status::permission_denied(format!("native peer is not trusted: {peer_ref}"))
+        })?;
+    let expected_certificate_fingerprint = native_wan_certificate_fingerprint(&trusted)?;
+    let advertised_certificate_fingerprint =
+        peer.native_certificate_fingerprint.as_deref().ok_or_else(|| {
+            Status::failed_precondition(format!(
+                "native peer {peer_ref:?} did not advertise certificate metadata"
+            ))
+        })?;
+    if advertised_certificate_fingerprint != expected_certificate_fingerprint {
+        return Err(Status::permission_denied(format!(
+            "native peer certificate fingerprint mismatch for {peer_ref:?}"
+        )));
+    }
+
+    let url = format!("quic://{}:{}", peer.address, peer.port);
+    NativeTransferClient::send_files_to_url(
+        &url,
+        paths,
+        state.identity.clone(),
+        expected_certificate_fingerprint,
+    )
+    .await
+    .map_err(internal_status)
+}
+
+async fn send_files_to_localsend_lan_peer(
+    state: &DaemonState,
+    peer_ref: String,
+    paths: Vec<std::path::PathBuf>,
+) -> Result<(), Status> {
+    let peer = resolve_localsend_lan_peer(state, &peer_ref).await?;
+    let url = format!("{}://{}:{}", peer.protocol, peer.source_ip, peer.port);
+    LocalSendClient::new()
+        .map_err(internal_status)?
+        .send_files_to_url(&url, paths, sender_info(state))
+        .await
+        .map_err(internal_status)
+}
+
+async fn resolve_localsend_lan_peer(
+    state: &DaemonState,
+    peer_ref: &str,
+) -> Result<LocalSendLanPeer, Status> {
+    let needle = normalize_localsend_peer_ref(peer_ref);
+    if needle.is_empty() {
+        return Err(Status::invalid_argument("LocalSend peer is required"));
+    }
+
+    let peers = crate::localsend_lan::scan_and_cache(&state.trust_db_path)
+        .await
+        .map_err(internal_status)?;
+    let mut matches = peers
+        .into_iter()
+        .filter(|peer| {
+            normalize_localsend_peer_ref(&peer.fingerprint) == needle
+                || peer.alias.eq_ignore_ascii_case(peer_ref)
+        })
+        .collect::<Vec<_>>();
+
+    match matches.len() {
+        0 => Err(Status::not_found(format!(
+            "LocalSend LAN peer {peer_ref:?} was not discovered; keep the app open and run `night-bridge peers list-lan`"
+        ))),
+        1 => Ok(matches.remove(0)),
+        _ => Err(Status::failed_precondition(format!(
+            "LocalSend LAN peer {peer_ref:?} is ambiguous; use its fingerprint"
+        ))),
+    }
+}
+
+fn normalize_localsend_peer_ref(value: &str) -> String {
+    value.chars().filter(|ch| *ch != ':' && *ch != '-').flat_map(char::to_lowercase).collect()
 }
 
 async fn send_files_to_wan_peer(
@@ -198,6 +296,10 @@ fn sender_info(state: &DaemonState) -> DeviceInfo {
 
 fn internal_status(error: impl std::fmt::Display) -> Status {
     Status::internal(error.to_string())
+}
+
+fn not_found_status(error: impl std::fmt::Display) -> Status {
+    Status::not_found(error.to_string())
 }
 
 #[cfg(test)]

@@ -79,6 +79,40 @@ Native direct sends are separate from LocalSend compatibility and require
 native trust metadata or an explicit certificate fingerprint for direct CLI
 testing.
 
+## Native Mesh LAN Preview
+
+Use Native Mesh LAN when two NightBridge daemons on the same trusted LAN should
+send directly to each other without LocalSend apps or manual URLs.
+
+On both machines, start the daemon with native networking enabled. Then discover
+NightBridge peers:
+
+```bash
+night-bridge peers list-native
+```
+
+Approve a discovered peer once:
+
+```bash
+night-bridge peers approve-native <alias-or-fingerprint> --label "Home NAS"
+```
+
+Send over native QUIC by alias or fingerprint:
+
+```bash
+night-bridge send --native --peer "Home NAS" ./archive.tar
+```
+
+Firewalls must allow mDNS and the native QUIC port on the trusted LAN:
+
+- UDP `5353` for mDNS discovery.
+- UDP `53400` for native QUIC transfers, unless started with another
+  `--native-port`.
+
+The alpha mesh path requires a discovered peer with native certificate metadata
+and a trusted `auto_accept` record in the daemon trust database. Unknown,
+blocked, or prompt-policy native senders are rejected.
+
 ## WebUI And TUI Status
 
 Use the WebUI or TUI for status and operations once the daemon API token is
@@ -97,6 +131,7 @@ Typical checks:
 ```bash
 night-bridge daemon status
 night-bridge peers list-lan
+night-bridge peers list-native
 night-bridge peers list-trusted
 ```
 

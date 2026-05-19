@@ -16,12 +16,12 @@ use lsi_protocol_native_v1::client::NativeTransferClient;
 #[derive(Args)]
 pub struct Cmd {
     /// Explicit peer API URL, for example https://192.168.1.20:53317.
-    #[arg(long, required_unless_present_any = ["native", "wan"])]
+    #[arg(long, required_unless_present_any = ["native", "wan", "peer"])]
     url: Option<String>,
     /// Send through WAN rendezvous using a trusted peer fingerprint.
     #[arg(long)]
     wan: bool,
-    /// Trusted peer fingerprint for WAN sends.
+    /// Trusted WAN fingerprint, discovered LocalSend peer, or native LAN peer alias/fingerprint.
     #[arg(long)]
     peer: Option<String>,
     /// Use the native QUIC protocol instead of LocalSend v2.
@@ -94,18 +94,28 @@ fn run_daemon(command: Cmd, config: &DaemonClientConfig) -> Result<()> {
         return send_via_daemon(config, request);
     }
 
-    if command.peer.is_some() {
-        bail!("--peer is only supported with --wan");
-    }
     if command.native_cert_fingerprint.is_some() {
         bail!("--native-cert-fingerprint is only supported with --direct --native");
     }
 
+    if let Some(peer) = command.peer {
+        if command.url.is_some() {
+            bail!("--peer cannot be used with --url");
+        }
+        let paths = command.paths.iter().map(|path| path.display().to_string()).collect();
+        let request = SendRequest {
+            paths,
+            target: Some(send_request::Target::PeerFingerprint(peer)),
+            native: command.native,
+        };
+        return send_via_daemon(config, request);
+    }
+
     let Some(url) = command.url else {
         if command.native {
-            bail!("native send requires --url or --wan --peer");
+            bail!("native send requires --url or --peer");
         }
-        bail!("send requires --url");
+        bail!("send requires --url or --peer");
     };
 
     let paths = command.paths.iter().map(|path| path.display().to_string()).collect();

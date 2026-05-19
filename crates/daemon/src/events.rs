@@ -107,6 +107,8 @@ impl DaemonEventEnvelope {
                         device_type: None,
                         download: false,
                         extensions: Vec::new(),
+                        native_pubkey: Vec::new(),
+                        native_certificate_fingerprint: None,
                     }),
                 }),
             ),

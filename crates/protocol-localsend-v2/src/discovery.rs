@@ -6,6 +6,7 @@ use std::time::{Duration, Instant};
 use serde::{Deserialize, Serialize};
 use socket2::{Domain, Protocol as SocketProtocol, Socket, Type};
 use tokio::net::UdpSocket;
+use tokio::sync::mpsc;
 use tokio::time;
 use tracing::{info, trace, warn};
 
@@ -67,12 +68,18 @@ pub struct DiscoveryAnnouncer {
     info: DeviceInfo,
     multicast_addr: SocketAddrV4,
     interval: Duration,
+    peer_tx: Option<mpsc::UnboundedSender<LanPeer>>,
 }
 
 impl DiscoveryAnnouncer {
     /// Creates an announcer using the default LocalSend v2 multicast endpoint.
     pub fn new(info: DeviceInfo) -> Self {
-        Self { info, multicast_addr: DEFAULT_DISCOVERY_ADDR, interval: Duration::from_secs(5) }
+        Self {
+            info,
+            multicast_addr: DEFAULT_DISCOVERY_ADDR,
+            interval: Duration::from_secs(5),
+            peer_tx: None,
+        }
     }
 
     /// Overrides the multicast endpoint, primarily for integration tests.
@@ -84,6 +91,12 @@ impl DiscoveryAnnouncer {
     /// Overrides the periodic announcement interval.
     pub fn with_interval(mut self, interval: Duration) -> Self {
         self.interval = interval;
+        self
+    }
+
+    /// Sends observed foreign LocalSend peers to the supplied channel.
+    pub fn with_peer_tx(mut self, peer_tx: mpsc::UnboundedSender<LanPeer>) -> Self {
+        self.peer_tx = Some(peer_tx);
         self
     }
 
@@ -112,6 +125,17 @@ impl DiscoveryAnnouncer {
                 received = socket.recv_from(&mut buf) => {
                     let (len, source) = received?;
                     let payload = &buf[..len];
+                    match self.parse_peer(payload, source) {
+                        Ok(Some(peer)) => {
+                            if let Some(peer_tx) = &self.peer_tx {
+                                let _ = peer_tx.send(peer);
+                            }
+                        }
+                        Ok(None) => {}
+                        Err(error) => {
+                            warn!(source = %source, error = %error, "failed to parse LocalSend discovery peer");
+                        }
+                    }
                     match self.should_answer(payload) {
                         Ok(true) => {
                             let url = self.register_url(payload, source)?;
@@ -138,6 +162,20 @@ impl DiscoveryAnnouncer {
         let announcement: Announcement = serde_json::from_slice(payload)?;
         Ok((announcement.announcement || announcement.announce)
             && announcement.info.fingerprint != self.info.fingerprint)
+    }
+
+    fn parse_peer(&self, payload: &[u8], source: SocketAddr) -> Result<Option<LanPeer>> {
+        let announcement: Announcement = serde_json::from_slice(payload)?;
+        if announcement.info.fingerprint == self.info.fingerprint {
+            return Ok(None);
+        }
+        let address = peer_api_address(source, announcement.info.port);
+        Ok(Some(LanPeer {
+            info: announcement.info,
+            address,
+            source,
+            discovered_at: Instant::now(),
+        }))
     }
 
     #[cfg(test)]
@@ -367,5 +405,18 @@ mod tests {
         let url = announcer.register_url(&payload, sender).unwrap();
 
         assert_eq!(url, "https://10.16.20.50:53317/api/localsend/v2/register");
+    }
+
+    #[test]
+    fn announcer_parses_foreign_response_as_observed_peer() {
+        let announcer = DiscoveryAnnouncer::new(device_info("self-fingerprint"));
+        let sender = SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::new(10, 16, 20, 81), 50123));
+        let payload =
+            serde_json::to_vec(&Announcement::response(device_info("peer-fingerprint"))).unwrap();
+
+        let peer = announcer.parse_peer(&payload, sender).unwrap().unwrap();
+
+        assert_eq!(peer.info.fingerprint, "peer-fingerprint");
+        assert_eq!(peer.address.to_string(), "10.16.20.81:53317");
     }
 }

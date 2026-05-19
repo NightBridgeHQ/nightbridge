@@ -7,6 +7,8 @@ import "lsi/common/v1/common.proto";
 service PeersService {
   rpc ListTrusted(ListTrustedPeersRequest) returns (ListTrustedPeersResponse);
   rpc ListLan(ListLanPeersRequest) returns (ListLanPeersResponse);
+  rpc ListNativeLan(ListLanPeersRequest) returns (ListLanPeersResponse);
+  rpc TrustNativeLan(TrustNativeLanPeerRequest) returns (TrustedPeerResponse);
   rpc ListPendingLocalSend(ListPendingLocalSendPeersRequest) returns (ListPendingLocalSendPeersResponse);
   rpc ApproveLocalSend(ApproveLocalSendPeerRequest) returns (LocalSendPeerResponse);
   rpc DenyLocalSend(DenyLocalSendPeerRequest) returns (LocalSendPeerResponse);
@@ -39,6 +41,17 @@ message ApproveLocalSendPeerRequest {
 
 message DenyLocalSendPeerRequest {
   string fingerprint = 1;
+}
+
+message TrustNativeLanPeerRequest {
+  string peer = 1;
+  optional string label = 2;
+  PeerPolicy policy = 3;
+  uint32 timeout_ms = 4;
+}
+
+message TrustedPeerResponse {
+  TrustedPeer peer = 1;
 }
 
 message LocalSendPeerResponse {
@@ -85,6 +98,8 @@ message LanPeer {
   optional string device_type = 7;
   bool download = 8;
   repeated string extensions = 9;
+  bytes native_pubkey = 10;
+  optional string native_certificate_fingerprint = 11;
 }
 
 message LocalSendPeer {

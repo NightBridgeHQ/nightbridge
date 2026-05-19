@@ -1,6 +1,7 @@
 //! mDNS discovery for the native LAN protocol.
 
 use std::collections::HashMap;
+use std::net::IpAddr;
 use std::time::{Duration, Instant};
 
 use mdns_sd::{ResolvedService, ServiceDaemon, ServiceEvent, ServiceInfo, TxtProperties};
@@ -18,7 +19,17 @@ const TXT_ALIAS: &str = "alias";
 const TXT_FINGERPRINT: &str = "fingerprint";
 const TXT_PUBKEY: &str = "pubkey";
 const TXT_QUIC_PORT: &str = "quic_port";
+const TXT_NATIVE_CERTIFICATE_FINGERPRINT: &str = "native_cert_fp";
 const TXT_EXTENSIONS: &str = "extensions";
+
+/// Native peer advertisement resolved to a LAN address.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ResolvedNativePeer {
+    /// Advertised native peer metadata.
+    pub info: NativePeerInfo,
+    /// One resolved IP address for the peer.
+    pub address: IpAddr,
+}
 
 /// Builds mDNS TXT properties for a native peer advertisement.
 pub fn peer_info_to_txt_properties(info: &NativePeerInfo) -> Result<HashMap<String, String>> {
@@ -29,6 +40,10 @@ pub fn peer_info_to_txt_properties(info: &NativePeerInfo) -> Result<HashMap<Stri
     properties.insert(TXT_FINGERPRINT.to_string(), info.fingerprint.trim().to_string());
     properties.insert(TXT_PUBKEY.to_string(), encode_hex(&info.pubkey));
     properties.insert(TXT_QUIC_PORT.to_string(), info.quic_port.to_string());
+    if let Some(fingerprint) = &info.native_certificate_fingerprint {
+        validate_certificate_fingerprint(fingerprint)?;
+        properties.insert(TXT_NATIVE_CERTIFICATE_FINGERPRINT.to_string(), fingerprint.clone());
+    }
     properties.insert(TXT_EXTENSIONS.to_string(), info.extensions.join(","));
     Ok(properties)
 }
@@ -46,6 +61,13 @@ pub fn peer_info_from_txt_properties(
 
     let pubkey = decode_pubkey(required_property(&properties, TXT_PUBKEY)?)?;
     let quic_port = decode_quic_port(required_property(&properties, TXT_QUIC_PORT)?)?;
+    let native_certificate_fingerprint = properties
+        .get(TXT_NATIVE_CERTIFICATE_FINGERPRINT)
+        .map(|value| {
+            validate_certificate_fingerprint(value)?;
+            Ok::<String, NativeError>(value.to_string())
+        })
+        .transpose()?;
     let extensions = parse_extensions(required_property(&properties, TXT_EXTENSIONS)?)?;
 
     Ok(NativePeerInfo {
@@ -53,6 +75,7 @@ pub fn peer_info_from_txt_properties(
         fingerprint: fingerprint.to_string(),
         pubkey,
         quic_port,
+        native_certificate_fingerprint,
         extensions,
     })
 }
@@ -71,6 +94,21 @@ pub fn peer_info_from_resolved_service(
     }
 
     Ok(Some(peer_info_from_mdns_txt(service.get_properties())?))
+}
+
+/// Converts a resolved mDNS service into native peer information and address.
+pub fn resolved_peer_from_resolved_service(
+    service: &ResolvedService,
+) -> Result<Option<ResolvedNativePeer>> {
+    let Some(info) = peer_info_from_resolved_service(service)? else {
+        return Ok(None);
+    };
+    let Some(address) = service.get_addresses().iter().next().map(|address| address.to_ip_addr())
+    else {
+        return Ok(None);
+    };
+
+    Ok(Some(ResolvedNativePeer { info, address }))
 }
 
 /// Builds a native mDNS service record for registration.
@@ -149,6 +187,11 @@ impl NativeDiscoveryBrowser {
 
     /// Waits for one resolved peer advertisement.
     pub fn recv_timeout(&self, timeout: Duration) -> Result<Option<NativePeerInfo>> {
+        Ok(self.recv_resolved_timeout(timeout)?.map(|peer| peer.info))
+    }
+
+    /// Waits for one resolved peer advertisement including source address.
+    pub fn recv_resolved_timeout(&self, timeout: Duration) -> Result<Option<ResolvedNativePeer>> {
         let deadline = Instant::now() + timeout;
 
         loop {
@@ -164,8 +207,33 @@ impl NativeDiscoveryBrowser {
             };
 
             if let ServiceEvent::ServiceResolved(service) = event {
-                if let Some(peer) = peer_info_from_resolved_service(&service)? {
+                if let Some(peer) = resolved_peer_from_resolved_service(&service)? {
                     return Ok(Some(peer));
+                }
+            }
+        }
+    }
+
+    /// Collects resolved peer advertisements until the timeout expires.
+    pub fn recv_resolved_all(&self, timeout: Duration) -> Result<Vec<ResolvedNativePeer>> {
+        let deadline = Instant::now() + timeout;
+        let mut peers = Vec::new();
+
+        loop {
+            let now = Instant::now();
+            if now >= deadline {
+                return Ok(peers);
+            }
+
+            let remaining = deadline.saturating_duration_since(now);
+            let event = match self.receiver.recv_timeout(remaining) {
+                Ok(event) => event,
+                Err(_) => return Ok(peers),
+            };
+
+            if let ServiceEvent::ServiceResolved(service) = event {
+                if let Some(peer) = resolved_peer_from_resolved_service(&service)? {
+                    peers.push(peer);
                 }
             }
         }
@@ -203,6 +271,16 @@ fn validate_quic_port(port: u16) -> Result<()> {
         return Err(discovery_error("quic_port must be non-zero"));
     }
     Ok(())
+}
+
+fn validate_certificate_fingerprint(value: &str) -> Result<()> {
+    let valid = value.len() == 64
+        && value.chars().all(|ch| ch.is_ascii_hexdigit() && !ch.is_ascii_uppercase());
+    if valid {
+        Ok(())
+    } else {
+        Err(discovery_error("native certificate fingerprint must be 64 lowercase hex characters"))
+    }
 }
 
 fn validate_extensions(extensions: &[String]) -> Result<()> {
@@ -313,6 +391,7 @@ mod tests {
             fingerprint: "fp-123456".to_string(),
             pubkey: [7; 32],
             quic_port: 48_900,
+            native_certificate_fingerprint: Some("a".repeat(64)),
             extensions: default_extensions(),
         }
     }
@@ -325,6 +404,26 @@ mod tests {
         let decoded = peer_info_from_txt_properties(&properties).unwrap();
 
         assert_eq!(decoded, info);
+    }
+
+    #[test]
+    fn txt_properties_allow_missing_certificate_fingerprint_for_older_peers() {
+        let mut properties = peer_info_to_txt_properties(&peer()).unwrap();
+        properties.remove("native_cert_fp");
+
+        let decoded = peer_info_from_txt_properties(&properties).unwrap();
+
+        assert!(decoded.native_certificate_fingerprint.is_none());
+    }
+
+    #[test]
+    fn txt_properties_reject_bad_certificate_fingerprint() {
+        let mut info = peer();
+        info.native_certificate_fingerprint = Some("ABC".to_string());
+
+        let error = peer_info_to_txt_properties(&info).unwrap_err();
+
+        assert!(error.to_string().contains("native certificate fingerprint"));
     }
 
     #[test]

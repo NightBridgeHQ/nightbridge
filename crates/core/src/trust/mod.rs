@@ -2,4 +2,6 @@
 
 pub mod store;
 
-pub use store::{LocalSendPeer, LocalSendPeerStatus, Peer, PeerPolicy, TrustStore};
+pub use store::{
+    LocalSendLanPeer, LocalSendPeer, LocalSendPeerStatus, Peer, PeerPolicy, TrustStore,
+};

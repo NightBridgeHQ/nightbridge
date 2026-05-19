@@ -230,6 +230,7 @@ mod tests {
             fingerprint: Fingerprint::from_pubkey(&pubkey).to_string(),
             pubkey,
             quic_port: 53318,
+            native_certificate_fingerprint: None,
             extensions: Vec::new(),
         };
 
@@ -245,6 +246,7 @@ mod tests {
             fingerprint: Fingerprint::from_pubkey(&pubkey(4)).to_string(),
             pubkey: pubkey(5),
             quic_port: 53318,
+            native_certificate_fingerprint: None,
             extensions: Vec::new(),
         };
 

@@ -151,6 +151,22 @@ fn peers_list_lan_empty_with_short_timeout() {
 }
 
 #[test]
+fn peers_native_mesh_commands_are_available() {
+    let mut list = Command::cargo_bin("night-bridge").unwrap();
+    list.args(["peers", "list-native", "--help"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("List NightBridge native peers"));
+
+    let mut approve = Command::cargo_bin("night-bridge").unwrap();
+    approve
+        .args(["peers", "approve-native", "--help"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("Trust a discovered NightBridge native LAN peer"));
+}
+
+#[test]
 fn lookup_wan_command_is_available() {
     let dir = TempDir::new().unwrap();
     let mut cmd = Command::cargo_bin("night-bridge").unwrap();
@@ -209,7 +225,7 @@ fn send_native_requires_url_or_peer() {
     cmd.args(["send", "--native", file.to_str().unwrap()])
         .assert()
         .failure()
-        .stderr(predicate::str::contains("native send requires --url or --wan --peer"));
+        .stderr(predicate::str::contains("native send requires --url or --peer"));
 }
 
 #[test]

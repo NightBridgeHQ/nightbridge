@@ -9,7 +9,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use axum::body::Body;
-use axum::extract::{Query, State};
+use axum::extract::{ConnectInfo, Extension, Query, State};
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
 use axum::routing::{get, post};
@@ -18,7 +18,7 @@ use futures_util::TryStreamExt;
 use hyper_util::rt::{TokioExecutor, TokioIo};
 use hyper_util::server::conn::auto::Builder as ConnectionBuilder;
 use hyper_util::service::TowerToHyperService;
-use lsi_core::trust::TrustStore;
+use lsi_core::trust::{LocalSendLanPeer, TrustStore};
 use rustls::pki_types::{CertificateDer, PrivateKeyDer, PrivatePkcs8KeyDer};
 use serde::Deserialize;
 use serde_json::json;
@@ -144,7 +144,7 @@ impl LocalSendServer {
             serve_tls(self.listener, self.state, identity, shutdown).await
         } else {
             let app = router(self.state);
-            axum::serve(self.listener, app)
+            axum::serve(self.listener, app.into_make_service_with_connect_info::<SocketAddr>())
                 .with_graceful_shutdown(shutdown)
                 .await
                 .map_err(LocalSendError::Io)
@@ -177,24 +177,39 @@ async fn legacy_info(State(state): State<Arc<ServerState>>) -> Json<serde_json::
 
 async fn register(
     State(state): State<Arc<ServerState>>,
-    Json(_request): Json<RegisterRequest>,
+    connect_info: Option<ConnectInfo<SocketAddr>>,
+    extension_addr: Option<Extension<SocketAddr>>,
+    Json(request): Json<RegisterRequest>,
 ) -> Json<RegisterResponse> {
+    let source_ip = peer_source_ip(connect_info, extension_addr);
+    if let Err(error) = record_localsend_lan_peer(&state, &request, source_ip.as_deref()) {
+        warn!(error = %error, "failed to record LocalSend LAN peer registration");
+    }
     Json(state.info.clone())
 }
 
 async fn legacy_register(
     State(state): State<Arc<ServerState>>,
-    Json(_request): Json<serde_json::Value>,
+    connect_info: Option<ConnectInfo<SocketAddr>>,
+    extension_addr: Option<Extension<SocketAddr>>,
+    Json(request): Json<DeviceInfo>,
 ) -> Json<serde_json::Value> {
+    let source_ip = peer_source_ip(connect_info, extension_addr);
+    if let Err(error) = record_localsend_lan_peer(&state, &request, source_ip.as_deref()) {
+        warn!(error = %error, "failed to record legacy LocalSend LAN peer registration");
+    }
     Json(legacy_device_info(&state.info))
 }
 
 async fn legacy_send_request(
     State(state): State<Arc<ServerState>>,
+    connect_info: Option<ConnectInfo<SocketAddr>>,
+    extension_addr: Option<Extension<SocketAddr>>,
     Json(request): Json<PrepareUploadRequest>,
 ) -> Response {
     let request = normalize_legacy_prepare_request(request);
-    if let Err(error) = authorize_prepare_upload(&state, &request.info) {
+    let source_ip = peer_source_ip(connect_info, extension_addr);
+    if let Err(error) = authorize_prepare_upload(&state, &request.info, source_ip.as_deref()) {
         return api_error(error).into_response();
     }
 
@@ -241,9 +256,12 @@ fn legacy_device_info(info: &DeviceInfo) -> serde_json::Value {
 
 async fn prepare_upload(
     State(state): State<Arc<ServerState>>,
+    connect_info: Option<ConnectInfo<SocketAddr>>,
+    extension_addr: Option<Extension<SocketAddr>>,
     Json(request): Json<PrepareUploadRequest>,
 ) -> Response {
-    if let Err(error) = authorize_prepare_upload(&state, &request.info) {
+    let source_ip = peer_source_ip(connect_info, extension_addr);
+    if let Err(error) = authorize_prepare_upload(&state, &request.info, source_ip.as_deref()) {
         return api_error(error).into_response();
     }
 
@@ -256,7 +274,11 @@ async fn prepare_upload(
     }
 }
 
-fn authorize_prepare_upload(state: &ServerState, peer: &DeviceInfo) -> Result<()> {
+fn authorize_prepare_upload(
+    state: &ServerState,
+    peer: &DeviceInfo,
+    source_ip: Option<&str>,
+) -> Result<()> {
     match state.receive_policy {
         LocalSendReceivePolicy::Auto => Ok(()),
         LocalSendReceivePolicy::Prompt => {
@@ -283,9 +305,10 @@ fn authorize_prepare_upload(state: &ServerState, peer: &DeviceInfo) -> Result<()
 
             let trusted_fingerprints = trusted_fingerprints(state)?;
             if trusted_fingerprints.contains(&fingerprint) {
+                record_trusted_localsend_peer(state, peer, &fingerprint, source_ip)?;
                 Ok(())
             } else {
-                record_pending_localsend_peer(state, peer, &fingerprint)?;
+                record_pending_localsend_peer(state, peer, &fingerprint, source_ip)?;
                 warn!(
                     peer_alias = %peer.alias,
                     peer_fingerprint = %peer.fingerprint,
@@ -320,6 +343,7 @@ fn record_pending_localsend_peer(
     state: &ServerState,
     peer: &DeviceInfo,
     fingerprint: &str,
+    source_ip: Option<&str>,
 ) -> Result<()> {
     let Some(path) = &state.trust_db_path else {
         return Ok(());
@@ -332,10 +356,73 @@ fn record_pending_localsend_peer(
     })? {
         return Ok(());
     }
-    store.record_pending_localsend_peer(fingerprint, &peer.alias, None).map_err(|error| {
+    store.record_pending_localsend_peer(fingerprint, &peer.alias, source_ip).map_err(|error| {
         LocalSendError::Session(format!("failed to record pending LocalSend peer: {error}"))
     })?;
     Ok(())
+}
+
+fn record_trusted_localsend_peer(
+    state: &ServerState,
+    peer: &DeviceInfo,
+    fingerprint: &str,
+    source_ip: Option<&str>,
+) -> Result<()> {
+    let Some(path) = &state.trust_db_path else {
+        return Ok(());
+    };
+    let store = TrustStore::open(path).map_err(|error| {
+        LocalSendError::Session(format!("failed to open LocalSend trust store: {error}"))
+    })?;
+    store.record_trusted_localsend_peer(fingerprint, &peer.alias, source_ip).map_err(|error| {
+        LocalSendError::Session(format!("failed to record trusted LocalSend peer: {error}"))
+    })?;
+    Ok(())
+}
+
+fn record_localsend_lan_peer(
+    state: &ServerState,
+    peer: &DeviceInfo,
+    source_ip: Option<&str>,
+) -> Result<()> {
+    let Some(path) = &state.trust_db_path else {
+        return Ok(());
+    };
+    let Some(source_ip) = source_ip else {
+        return Ok(());
+    };
+    let Some(fingerprint) = normalize_fingerprint(&peer.fingerprint) else {
+        return Ok(());
+    };
+    let store = TrustStore::open(path).map_err(|error| {
+        LocalSendError::Session(format!("failed to open LocalSend trust store: {error}"))
+    })?;
+    store
+        .record_localsend_lan_peer(LocalSendLanPeer {
+            fingerprint,
+            alias: peer.alias.clone(),
+            source_ip: source_ip.to_string(),
+            port: peer.port,
+            protocol: peer.protocol.as_str().to_string(),
+            device_model: peer.device_model.clone(),
+            device_type: peer.device_type.clone(),
+            download: peer.download,
+            first_seen: 0,
+            last_seen: 0,
+        })
+        .map_err(|error| {
+            LocalSendError::Session(format!("failed to record LocalSend LAN peer: {error}"))
+        })?;
+    Ok(())
+}
+
+fn peer_source_ip(
+    connect_info: Option<ConnectInfo<SocketAddr>>,
+    extension_addr: Option<Extension<SocketAddr>>,
+) -> Option<String> {
+    connect_info
+        .map(|ConnectInfo(addr)| addr.ip().to_string())
+        .or_else(|| extension_addr.map(|Extension(addr)| addr.ip().to_string()))
 }
 
 fn read_trusted_fingerprints_file(path: &Path) -> Result<BTreeSet<String>> {
@@ -432,7 +519,7 @@ where
         tokio::select! {
             _ = &mut shutdown => return Ok(()),
             accepted = listener.accept() => {
-                let (stream, _) = accepted?;
+                let (stream, peer_addr) = accepted?;
                 let acceptor = acceptor.clone();
                 let state = Arc::clone(&state);
 
@@ -440,7 +527,8 @@ where
                     let Ok(tls_stream) = acceptor.accept(stream).await else {
                         return;
                     };
-                    let service = TowerToHyperService::new(router((*state).clone()));
+                    let service =
+                        TowerToHyperService::new(router((*state).clone()).layer(Extension(peer_addr)));
                     let io = TokioIo::new(tls_stream);
                     let _ = ConnectionBuilder::new(TokioExecutor::new())
                         .serve_connection_with_upgrades(io, service)
@@ -722,6 +810,46 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn register_records_lan_peer_source_ip() {
+        let temp = tempfile::tempdir().unwrap();
+        let trust_db = temp.path().join("trust.db");
+        let config = LocalSendServerConfig {
+            bind_addr: "127.0.0.1:0".parse().unwrap(),
+            info: device_info("Receiver", 0),
+            inbox_dir: temp.path().join("inbox"),
+            session_ttl: Duration::from_secs(60),
+            receive_policy: LocalSendReceivePolicy::Auto,
+            trusted_fingerprints: Default::default(),
+            trusted_fingerprints_file: None,
+            trust_db_path: Some(trust_db.clone()),
+            tls_identity: None,
+        };
+        let server = LocalSendServer::bind(config).await.unwrap();
+        let addr = server.local_addr();
+        let (shutdown_tx, shutdown_rx) = tokio::sync::oneshot::channel();
+        let task = tokio::spawn(server.serve_until_shutdown(async {
+            let _ = shutdown_rx.await;
+        }));
+        let body = serde_json::to_vec(&device_info("Sender", 53317)).unwrap();
+
+        let (status, _) =
+            request(addr, "POST", "/api/localsend/v2/register", Some("application/json"), &body)
+                .await;
+        let store = TrustStore::open(&trust_db).unwrap();
+        let peers = store.list_localsend_lan_peers().unwrap();
+
+        assert_eq!(status, 200);
+        assert_eq!(peers.len(), 1);
+        assert_eq!(peers[0].alias, "Sender");
+        assert_eq!(peers[0].source_ip, "127.0.0.1");
+        assert_eq!(peers[0].port, 53317);
+        assert!(store.list_pending_localsend_peers().unwrap().is_empty());
+
+        let _ = shutdown_tx.send(());
+        task.await.unwrap().unwrap();
+    }
+
+    #[tokio::test]
     async fn legacy_info_returns_v1_device_info() {
         let temp = tempfile::tempdir().unwrap();
         let (addr, shutdown, task) = spawn_test_server(temp.path()).await;
@@ -946,6 +1074,7 @@ mod tests {
         assert_eq!(pending.len(), 1);
         assert_eq!(pending[0].fingerprint, "testfingerprint");
         assert_eq!(pending[0].alias, "Sender");
+        assert_eq!(pending[0].source_ip.as_deref(), Some("127.0.0.1"));
         assert_eq!(second_status, 200);
 
         let _ = shutdown_tx.send(());

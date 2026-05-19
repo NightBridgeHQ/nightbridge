@@ -6,7 +6,9 @@ use clap::Subcommand;
 use lsi_core::identity::{Fingerprint, FsVault, IdentityVault, Keypair};
 use lsi_core::paths;
 use lsi_core::trust::TrustStore;
-use lsi_proto::peers::v1::{LocalSendPeer, LocalSendPeerStatus, PeerPolicy, TrustedPeer};
+use lsi_proto::peers::v1::{
+    LanPeer, LocalSendPeer, LocalSendPeerStatus, PeerPolicy, PeerProtocol, TrustedPeer,
+};
 use lsi_protocol_localsend_v2::discovery::DiscoveryBrowser;
 use lsi_rendezvous::client::RendezvousClient;
 use lsi_rendezvous::protocol::{CandidateKind, LookupRequest};
@@ -18,6 +20,23 @@ pub enum Cmd {
     List,
     /// List LocalSend peers discovered on the LAN.
     ListLan {
+        /// Maximum discovery wait time in milliseconds.
+        #[arg(long, default_value_t = 1500)]
+        timeout_ms: u64,
+    },
+    /// List NightBridge native peers discovered on the LAN.
+    ListNative {
+        /// Maximum discovery wait time in milliseconds.
+        #[arg(long, default_value_t = 1500)]
+        timeout_ms: u64,
+    },
+    /// Trust a discovered NightBridge native LAN peer for mesh transfers.
+    ApproveNative {
+        /// Native peer alias or fingerprint.
+        peer: String,
+        /// Optional admin label.
+        #[arg(long)]
+        label: Option<String>,
         /// Maximum discovery wait time in milliseconds.
         #[arg(long, default_value_t = 1500)]
         timeout_ms: u64,
@@ -49,7 +68,11 @@ pub enum Cmd {
 
 pub fn run(command: Cmd, daemon_config: &DaemonClientConfig) -> Result<()> {
     match command {
-        Cmd::ListLan { timeout_ms } => return list_lan(timeout_ms),
+        Cmd::ListLan { timeout_ms } => return list_lan(timeout_ms, daemon_config),
+        Cmd::ListNative { timeout_ms } => return list_native(timeout_ms, daemon_config),
+        Cmd::ApproveNative { peer, label, timeout_ms } => {
+            return approve_native(daemon_config, peer, label, timeout_ms);
+        }
         Cmd::LookupWan { target, rendezvous } => return lookup_wan(&target, &rendezvous),
         Cmd::List
         | Cmd::PendingLocalSend
@@ -65,6 +88,12 @@ pub fn run(command: Cmd, daemon_config: &DaemonClientConfig) -> Result<()> {
         }
         Cmd::DenyLocalSend { fingerprint } => deny_localsend(daemon_config, fingerprint),
         Cmd::ListLan { .. } => unreachable!("list-lan is handled before connecting to daemon"),
+        Cmd::ListNative { .. } => {
+            unreachable!("list-native is handled before connecting to daemon")
+        }
+        Cmd::ApproveNative { .. } => {
+            unreachable!("approve-native is handled before connecting to daemon")
+        }
         Cmd::LookupWan { .. } => unreachable!("lookup-wan is handled before connecting to daemon"),
     }
 }
@@ -160,11 +189,25 @@ fn print_localsend_peer(peer: LocalSendPeer) {
     );
 }
 
-fn list_lan(timeout_ms: u64) -> Result<()> {
+fn list_lan(timeout_ms: u64, config: &DaemonClientConfig) -> Result<()> {
     let runtime = tokio::runtime::Builder::new_current_thread()
         .enable_all()
         .build()
         .context("creating async runtime")?;
+
+    let daemon_peers = runtime.block_on(daemon_client::list_lan_peers(
+        config,
+        u32::try_from(timeout_ms).unwrap_or(u32::MAX),
+    ));
+    if let Ok(peers) = daemon_peers {
+        if peers.is_empty() {
+            println!("no LocalSend peers found");
+        } else {
+            print_lan_peers(peers);
+        }
+        return Ok(());
+    }
+
     let browser = DiscoveryBrowser::new("cli");
     let peer = runtime
         .block_on(browser.with_timeout(Duration::from_millis(timeout_ms)).listen_once())
@@ -184,6 +227,64 @@ fn list_lan(timeout_ms: u64) -> Result<()> {
         peer.info.fingerprint
     );
     Ok(())
+}
+
+fn list_native(timeout_ms: u64, config: &DaemonClientConfig) -> Result<()> {
+    let runtime = tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()
+        .context("creating async runtime")?;
+    let peers = runtime.block_on(daemon_client::list_native_lan_peers(
+        config,
+        u32::try_from(timeout_ms).unwrap_or(u32::MAX),
+    ))?;
+    if peers.is_empty() {
+        println!("no native NightBridge peers found");
+    } else {
+        print_lan_peers(peers);
+    }
+    Ok(())
+}
+
+fn approve_native(
+    config: &DaemonClientConfig,
+    peer: String,
+    label: Option<String>,
+    timeout_ms: u64,
+) -> Result<()> {
+    let runtime = tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()
+        .context("creating async runtime")?;
+    let peer = runtime.block_on(daemon_client::trust_native_lan_peer(
+        config,
+        peer,
+        label,
+        u32::try_from(timeout_ms).unwrap_or(u32::MAX),
+    ))?;
+    println!("approved native peer:");
+    print_trusted_peer(peer);
+    Ok(())
+}
+
+fn print_lan_peers(peers: Vec<LanPeer>) {
+    println!("{:<21} {:<22} {:<8} FINGERPRINT", "ALIAS", "ADDRESS", "PROTOCOL");
+    for peer in peers {
+        let protocol =
+            match PeerProtocol::try_from(peer.protocol).unwrap_or(PeerProtocol::Unspecified) {
+                PeerProtocol::LocalsendV2 => "localsend_v2",
+                PeerProtocol::NativeV1 => "native_v1",
+                PeerProtocol::Unspecified => "unknown",
+            };
+        let fingerprint = peer.fingerprint.map(|value| value.value).unwrap_or_else(|| "-".into());
+        println!(
+            "{:<21} {:<22} {:<8} {}",
+            peer.alias,
+            format!("{}:{}", peer.address, peer.port),
+            protocol,
+            fingerprint
+        );
+    }
 }
 
 fn lookup_wan(target: &str, rendezvous_url: &str) -> Result<()> {

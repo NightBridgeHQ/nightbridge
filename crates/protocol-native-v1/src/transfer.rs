@@ -473,6 +473,7 @@ mod tests {
             fingerprint: "peer-fingerprint".to_string(),
             pubkey: [7; 32],
             quic_port: 53_400,
+            native_certificate_fingerprint: None,
             extensions: default_extensions(),
         }
     }

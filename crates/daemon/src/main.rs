@@ -10,10 +10,10 @@ use lsi_core::{
     config::{load_config_or_default, AppConfig, LocalSendConfig, LoggingConfig},
     identity::{Fingerprint, FsVault, IdentityVault, Keypair},
     paths,
-    trust::TrustStore,
+    trust::{LocalSendLanPeer, PeerPolicy, TrustStore},
 };
 use lsi_protocol_localsend_v2::{
-    discovery::DiscoveryAnnouncer,
+    discovery::{DiscoveryAnnouncer, LanPeer},
     dto::{DeviceInfo, Protocol},
     server::{LocalSendReceivePolicy, LocalSendServer, LocalSendServerConfig},
     tls::{TlsIdentity, TlsIdentityVault},
@@ -39,7 +39,9 @@ use tracing_subscriber::{fmt, EnvFilter};
 mod api;
 mod events;
 mod hooks;
+mod localsend_lan;
 mod metrics;
+mod native_lan;
 mod state;
 mod wan;
 
@@ -148,6 +150,7 @@ struct LocalSendRuntime {
     shutdown_tx: tokio::sync::watch::Sender<bool>,
     server_task: JoinHandle<Result<()>>,
     announcer_task: JoinHandle<Result<()>>,
+    peer_recorder_task: JoinHandle<()>,
 }
 
 struct NativeRuntime {
@@ -367,7 +370,10 @@ async fn start_localsend_v2(state: &DaemonState) -> Result<LocalSendRuntime> {
     })
     .await?;
     let bound_addr = server.local_addr();
-    let announcer = DiscoveryAnnouncer::new(device_info);
+    let (peer_tx, peer_rx) = tokio::sync::mpsc::unbounded_channel();
+    let announcer = DiscoveryAnnouncer::new(device_info).with_peer_tx(peer_tx);
+    let peer_recorder_task =
+        tokio::spawn(record_localsend_lan_peers(peer_rx, state.trust_db_path.clone()));
     let (shutdown_tx, server_shutdown_rx) = tokio::sync::watch::channel(false);
     let announcer_shutdown_rx = shutdown_tx.subscribe();
 
@@ -394,7 +400,7 @@ async fn start_localsend_v2(state: &DaemonState) -> Result<LocalSendRuntime> {
         "LocalSend v2 receiver started"
     );
 
-    Ok(LocalSendRuntime { shutdown_tx, server_task, announcer_task })
+    Ok(LocalSendRuntime { shutdown_tx, server_task, announcer_task, peer_recorder_task })
 }
 
 async fn stop_localsend_v2(runtime: LocalSendRuntime) -> Result<()> {
@@ -402,9 +408,38 @@ async fn stop_localsend_v2(runtime: LocalSendRuntime) -> Result<()> {
     let server_result = runtime.server_task.await.context("LocalSend v2 server task panicked")?;
     let announcer_result =
         runtime.announcer_task.await.context("LocalSend v2 announcer task panicked")?;
+    runtime.peer_recorder_task.abort();
 
     server_result?;
     announcer_result?;
+    Ok(())
+}
+
+async fn record_localsend_lan_peers(
+    mut peer_rx: tokio::sync::mpsc::UnboundedReceiver<LanPeer>,
+    trust_db_path: PathBuf,
+) {
+    while let Some(peer) = peer_rx.recv().await {
+        if let Err(error) = record_localsend_lan_peer(&trust_db_path, peer) {
+            tracing::warn!(%error, "failed to record discovered LocalSend LAN peer");
+        }
+    }
+}
+
+fn record_localsend_lan_peer(trust_db_path: &Path, peer: LanPeer) -> Result<()> {
+    let store = TrustStore::open(trust_db_path)?;
+    store.record_localsend_lan_peer(LocalSendLanPeer {
+        fingerprint: peer.info.fingerprint,
+        alias: peer.info.alias,
+        source_ip: peer.address.ip().to_string(),
+        port: peer.address.port(),
+        protocol: peer.info.protocol.as_str().to_string(),
+        device_model: peer.info.device_model,
+        device_type: peer.info.device_type,
+        download: peer.info.download,
+        first_seen: 0,
+        last_seen: 0,
+    })?;
     Ok(())
 }
 
@@ -416,13 +451,19 @@ async fn start_native_runtime(args: &Args, state: &DaemonState) -> Result<Native
         .context("failed to build native QUIC server config")?;
     let endpoint = bind_native_endpoint(state.native_port, server_config)?;
     let local_addr = endpoint.local_addr().context("failed to read native listener address")?;
-    let peer_info = native_peer_info(&state.alias, &state.identity, local_addr.port());
+    let peer_info = native_peer_info(
+        &state.alias,
+        &state.identity,
+        local_addr.port(),
+        tls_identity.fingerprint_sha256_hex(),
+    );
     let discovery_announcer = start_native_discovery(args, &peer_info);
     let (shutdown_tx, server_shutdown_rx) = tokio::sync::watch::channel(false);
     let server_endpoint = endpoint.clone();
     let server_alias = state.alias.clone();
     let server_pubkey = state.identity.public_bytes();
     let inbox_dir = state.inbox_dir.clone();
+    let trust_db_path = state.trust_db_path.clone();
     let manifest_path = args
         .native_manifest_db
         .clone()
@@ -437,6 +478,7 @@ async fn start_native_runtime(args: &Args, state: &DaemonState) -> Result<Native
             server_alias,
             server_pubkey,
             inbox_dir,
+            trust_db_path,
             manifest_path,
             server_shutdown_rx,
         )
@@ -469,12 +511,18 @@ fn bind_native_endpoint(
     Ok(bind_server_endpoint(&bind, server_config)?.into_quinn())
 }
 
-fn native_peer_info(alias: &str, identity: &Keypair, quic_port: u16) -> NativePeerInfo {
+fn native_peer_info(
+    alias: &str,
+    identity: &Keypair,
+    quic_port: u16,
+    native_certificate_fingerprint: String,
+) -> NativePeerInfo {
     NativePeerInfo {
         alias: alias.to_string(),
         fingerprint: Fingerprint::from_pubkey(&identity.public_bytes()).to_string(),
         pubkey: identity.public_bytes(),
         quic_port,
+        native_certificate_fingerprint: Some(native_certificate_fingerprint),
         extensions: default_extensions(),
     }
 }
@@ -506,11 +554,19 @@ fn start_native_discovery(
         return None;
     }
 
+    let advertise_ip = match local_advertise_ipv4() {
+        Ok(ip) => IpAddr::V4(ip),
+        Err(error) => {
+            warn!(%error, "failed to determine native mDNS advertise address");
+            return None;
+        }
+    };
+
     match NativeDiscoveryAnnouncer::register(
         peer_info,
         &args.alias,
         &mdns_hostname(&args.alias),
-        IpAddr::V4(Ipv4Addr::UNSPECIFIED),
+        advertise_ip,
     ) {
         Ok(announcer) => Some(announcer),
         Err(error) => {
@@ -520,11 +576,25 @@ fn start_native_discovery(
     }
 }
 
+fn local_advertise_ipv4() -> Result<Ipv4Addr> {
+    let socket = std::net::UdpSocket::bind(SocketAddr::from((Ipv4Addr::UNSPECIFIED, 0)))
+        .context("bind native advertise probe socket")?;
+    socket
+        .connect(SocketAddr::from((Ipv4Addr::new(8, 8, 8, 8), 80)))
+        .context("resolve native advertise route")?;
+    match socket.local_addr().context("read native advertise address")?.ip() {
+        IpAddr::V4(ip) if !ip.is_unspecified() && !ip.is_loopback() => Ok(ip),
+        IpAddr::V4(ip) => anyhow::bail!("native advertise route resolved to unusable IPv4 {ip}"),
+        IpAddr::V6(ip) => anyhow::bail!("native advertise route resolved to IPv6 {ip}"),
+    }
+}
+
 async fn native_accept_loop(
     endpoint: quinn::Endpoint,
     alias: String,
     pubkey: [u8; 32],
     inbox_dir: PathBuf,
+    trust_db_path: PathBuf,
     manifest_path: PathBuf,
     mut shutdown_rx: tokio::sync::watch::Receiver<bool>,
 ) -> Result<()> {
@@ -541,6 +611,7 @@ async fn native_accept_loop(
                 };
                 let alias = alias.clone();
                 let inbox_dir = inbox_dir.clone();
+                let trust_db_path = trust_db_path.clone();
                 let manifest_path = manifest_path.clone();
                 tokio::spawn(async move {
                     if let Err(error) = handle_native_connection(
@@ -548,6 +619,7 @@ async fn native_accept_loop(
                         alias,
                         pubkey,
                         inbox_dir,
+                        trust_db_path,
                         manifest_path,
                     ).await {
                         warn!(%error, "native connection failed");
@@ -563,6 +635,7 @@ async fn handle_native_connection(
     alias: String,
     pubkey: [u8; 32],
     inbox_dir: PathBuf,
+    trust_db_path: PathBuf,
     manifest_path: PathBuf,
 ) -> Result<()> {
     let connection = incoming.await.context("failed to accept native QUIC connection")?;
@@ -579,8 +652,10 @@ async fn handle_native_connection(
         fingerprint: Fingerprint::from_pubkey(&hello.pubkey).to_string(),
         pubkey: hello.pubkey,
         quic_port: 0,
+        native_certificate_fingerprint: None,
         extensions: hello.extensions.clone(),
     };
+    ensure_native_peer_trusted(&trust_db_path, &peer)?;
     let ack = HelloAck {
         protocol_version: PROTOCOL_VERSION,
         alias,
@@ -603,6 +678,25 @@ async fn handle_native_connection(
     let _ = tokio::time::timeout(Duration::from_millis(250), connection.closed()).await;
 
     Ok(())
+}
+
+fn ensure_native_peer_trusted(trust_db_path: &Path, peer: &NativePeerInfo) -> Result<()> {
+    let fingerprint = peer
+        .fingerprint
+        .parse::<Fingerprint>()
+        .with_context(|| format!("invalid native peer fingerprint {}", peer.fingerprint))?;
+    let store = TrustStore::open(trust_db_path)
+        .with_context(|| format!("failed to open trust store {}", trust_db_path.display()))?;
+    let Some(trusted) = store.get(&fingerprint)? else {
+        anyhow::bail!("native peer is not trusted: {}", peer.fingerprint);
+    };
+    match trusted.policy {
+        PeerPolicy::AutoAccept => Ok(()),
+        PeerPolicy::Prompt => {
+            anyhow::bail!("native peer requires prompt before receive: {}", peer.fingerprint)
+        }
+        PeerPolicy::Block => anyhow::bail!("native peer is blocked: {}", peer.fingerprint),
+    }
 }
 
 async fn receive_native_transfer(
@@ -926,6 +1020,8 @@ mod tests {
             "0",
             "--inbox",
             temp.path().join("inbox").to_str().unwrap(),
+            "--trust-db",
+            temp.path().join("trust.db").to_str().unwrap(),
             "--disable-native-discovery",
             "--disable-localsend-v2",
         ]);
@@ -934,6 +1030,10 @@ mod tests {
         let token = lsi_core::api_token::ApiToken::new("temporary-api-token").unwrap();
         let state =
             DaemonState::from_args(&args, identity, fingerprint, token, AppConfig::default());
+        TrustStore::open(&state.trust_db_path)
+            .unwrap()
+            .trust([9; 32], "client", PeerPolicy::AutoAccept)
+            .unwrap();
         let runtime = start_native_runtime(&args, &state).await.unwrap();
         let addr = runtime.local_addr;
 

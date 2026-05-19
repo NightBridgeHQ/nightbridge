@@ -1,9 +1,8 @@
 use std::sync::Arc;
-use std::time::Duration;
 
 use lsi_core::trust::{
-    LocalSendPeer as CoreLocalSendPeer, LocalSendPeerStatus as CoreLocalSendPeerStatus, Peer,
-    PeerPolicy as CorePeerPolicy, TrustStore,
+    LocalSendLanPeer as CoreLocalSendLanPeer, LocalSendPeer as CoreLocalSendPeer,
+    LocalSendPeerStatus as CoreLocalSendPeerStatus, Peer, PeerPolicy as CorePeerPolicy, TrustStore,
 };
 use lsi_proto::{
     common::v1::Fingerprint,
@@ -12,12 +11,12 @@ use lsi_proto::{
         LanPeer, ListLanPeersRequest, ListLanPeersResponse, ListPendingLocalSendPeersRequest,
         ListPendingLocalSendPeersResponse, ListTrustedPeersRequest, ListTrustedPeersResponse,
         LocalSendPeer, LocalSendPeerResponse, LocalSendPeerStatus, PeerPolicy, PeerProtocol,
-        TrustedPeer,
+        TrustNativeLanPeerRequest, TrustedPeer, TrustedPeerResponse,
     },
 };
-use lsi_protocol_localsend_v2::discovery::DiscoveryBrowser;
 use tonic::{Request, Response, Status};
 
+use crate::native_lan::NativeLanPeer;
 use crate::state::DaemonState;
 
 #[derive(Clone)]
@@ -44,28 +43,58 @@ impl PeersService for PeersApi {
 
     async fn list_lan(
         &self,
-        request: Request<ListLanPeersRequest>,
+        _request: Request<ListLanPeersRequest>,
     ) -> Result<Response<ListLanPeersResponse>, Status> {
-        let timeout_ms = request.into_inner().timeout_ms;
-        let timeout = if timeout_ms == 0 { 1500 } else { timeout_ms };
-        let browser = DiscoveryBrowser::new(&self.state.fingerprint)
-            .with_timeout(Duration::from_millis(u64::from(timeout)));
-        let peers = match browser.listen_once().await.map_err(internal_status)? {
-            Some(peer) => vec![LanPeer {
-                alias: peer.info.alias,
-                address: peer.address.ip().to_string(),
-                port: u32::from(peer.address.port()),
-                protocol: PeerProtocol::LocalsendV2 as i32,
-                fingerprint: Some(Fingerprint { value: peer.info.fingerprint }),
-                device_model: peer.info.device_model,
-                device_type: peer.info.device_type,
-                download: peer.info.download,
-                extensions: Vec::new(),
-            }],
-            None => Vec::new(),
-        };
+        let peers = crate::localsend_lan::scan_and_cache(&self.state.trust_db_path)
+            .await
+            .map_err(internal_status)?
+            .into_iter()
+            .map(localsend_lan_peer)
+            .collect();
 
         Ok(Response::new(ListLanPeersResponse { peers }))
+    }
+
+    async fn list_native_lan(
+        &self,
+        request: Request<ListLanPeersRequest>,
+    ) -> Result<Response<ListLanPeersResponse>, Status> {
+        let timeout = discovery_timeout(request.into_inner().timeout_ms);
+        let peers = crate::native_lan::discover(timeout, &self.state.fingerprint)
+            .await
+            .map_err(internal_status)?
+            .into_iter()
+            .map(native_lan_peer)
+            .collect();
+
+        Ok(Response::new(ListLanPeersResponse { peers }))
+    }
+
+    async fn trust_native_lan(
+        &self,
+        request: Request<TrustNativeLanPeerRequest>,
+    ) -> Result<Response<TrustedPeerResponse>, Status> {
+        let request = request.into_inner();
+        let policy = match PeerPolicy::try_from(request.policy).unwrap_or(PeerPolicy::AutoAccept) {
+            PeerPolicy::AutoAccept | PeerPolicy::Unspecified => CorePeerPolicy::AutoAccept,
+            PeerPolicy::Prompt => CorePeerPolicy::Prompt,
+            PeerPolicy::Block => CorePeerPolicy::Block,
+        };
+        let timeout = discovery_timeout(request.timeout_ms);
+        let peers = crate::native_lan::discover(timeout, &self.state.fingerprint)
+            .await
+            .map_err(internal_status)?;
+        let peer =
+            crate::native_lan::resolve_peer_ref(peers, &request.peer).map_err(not_found_status)?;
+        let trusted = crate::native_lan::trust_discovered_peer(
+            &self.state.trust_db_path,
+            &peer,
+            request.label.as_deref(),
+            policy,
+        )
+        .map_err(internal_status)?;
+
+        Ok(Response::new(TrustedPeerResponse { peer: Some(trusted_peer(trusted)) }))
     }
 
     async fn list_pending_local_send(
@@ -102,6 +131,38 @@ impl PeersService for PeersApi {
         let store = TrustStore::open(&self.state.trust_db_path).map_err(internal_status)?;
         let peer = store.deny_localsend_peer(&request.fingerprint).map_err(internal_status)?;
         Ok(Response::new(LocalSendPeerResponse { peer: Some(localsend_peer(peer)) }))
+    }
+}
+
+fn localsend_lan_peer(peer: CoreLocalSendLanPeer) -> LanPeer {
+    LanPeer {
+        alias: peer.alias,
+        address: peer.source_ip,
+        port: u32::from(peer.port),
+        protocol: PeerProtocol::LocalsendV2 as i32,
+        fingerprint: Some(Fingerprint { value: peer.fingerprint }),
+        device_model: peer.device_model,
+        device_type: peer.device_type,
+        download: peer.download,
+        extensions: Vec::new(),
+        native_pubkey: Vec::new(),
+        native_certificate_fingerprint: None,
+    }
+}
+
+fn native_lan_peer(peer: NativeLanPeer) -> LanPeer {
+    LanPeer {
+        alias: peer.alias,
+        address: peer.address.to_string(),
+        port: u32::from(peer.port),
+        protocol: PeerProtocol::NativeV1 as i32,
+        fingerprint: Some(Fingerprint { value: peer.fingerprint }),
+        device_model: None,
+        device_type: Some("server".to_string()),
+        download: true,
+        extensions: peer.extensions,
+        native_pubkey: peer.pubkey.to_vec(),
+        native_certificate_fingerprint: peer.native_certificate_fingerprint,
     }
 }
 
@@ -148,4 +209,13 @@ fn localsend_peer_status(status: CoreLocalSendPeerStatus) -> LocalSendPeerStatus
 
 fn internal_status(error: impl std::fmt::Display) -> Status {
     Status::internal(error.to_string())
+}
+
+fn not_found_status(error: impl std::fmt::Display) -> Status {
+    Status::not_found(error.to_string())
+}
+
+fn discovery_timeout(timeout_ms: u32) -> std::time::Duration {
+    let timeout_ms = if timeout_ms == 0 { 1500 } else { timeout_ms };
+    std::time::Duration::from_millis(u64::from(timeout_ms))
 }
