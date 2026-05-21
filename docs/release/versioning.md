@@ -27,15 +27,19 @@ NightBridge `26.5.0` must not be tagged until:
 - final `scripts/preflight-26.5.sh` evidence passes on the release commit and
   is attached to the release notes
 - real 7-day native soak evidence passes
-- official LocalSend app interop is completed or explicitly scoped down; iOS
-  has current bidirectional official-app evidence, while Android and desktop
-  official-app coverage still need platform runs or explicit scoping
+- official LocalSend app interop evidence remains attached to the release
+  notes; current 26.5 manual bidirectional evidence covers Android, iOS,
+  Windows, macOS, and Linux, while future automated official-app coverage
+  remains optional unless a headless-capable artifact is available
 - release artifacts are reproducible from a clean final `dist/` directory
 - checksums and SBOM are generated for the final artifacts
-- Docker, systemd, and DEB validation evidence is recorded for representative
-  Ubuntu hosts; final release artifacts still need to be regenerated from the
-  release commit
+- Docker validation evidence is recorded for a representative Ubuntu host;
+  final release artifacts still need to be regenerated from the release commit
+- Debian package and systemd validation evidence is recorded for a
+  representative Ubuntu host; the `.deb` is distributed as a GitHub release
+  asset, not through an APT/PPA repository
 - RPM packaging is deferred for 26.5
+- APT/PPA distribution and Homebrew distribution are deferred for 26.5
 - desktop signing, notarization, updater, Windows packaging, and Linux desktop
   packaging decisions are explicit; production desktop artifacts are deferred
   and unsigned desktop artifacts must be labeled pre-release

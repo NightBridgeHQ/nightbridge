@@ -17,9 +17,10 @@ are available.
 | Windows CLI binary | `night-bridge.exe` | release workflow Rust build | Required |
 | Windows daemon binary | `night-bridge-daemon.exe` | release workflow Rust build | Required |
 | Windows TUI binary | `night-bridge-tui.exe` | release workflow Rust build | Required |
+| GitHub release tarballs | `nightbridge-<version>-<os>-<arch>.tar.gz` | release workflow or local final `dist/` | Required for curl installer |
 | Tauri desktop bundles | platform-specific app bundle, installer, or archive | Tauri build job | Deferred for production 26.5; unsigned builds are pre-release only |
 | Docker image | `night-bridge:<version>` | Docker build job | Validated on Ubuntu host; final tag still required |
-| Debian package | `.deb` | `packaging/build-packages.sh` | Validated on Ubuntu host; final artifact still required |
+| Debian package | `.deb` | `packaging/build-packages.sh --deb-only` | Required as a GitHub release asset; no APT/PPA repo |
 | RPM package | `.rpm` | `packaging/build-packages.sh` | Deferred for 26.5 |
 | Checksums | `dist/SHA256SUMS` | `packaging/release/checksums.sh` | Always generated |
 | SBOM | `dist/sbom.cdx.json` | `packaging/release/sbom.sh` | Always generated, may be fallback metadata |
@@ -97,6 +98,8 @@ Debian package and systemd smoke:
   `~/nightbridge-release/1d18b86/target/release-evidence/systemd-deb/deb-build-retry.log`
   and
   `~/nightbridge-release/1d18b86/target/release-evidence/systemd-deb/install-systemd.log`
+- Notes: final 26.5 public distribution includes the `.deb` as a GitHub release
+  asset. APT and PPA repository distribution are deferred.
 
 Release script smoke:
 
@@ -109,3 +112,20 @@ Release script smoke:
   temporary artifact directory
 - Notes: final release must rerun these scripts against the clean final
   `dist/` directory on the release commit
+
+Current release-script rehearsal:
+
+- Date: 2026-05-21
+- Host: local macOS workstation
+- Commit: `9f99bbd`
+- Directory: `/private/tmp/nightbridge-dist-rehearsal-9f99bbd-macos-arm64`
+- Scope: non-final macOS artifact rehearsal only; final release artifacts must
+  still be regenerated from the final release commit after soak
+- Artifacts:
+  `night-bridge`, `nbrg`, `night-bridge-daemon`, and `night-bridge-tui`
+- Command:
+  `packaging/release/sbom.sh /private/tmp/nightbridge-dist-rehearsal-9f99bbd-macos-arm64`
+  and
+  `packaging/release/checksums.sh /private/tmp/nightbridge-dist-rehearsal-9f99bbd-macos-arm64`
+- Result: PASS; fallback CycloneDX SBOM and clean relative-path `SHA256SUMS`
+  were generated, and `shasum -a 256 -c SHA256SUMS` verified every file

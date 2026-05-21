@@ -16,5 +16,5 @@ The package installs:
 - `/usr/lib/systemd/system/night-bridge.service`
 - `/etc/night-bridge/config.toml`
 
-Use `packaging/build-packages.sh --check-tools` to verify local tool
-availability before attempting a package build.
+Use `packaging/build-packages.sh --rpm-only --check-tools` to verify local tool
+availability before attempting an RPM package build.

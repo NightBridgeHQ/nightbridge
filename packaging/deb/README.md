@@ -15,8 +15,10 @@ The package installs:
 - `/lib/systemd/system/night-bridge.service`
 - `/etc/night-bridge/config.toml`
 
-Use `packaging/build-packages.sh --check-tools` to verify local tool
-availability before attempting a package build.
+Use `packaging/build-packages.sh --deb-only --check-tools` to verify local tool
+availability before attempting a Debian package build. Use
+`packaging/build-packages.sh --deb-only` for the 26.5 Debian/systemd release
+smoke because RPM packaging is deferred for this release.
 
 NightBridge 26.5 pins Rust 1.78, so install a compatible `cargo-deb` release:
 

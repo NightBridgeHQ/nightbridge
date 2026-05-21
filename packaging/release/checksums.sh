@@ -9,8 +9,11 @@ if [[ ! -d "${artifact_dir}" ]]; then
   exit 1
 fi
 
-find "${artifact_dir}" -maxdepth 1 -type f ! -name "SHA256SUMS" -print0 \
-  | sort -z \
-  | xargs -0 shasum -a 256 > "${checksum_file}"
+(
+  cd "${artifact_dir}"
+  while IFS= read -r -d '' file; do
+    shasum -a 256 "${file#./}"
+  done < <(find . -maxdepth 1 -type f ! -name "SHA256SUMS" -print0 | sort -z)
+) > "${checksum_file}"
 
 echo "wrote ${checksum_file}"
