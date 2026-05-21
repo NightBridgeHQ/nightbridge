@@ -86,6 +86,8 @@ Debian package and systemd smoke:
 - Commit: `1d18b86`
 - Tooling: `rustc 1.78.0`, `cargo 1.78.0`, `cargo-deb 3.6.2`,
   `libprotoc 3.21.12`
+- Note: this evidence predates the dependency security refresh that raised
+  the workspace MSRV to Rust 1.85; regenerate package evidence before release.
 - Package:
   `target/debian/night-bridge-daemon_26.5.0-1_amd64.deb`
 - Package size: `4523220`

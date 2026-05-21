@@ -25,7 +25,7 @@ async fn interrupted_transfer_resumes_missing_ranges() {
 
     let manifest_path = temp.path().join("manifests.db");
     let sender = NativeTransferSender::new(1024);
-    let request = sender.prepare_files(&[source.clone()]).await.unwrap();
+    let request = sender.prepare_files(std::slice::from_ref(&source)).await.unwrap();
 
     {
         let receiver = NativeTransferReceiver::trusted(

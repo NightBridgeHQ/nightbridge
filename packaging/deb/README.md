@@ -20,7 +20,8 @@ availability before attempting a Debian package build. Use
 `packaging/build-packages.sh --deb-only` for the 26.5 Debian/systemd release
 smoke because RPM packaging is deferred for this release.
 
-NightBridge 26.5 pins Rust 1.78, so install a compatible `cargo-deb` release:
+NightBridge 26.5 requires Rust 1.85 or newer. Use the pinned `cargo-deb`
+release for reproducible package metadata:
 
 ```bash
 cargo install cargo-deb --version 3.6.2 --locked

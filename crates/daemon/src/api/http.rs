@@ -19,6 +19,7 @@ use lsi_core::trust::{PeerPolicy as CorePeerPolicy, TrustStore};
 use lsi_proto::events::v1::{daemon_event, DaemonEventType};
 use lsi_proto::transfers::v1::{send_request, SendRequest};
 use serde::{Deserialize, Serialize};
+use subtle::ConstantTimeEq;
 use tokio::task::JoinHandle;
 
 use crate::api::transfers;
@@ -502,7 +503,7 @@ fn authorize(headers: &HeaderMap, expected_token: &str) -> Result<(), ApiError> 
     let Some(token) = value.strip_prefix("Bearer ") else {
         return Err(ApiError::new(StatusCode::UNAUTHORIZED, "malformed bearer token"));
     };
-    if token != expected_token {
+    if token.as_bytes().ct_eq(expected_token.as_bytes()).unwrap_u8() != 1 {
         return Err(ApiError::new(StatusCode::UNAUTHORIZED, "invalid bearer token"));
     }
     Ok(())

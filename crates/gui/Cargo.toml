@@ -20,8 +20,8 @@ thiserror.workspace = true
 url.workspace = true
 
 [target.'cfg(target_vendor = "apple")'.dependencies]
-# Tauri CLI enables tauri/native-tls for release bundles. Newer native-tls
-# and security-framework releases exceed the workspace Rust 1.78 MSRV.
+# Tauri CLI enables tauri/native-tls for release bundles. Keep these pinned
+# with the Tauri 2.0 stack until the desktop bundle is upgraded as a unit.
 native-tls = "=0.2.13"
 security-framework = "=2.11.1"
 

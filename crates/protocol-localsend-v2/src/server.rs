@@ -551,8 +551,7 @@ fn rustls_server_config(identity: TlsIdentity) -> Result<rustls::ServerConfig> {
 }
 
 fn body_reader(body: Body) -> impl AsyncRead + Unpin {
-    let stream =
-        body.into_data_stream().map_err(|error| io::Error::new(io::ErrorKind::Other, error));
+    let stream = body.into_data_stream().map_err(io::Error::other);
     StreamReader::new(stream)
 }
 

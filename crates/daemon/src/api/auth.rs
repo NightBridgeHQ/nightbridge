@@ -1,3 +1,4 @@
+use subtle::ConstantTimeEq;
 use tonic::{metadata::MetadataMap, service::Interceptor, Request, Status};
 
 #[derive(Clone)]
@@ -18,6 +19,7 @@ impl Interceptor for BearerAuth {
     }
 }
 
+#[allow(clippy::result_large_err)]
 fn authorize_metadata(metadata: &MetadataMap, expected_token: &str) -> Result<(), Status> {
     let Some(value) = metadata.get("authorization") else {
         return Err(Status::unauthenticated("missing bearer token"));
@@ -28,7 +30,7 @@ fn authorize_metadata(metadata: &MetadataMap, expected_token: &str) -> Result<()
     let Some(token) = value.strip_prefix("Bearer ") else {
         return Err(Status::unauthenticated("malformed bearer token"));
     };
-    if token != expected_token {
+    if token.as_bytes().ct_eq(expected_token.as_bytes()).unwrap_u8() != 1 {
         return Err(Status::unauthenticated("invalid bearer token"));
     }
     Ok(())

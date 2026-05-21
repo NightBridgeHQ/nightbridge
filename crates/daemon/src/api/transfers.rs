@@ -237,6 +237,7 @@ async fn send_files_to_wan_peer(
     .map_err(internal_status)
 }
 
+#[allow(clippy::result_large_err)]
 fn native_wan_certificate_fingerprint(peer: &Peer) -> Result<String, Status> {
     match peer.policy {
         PeerPolicy::Block => {

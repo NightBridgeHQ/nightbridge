@@ -1039,10 +1039,7 @@ mod tests {
 
         assert_ne!(addr.port(), 0);
 
-        let client_endpoint = native_test_client_endpoint();
         let target = SocketAddr::from((Ipv4Addr::LOCALHOST, addr.port()));
-        let connection = client_endpoint.connect(target, "localhost").unwrap().await.unwrap();
-        let (mut send, mut recv) = connection.open_bi().await.unwrap();
         let hello = lsi_protocol_native_v1::dto::Hello {
             protocol_version: lsi_protocol_native_v1::dto::PROTOCOL_VERSION,
             alias: "client".to_string(),
@@ -1050,14 +1047,40 @@ mod tests {
             nonce: b"test-nonce".to_vec(),
             extensions: lsi_protocol_native_v1::dto::default_extensions(),
         };
-
-        lsi_protocol_native_v1::framing::write_control(
-            &mut send,
-            &lsi_protocol_native_v1::framing::ControlMessage::Hello(hello),
-        )
-        .await
-        .unwrap();
-        let ack = lsi_protocol_native_v1::framing::read_control(&mut recv).await.unwrap();
+        let mut last_handshake_error = None;
+        let mut established = None;
+        for _ in 0..20 {
+            let attempt = async {
+                let client_endpoint = native_test_client_endpoint()?;
+                let connection = client_endpoint.connect(target, "localhost")?.await?;
+                let (mut send, mut recv) = connection.open_bi().await?;
+                lsi_protocol_native_v1::framing::write_control(
+                    &mut send,
+                    &lsi_protocol_native_v1::framing::ControlMessage::Hello(hello.clone()),
+                )
+                .await?;
+                let ack = lsi_protocol_native_v1::framing::read_control(&mut recv).await?;
+                anyhow::Ok((client_endpoint, connection, send, recv, ack))
+            }
+            .await;
+            match attempt {
+                Ok(result) => {
+                    established = Some(result);
+                    break;
+                }
+                Err(error) => {
+                    last_handshake_error = Some(error);
+                    tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+                }
+            }
+        }
+        let (_client_endpoint, _connection, mut send, mut recv, ack) =
+            established.unwrap_or_else(|| {
+                panic!(
+                    "native test handshake failed after retries: {:?}",
+                    last_handshake_error.map(|error| error.to_string())
+                )
+            });
 
         assert!(matches!(ack, lsi_protocol_native_v1::framing::ControlMessage::HelloAck(_)));
 
@@ -1120,7 +1143,7 @@ mod tests {
         stop_native_runtime(runtime).await.unwrap();
     }
 
-    fn native_test_client_endpoint() -> quinn::Endpoint {
+    fn native_test_client_endpoint() -> Result<quinn::Endpoint> {
         use std::sync::Arc;
 
         use quinn::crypto::rustls::QuicClientConfig;
@@ -1179,10 +1202,10 @@ mod tests {
             .with_no_client_auth();
         rustls_config.alpn_protocols =
             vec![lsi_protocol_native_v1::transport::NATIVE_ALPN.to_vec()];
-        let quic_crypto = QuicClientConfig::try_from(rustls_config).unwrap();
+        let quic_crypto = QuicClientConfig::try_from(rustls_config)?;
         let client_config = quinn::ClientConfig::new(Arc::new(quic_crypto));
-        let mut endpoint = quinn::Endpoint::client(SocketAddr::from(([127, 0, 0, 1], 0))).unwrap();
+        let mut endpoint = quinn::Endpoint::client(SocketAddr::from(([127, 0, 0, 1], 0)))?;
         endpoint.set_default_client_config(client_config);
-        endpoint
+        Ok(endpoint)
     }
 }

@@ -38,7 +38,7 @@ async fn repeated_interruptions_resume_to_matching_file_hash() {
 
     let source_hash = write_patterned_file(&source, file_size, seed).await.unwrap();
     let sender = NativeTransferSender::new(CHUNK_SIZE);
-    let request = sender.prepare_files(&[source.clone()]).await.unwrap();
+    let request = sender.prepare_files(std::slice::from_ref(&source)).await.unwrap();
 
     let receiver = NativeTransferReceiver::trusted(
         inbox.clone(),

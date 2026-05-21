@@ -66,7 +66,7 @@ pub fn render(frame: &mut Frame, state: &AppState) {
     frame.render_widget(inbox_list(state), columns[2]);
 }
 
-fn localsend_peer_list(state: &AppState) -> List {
+fn localsend_peer_list(state: &AppState) -> List<'_> {
     let items = if state.pending_localsend_peers.is_empty() {
         vec![ListItem::new("no pending LocalSend peers")]
     } else {
@@ -87,7 +87,7 @@ fn localsend_peer_list(state: &AppState) -> List {
     List::new(items).block(Block::default().borders(Borders::ALL).title("LocalSend approvals"))
 }
 
-fn transfer_list(state: &AppState) -> List {
+fn transfer_list(state: &AppState) -> List<'_> {
     let items = if state.active_transfers.is_empty() {
         vec![ListItem::new("no active transfers")]
     } else {
@@ -109,7 +109,7 @@ fn transfer_list(state: &AppState) -> List {
     List::new(items).block(Block::default().borders(Borders::ALL).title("Transfers"))
 }
 
-fn inbox_list(state: &AppState) -> List {
+fn inbox_list(state: &AppState) -> List<'_> {
     let items = if state.inbox_entries.is_empty() {
         vec![ListItem::new("inbox empty")]
     } else {

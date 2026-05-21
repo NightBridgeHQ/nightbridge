@@ -3,9 +3,10 @@
 use crossterm::event::{KeyCode, KeyEvent};
 
 /// Dashboard tab selection.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub enum Tab {
     /// High-level daemon status.
+    #[default]
     Dashboard,
     /// LocalSend receive approvals.
     LocalSend,
@@ -156,12 +157,6 @@ pub struct LocalSendPeer {
     pub attempt_count: u64,
     /// Last source IP, when observed.
     pub source_ip: Option<String>,
-}
-
-impl Default for Tab {
-    fn default() -> Self {
-        Self::Dashboard
-    }
 }
 
 /// Trusted peer row.
