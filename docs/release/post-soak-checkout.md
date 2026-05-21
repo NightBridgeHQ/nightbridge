@@ -1,8 +1,16 @@
 # Post-Soak Release Checkout
 
-Use this checklist after the 7-day native soak completes and before tagging
-NightBridge `26.5.0`. It is intentionally limited to release closure work; do
-not add alpha features during this pass.
+Use this checklist after the current 7-day native soak completes and before
+tagging NightBridge `26.5.0`. It is intentionally limited to release closure
+work; do not add alpha features during this pass.
+
+Current local release candidate:
+
+- Branch: `main`
+- Commit: `dd14836` (`fix(security): refresh vulnerable dependencies`)
+- Status: security refresh committed locally; no push has been performed
+- Gate: finish the existing soak, then run the delta soak below against a
+  binary built from `dd14836` or a later docs-only release commit
 
 ## 1. Confirm Soak Completion
 
@@ -26,7 +34,46 @@ Record in `docs/release/26.5-notes.md`:
 - evidence path
 - pass/fail result
 
-## 2. Freeze The Release Commit
+## 2. Schedule Delta Soak For Security Refresh
+
+The current long soak started before the dependency security refresh. Keep that
+evidence, but do not treat it as the only final soak evidence for the refreshed
+binary. After the existing soak completes, run a shorter delta soak from the
+current release candidate to cover the updated TLS, HTTP, URL, and time
+dependency stack.
+
+Suggested delta soak on `camelia`:
+
+```bash
+release_commit="$(git rev-parse --short HEAD)"
+ssh camelia "mkdir -p ~/nightbridge-release/${release_commit}"
+rsync -a --delete --exclude target . camelia:~/nightbridge-release/${release_commit}/
+ssh camelia "cd ~/nightbridge-release/${release_commit} && \
+  mkdir -p target/soak/evidence && \
+  start=\$(date -u +%Y-%m-%dT%H:%M:%SZ) && \
+  echo \"delta soak start: \${start} commit=${release_commit}\" | tee target/soak/evidence/delta-soak-session.log && \
+  deadline=\$((SECONDS + 12 * 60 * 60)); run=0; \
+  while (( SECONDS < deadline )); do \
+    run=\$((run + 1)); \
+    NBRG_SOAK_BYTES=1073741824 \
+    NBRG_SOAK_RECONNECTS=50 \
+    NBRG_SOAK_SEED=\$((100000 + run)) \
+    NBRG_SOAK_LOG=\"target/soak/evidence/delta-native-soak-\${run}.log\" \
+      bash scripts/native-soak.sh || exit 1; \
+  done; \
+  finish=\$(date -u +%Y-%m-%dT%H:%M:%SZ) && \
+  echo \"delta soak finish: \${finish} runs=\${run}\" | tee -a target/soak/evidence/delta-soak-session.log"
+```
+
+Record in `docs/release/26.5-notes.md`:
+
+- delta soak start and finish time
+- release commit
+- completed run count
+- evidence path
+- pass/fail result
+
+## 3. Freeze The Release Commit
 
 Confirm the local release branch and record the commit:
 
@@ -39,7 +86,7 @@ git log -1 --oneline
 Only continue if the worktree contains the intended release docs and release
 script changes. Do not tag until all remaining checklist items pass.
 
-## 3. Run Final Preflight
+## 4. Run Final Preflight
 
 Run the final preflight outside sandboxed environments:
 
@@ -56,7 +103,7 @@ Record in `docs/release/26.5-notes.md`:
 - result
 - evidence log path
 
-## 4. Build Final Artifacts
+## 5. Build Final Artifacts
 
 Create a clean final artifact directory:
 
@@ -80,7 +127,7 @@ Repeat the archive step on Linux release hosts for `linux-amd64` and
 `linux-arm64`, then copy those tarballs into the final GitHub release asset
 set and rerun `packaging/release/checksums.sh`.
 
-## 5. Run Final Docker Smoke
+## 6. Run Final Docker Smoke
 
 On `link`, build and smoke the final release tag from the release commit:
 
@@ -97,7 +144,7 @@ ssh link "cd ~/nightbridge-release/${release_commit} && \
 
 Record the image tag, image ID, image size, result, and evidence log.
 
-## 6. Run Final DEB And systemd Smoke
+## 7. Run Final DEB And systemd Smoke
 
 On `zelda`, build the final Debian package and run the systemd smoke:
 
@@ -132,7 +179,7 @@ direct `.deb` download is covered by `SHA256SUMS`.
 Record package size, package path, service status, health check result, and
 evidence logs.
 
-## 7. Update Release Notes And Tag
+## 8. Update Release Notes And Tag
 
 Before tagging:
 
@@ -152,7 +199,7 @@ git tag -a 26.5.0 -m "NightBridge 26.5.0"
 Do not push the tag until the release notes contain final evidence paths and
 the local tag points at the intended release commit.
 
-## 8. Publish GitHub Release Assets
+## 9. Publish GitHub Release Assets
 
 Create or update the GitHub release tagged `26.5.0` and attach:
 

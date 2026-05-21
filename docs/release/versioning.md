@@ -27,6 +27,7 @@ NightBridge `26.5.0` must not be tagged until:
 - final `scripts/preflight-26.5.sh` evidence passes on the release commit and
   is attached to the release notes
 - real 7-day native soak evidence passes
+- delta soak evidence passes for the post-soak dependency security refresh
 - official LocalSend app interop evidence remains attached to the release
   notes; current 26.5 manual bidirectional evidence covers Android, iOS,
   Windows, macOS, and Linux, while future automated official-app coverage
