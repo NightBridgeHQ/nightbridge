@@ -6,6 +6,11 @@ This project follows the spirit of [Keep a Changelog](https://keepachangelog.com
 
 ## [Unreleased]
 
+- 26.5 is now in pre-release closure. Feature scope is closed; only bug fixes,
+  release-blocker fixes, security fixes, documentation corrections,
+  packaging/release evidence improvements, and small existing-surface
+  enhancements should land before tagging.
+
 ## [26.5.0] - TBD
 
 ### Added
@@ -83,9 +88,15 @@ This project follows the spirit of [Keep a Changelog](https://keepachangelog.com
 - Security policy and audit invite packet are ready for external review, but no
   third-party audit has been completed yet.
 
+### Fixed
+
+- LocalSend LAN discovery builds in final preflight by enabling the `socket2`
+  feature required for multicast `SO_REUSEPORT` setup on Unix hosts.
+
 ### Known Limitations
 
-- 26.5 is not release-tagged until final preflight evidence passes.
+- 26.5 is not release-tagged until final release artifacts are regenerated and
+  smoked from the release commit.
 - Desktop packages are unsigned pre-release artifacts until platform signing,
   notarization, and updater infrastructure are configured.
 - Windows and Linux desktop packages need platform-native validation.

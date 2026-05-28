@@ -1,0 +1,259 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta
+      name="description"
+      content="NightBridge alpha: a LocalSend-compatible headless server for homelabs, NAS boxes, and always-on machines."
+    >
+    <title>NightBridge Alpha</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+      href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700;800&display=swap"
+      rel="stylesheet"
+    >
+    <link rel="stylesheet" href="styles.css">
+  </head>
+  <body>
+    <header class="site-header">
+      <a class="brand" href="./" aria-label="NightBridge home">
+        <svg class="brand-mark" viewBox="0 0 48 48" role="img" aria-label="NightBridge logo">
+          <circle class="logo-moon" cx="24" cy="24" r="20"></circle>
+          <path class="logo-crater primary" d="M30.5 12.5c2.7 1.5 4.6 4.2 5 7.3"></path>
+          <path class="logo-crater secondary" d="M14.5 18.5c1.4-2.5 3.8-4.4 6.6-5.1"></path>
+          <path class="logo-bridge-arch" d="M12 29c3.4-6.7 7.4-10 12-10s8.6 3.3 12 10"></path>
+          <path class="logo-bridge-deck" d="M10.5 29h27"></path>
+          <path class="logo-bridge-leg" d="M17 29v5.5"></path>
+          <path class="logo-bridge-leg" d="M24 29v5.5"></path>
+          <path class="logo-bridge-leg" d="M31 29v5.5"></path>
+          <circle class="logo-endpoint" cx="13" cy="34.5" r="2"></circle>
+          <circle class="logo-endpoint" cx="35" cy="34.5" r="2"></circle>
+        </svg>
+        <span>NightBridge</span>
+      </a>
+      <nav class="site-nav" aria-label="Primary">
+        <a href="#try-alpha">Try alpha</a>
+        <a href="#status">Status</a>
+        <a href="#evidence">Evidence</a>
+        <a href="https://github.com/NightBridgeHQ/nightbridge">GitHub</a>
+      </nav>
+    </header>
+
+    <main>
+      <section class="hero">
+        <div class="hero-copy">
+          <p class="eyebrow">26.5.0-alpha.1 release candidate</p>
+          <h1>LocalSend-compatible receive for headless machines.</h1>
+          <p class="hero-lede">
+            NightBridge lets official LocalSend apps send files to a daemon
+            running on a server, NAS, Raspberry Pi, homelab box, or always-on
+            workstation. One install command, one always-available target.
+          </p>
+          <div class="hero-actions" aria-label="Primary actions">
+            <a class="button primary" href="https://github.com/NightBridgeHQ/nightbridge/releases">
+              GitHub Releases
+            </a>
+            <a class="button secondary" href="https://github.com/NightBridgeHQ/nightbridge/blob/main/docs/users/quickstart.md">
+              Quickstart docs
+            </a>
+          </div>
+        </div>
+
+        <div class="product-visual" aria-label="NightBridge receive flow">
+          <div class="device-card phone">
+            <span class="device-label">LocalSend app</span>
+            <span class="device-line"></span>
+            <span class="device-line short"></span>
+            <span class="send-chip">Send file</span>
+          </div>
+          <div class="bridge-line" aria-hidden="true"></div>
+          <div class="device-card server">
+            <span class="device-label">NightBridge daemon</span>
+            <span class="terminal-line prompt">$ night-bridge daemon</span>
+            <span class="terminal-line">pending peer: Pixel 8</span>
+            <span class="terminal-line success">received: photos.zip</span>
+          </div>
+        </div>
+      </section>
+
+      <section id="try-alpha" class="section usage-flow">
+        <div class="section-heading">
+          <p class="eyebrow">Try the alpha</p>
+          <h2>Install, run, send, approve.</h2>
+          <p>
+            The alpha path is intentionally small: get the daemon running,
+            send from LocalSend, then approve trusted senders.
+          </p>
+        </div>
+
+        <div class="steps-grid">
+          <article class="step-panel">
+            <span class="step-number">1</span>
+            <h3>Install from release assets</h3>
+            <pre><code>curl -fsSL https://raw.githubusercontent.com/NightBridgeHQ/nightbridge/main/install.sh | \
+  sh -s -- --version 26.5.0-alpha.1</code></pre>
+            <p class="note">The alpha install path is curl plus signed release evidence.</p>
+          </article>
+
+          <article class="step-panel">
+            <span class="step-number">2</span>
+            <h3>Start the daemon</h3>
+            <pre><code>night-bridge daemon \
+  --localsend-alias "Home Server" \
+  --localsend-policy prompt</code></pre>
+            <p class="note">Prompt mode keeps new LocalSend senders pending.</p>
+          </article>
+
+          <article class="step-panel">
+            <span class="step-number">3</span>
+            <h3>Send from LocalSend</h3>
+            <pre><code># Use the official LocalSend app.
+# Pick "Home Server" on the LAN.
+# Send the file.</code></pre>
+            <p class="note">NightBridge appears as a LocalSend-compatible peer.</p>
+          </article>
+
+          <article class="step-panel">
+            <span class="step-number">4</span>
+            <h3>Approve trusted peers</h3>
+            <pre><code>night-bridge peers list-pending
+night-bridge peers approve-local-send &lt;fingerprint&gt;</code></pre>
+            <p class="note">Trusted peers can be allowed without reopening the desktop.</p>
+          </article>
+        </div>
+      </section>
+
+      <section id="status" class="section alpha-status">
+        <div class="section-heading">
+          <p class="eyebrow">Alpha status</p>
+          <h2>Ready path first, next channels after the alpha proves out.</h2>
+        </div>
+
+        <div class="status-grid">
+          <article class="status-panel">
+            <span class="status-badge ready">Alpha ready</span>
+            <h3>LocalSend-compatible receive</h3>
+            <p>
+              Receive files from official LocalSend apps through a headless
+              daemon with prompt, trusted, and controlled auto-accept policies.
+            </p>
+          </article>
+
+          <article class="status-panel">
+            <span class="status-badge ready">Alpha ready</span>
+            <h3>Operator surfaces</h3>
+            <p>
+              CLI, TUI, HTTP/gRPC API, Docker, systemd, DEB packaging,
+              checksums, and SBOM are part of the release path.
+            </p>
+          </article>
+
+          <article class="status-panel">
+            <span class="status-badge preview">Preview</span>
+            <h3>Native Mesh LAN</h3>
+            <p>
+              Trusted NightBridge daemons can discover and send to each other
+              on a LAN over native QUIC. This is advanced preview coverage.
+            </p>
+          </article>
+
+          <article class="status-panel">
+            <span class="status-badge soon">Coming soon</span>
+            <h3>More install channels</h3>
+            <p>
+              The first alpha stays focused on the curl installer and GitHub
+              release assets. Broader packaging follows once the core path is
+              proven by real operators.
+            </p>
+          </article>
+        </div>
+      </section>
+
+      <section class="section artifact-list">
+        <div class="section-heading">
+          <p class="eyebrow">Artifacts</p>
+          <h2>Release files expected for alpha testers.</h2>
+          <p>
+            Start with the curl installer. Direct release assets stay available
+            for operators who want to verify binaries, checksums, and SBOMs by
+            hand.
+          </p>
+        </div>
+
+        <div class="artifact-table" role="table" aria-label="Expected alpha release artifacts">
+          <div class="artifact-row header" role="row">
+            <span role="columnheader">Artifact</span>
+            <span role="columnheader">Status</span>
+          </div>
+          <div class="artifact-row" role="row">
+            <span role="cell">Linux and macOS binaries</span>
+            <span role="cell">Planned for alpha assets</span>
+          </div>
+          <div class="artifact-row" role="row">
+            <span role="cell">Docker image</span>
+            <span role="cell">Final smoke before publish</span>
+          </div>
+          <div class="artifact-row" role="row">
+            <span role="cell">Debian package with systemd unit</span>
+            <span role="cell">Final smoke before publish</span>
+          </div>
+          <div class="artifact-row" role="row">
+            <span role="cell">SHA256SUMS and SBOM</span>
+            <span role="cell">Generated from final artifacts</span>
+          </div>
+          <div class="artifact-row" role="row">
+            <span role="cell">Windows artifact</span>
+            <span role="cell">Manual validation gate</span>
+          </div>
+        </div>
+      </section>
+
+      <section id="evidence" class="section release-evidence">
+        <div class="section-heading">
+          <p class="eyebrow">Release evidence</p>
+          <h2>What must be green before publishing.</h2>
+        </div>
+
+        <div class="evidence-list">
+          <article>
+            <h3>Native soak</h3>
+            <p>
+              Completed on <code>camelia</code> with 13,591 runs. Final sampled
+              logs ended with <code>test result: ok. 1 passed; 0 failed</code>.
+            </p>
+          </article>
+          <article>
+            <h3>Post-refresh delta soak</h3>
+            <p>
+              Completed against <code>e10ade9</code> with 928 runs after the
+              dependency security refresh.
+            </p>
+          </article>
+          <article>
+            <h3>Final preflight and smoke</h3>
+            <p>
+              Final preflight passed. Docker smoke, DEB/systemd smoke,
+              checksums, and SBOM must be regenerated from the final release
+              commit.
+            </p>
+          </article>
+        </div>
+      </section>
+    </main>
+
+    <footer class="site-footer">
+      <div>
+        <strong>NightBridge alpha</strong>
+        <p>Headless LocalSend-compatible receive for operators and homelabs.</p>
+      </div>
+      <nav aria-label="Footer">
+        <a href="https://github.com/NightBridgeHQ/nightbridge">Repository</a>
+        <a href="https://github.com/NightBridgeHQ/nightbridge/blob/main/docs/release/26.5-notes.md">Release notes</a>
+        <a href="https://github.com/NightBridgeHQ/nightbridge/blob/main/SECURITY.md">Security</a>
+        <a href="https://github.com/NightBridgeHQ/nightbridge/issues">Issues</a>
+      </nav>
+    </footer>
+  </body>
+</html>

@@ -2,15 +2,20 @@
 
 Use this checklist after the current 7-day native soak completes and before
 tagging NightBridge `26.5.0`. It is intentionally limited to release closure
-work; do not add alpha features during this pass.
+work. NightBridge `26.5.0` is in pre-release closure: do not add alpha features
+during this pass. Limit changes to bug fixes, release-blocker fixes, security
+fixes, documentation corrections, packaging/release evidence improvements, and
+small enhancements that improve the existing pre-release experience without
+adding a new product surface.
 
 Current local release candidate:
 
 - Branch: `main`
-- Commit: `dd14836` (`fix(security): refresh vulnerable dependencies`)
-- Status: security refresh committed locally; no push has been performed
-- Gate: finish the existing soak, then run the delta soak below against a
-  binary built from `dd14836` or a later docs-only release commit
+- Commit: pending final commit; current checkout is based on `e10ade9` plus
+  release evidence updates and a `socket2` release-blocker fix
+- Status: long native soak, post-refresh delta soak, and final preflight passed
+- Gate: regenerate release artifacts from the release commit and smoke the
+  final artifacts before tagging
 
 ## 1. Confirm Soak Completion
 
@@ -34,44 +39,32 @@ Record in `docs/release/26.5-notes.md`:
 - evidence path
 - pass/fail result
 
-## 2. Schedule Delta Soak For Security Refresh
+## 2. Confirm Delta Soak For Security Refresh
 
 The current long soak started before the dependency security refresh. Keep that
 evidence, but do not treat it as the only final soak evidence for the refreshed
-binary. After the existing soak completes, run a shorter delta soak from the
-current release candidate to cover the updated TLS, HTTP, URL, and time
+binary. A shorter delta soak covered the updated TLS, HTTP, URL, and time
 dependency stack.
 
-Suggested delta soak on `camelia`:
+Delta soak evidence on `camelia`:
 
 ```bash
-release_commit="$(git rev-parse --short HEAD)"
-ssh camelia "mkdir -p ~/nightbridge-release/${release_commit}"
-rsync -a --delete --exclude target . camelia:~/nightbridge-release/${release_commit}/
-ssh camelia "cd ~/nightbridge-release/${release_commit} && \
-  mkdir -p target/soak/evidence && \
-  start=\$(date -u +%Y-%m-%dT%H:%M:%SZ) && \
-  echo \"delta soak start: \${start} commit=${release_commit}\" | tee target/soak/evidence/delta-soak-session.log && \
-  deadline=\$((SECONDS + 12 * 60 * 60)); run=0; \
-  while (( SECONDS < deadline )); do \
-    run=\$((run + 1)); \
-    NBRG_SOAK_BYTES=1073741824 \
-    NBRG_SOAK_RECONNECTS=50 \
-    NBRG_SOAK_SEED=\$((100000 + run)) \
-    NBRG_SOAK_LOG=\"target/soak/evidence/delta-native-soak-\${run}.log\" \
-      bash scripts/native-soak.sh || exit 1; \
-  done; \
-  finish=\$(date -u +%Y-%m-%dT%H:%M:%SZ) && \
-  echo \"delta soak finish: \${finish} runs=\${run}\" | tee -a target/soak/evidence/delta-soak-session.log"
+ssh camelia 'sudo -n -u serveradmin sh -lc '"'"'
+  cd /home/serveradmin/nightbridge-release/e10ade9
+  tail -40 target/soak/evidence/delta-soak-session.log
+  find target/soak/evidence -maxdepth 1 -name "delta-native-soak-*.log" | wc -l
+  tail -20 target/soak/evidence/delta-native-soak-928.log
+'"'"''
 ```
 
-Record in `docs/release/26.5-notes.md`:
+Recorded in `docs/release/26.5-notes.md`:
 
-- delta soak start and finish time
-- release commit
-- completed run count
-- evidence path
-- pass/fail result
+- start: `2026-05-27T17:35:58Z`
+- finish: `2026-05-28T05:36:16Z`
+- release commit: `e10ade9`
+- completed runs: `928`
+- result: PASS
+- evidence path: `/home/serveradmin/nightbridge-release/e10ade9/target/soak/evidence/`
 
 ## 3. Freeze The Release Commit
 
@@ -88,20 +81,17 @@ script changes. Do not tag until all remaining checklist items pass.
 
 ## 4. Run Final Preflight
 
-Run the final preflight outside sandboxed environments:
+Final preflight evidence:
 
 ```bash
-mkdir -p target/release-evidence
-bash scripts/preflight-26.5.sh 2>&1 | tee target/release-evidence/preflight-26.5.log
+Host: erebor
+Start: 2026-05-28T05:46:59Z
+Finish: 2026-05-28T05:47:08Z
+Result: PASS
+Evidence log: target/release-evidence/preflight-26.5.log
 ```
 
-Record in `docs/release/26.5-notes.md`:
-
-- host
-- start and finish time
-- release commit
-- result
-- evidence log path
+Recorded in `docs/release/26.5-notes.md`.
 
 ## 5. Build Final Artifacts
 

@@ -49,3 +49,26 @@ NightBridge `26.5.0` must not be tagged until:
 - security disclosure contact is real: `diego.resendez@zero-oneit.com`
 - third-party audit expectations are documented: no completed audit for 26.5,
   public open-source review is welcome, and a paid audit remains future work
+
+## Pre-Release Scope Freeze
+
+NightBridge `26.5.0` is in pre-release closure. Feature scope is officially
+closed for the `26.5.0` train.
+
+Allowed changes before tagging:
+
+- bug fixes
+- release-blocker fixes
+- security fixes
+- documentation corrections
+- packaging, installer, and release evidence improvements
+- small enhancements that reduce release risk or improve the existing
+  pre-release experience without adding a new product surface
+
+Not allowed before tagging:
+
+- new alpha features
+- new public protocol surfaces
+- new distribution channels
+- new platform packaging promises
+- broad refactors unrelated to a release blocker
