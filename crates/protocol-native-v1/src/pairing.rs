@@ -180,6 +180,7 @@ mod tests {
             pubkey: pubkey(seed),
             nonce: nonce.to_vec(),
             extensions: Vec::new(),
+            identity_proof: Vec::new(),
         }
     }
 

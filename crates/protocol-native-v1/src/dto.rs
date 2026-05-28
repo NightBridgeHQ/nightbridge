@@ -46,6 +46,11 @@ pub struct Hello {
     pub nonce: Vec<u8>,
     /// Extensions supported by this endpoint.
     pub extensions: Vec<String>,
+    /// Ed25519 proof of possession of `pubkey`, bound to this session's channel
+    /// binding (TLS exporter). Empty from peers that predate identity proofs;
+    /// the receiver rejects an absent or invalid proof.
+    #[serde(default)]
+    pub identity_proof: Vec<u8>,
 }
 
 /// Control-stream hello response.
@@ -206,6 +211,7 @@ mod tests {
             pubkey: pubkey(7),
             nonce: b"nonce".to_vec(),
             extensions: default_extensions(),
+            identity_proof: Vec::new(),
         };
 
         let json = serde_json::to_vec(&hello).unwrap();

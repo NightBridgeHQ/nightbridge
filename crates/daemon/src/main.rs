@@ -647,6 +647,12 @@ async fn handle_native_connection(
     let ControlMessage::Hello(hello) = message else {
         return Ok(());
     };
+    // Prove the peer holds the private key for the identity it claims, bound to
+    // this QUIC/TLS session, before deriving any identity or trust decision.
+    let channel_binding = lsi_protocol_native_v1::auth::connection_channel_binding(&connection)
+        .context("failed to derive native channel binding")?;
+    lsi_protocol_native_v1::auth::authenticate_hello(&hello, &channel_binding)
+        .context("native peer failed identity proof of possession")?;
     let peer = NativePeerInfo {
         alias: hello.alias.clone(),
         fingerprint: Fingerprint::from_pubkey(&hello.pubkey).to_string(),
@@ -660,7 +666,7 @@ async fn handle_native_connection(
         protocol_version: PROTOCOL_VERSION,
         alias,
         pubkey,
-        nonce: b"daemon".to_vec(),
+        nonce: lsi_protocol_native_v1::auth::random_session_nonce(),
         accepted_extensions: negotiate_extensions(&default_extensions(), &hello.extensions),
     };
     stream
@@ -1031,9 +1037,10 @@ mod tests {
         let token = lsi_core::api_token::ApiToken::new("temporary-api-token").unwrap();
         let state =
             DaemonState::from_args(&args, identity, fingerprint, token, AppConfig::default());
+        let client_identity = Keypair::generate();
         TrustStore::open(&state.trust_db_path)
             .unwrap()
-            .trust([9; 32], "client", PeerPolicy::AutoAccept)
+            .trust(client_identity.public_bytes(), "client", PeerPolicy::AutoAccept)
             .unwrap();
         let runtime = start_native_runtime(&args, &state).await.unwrap();
         let addr = runtime.local_addr;
@@ -1041,23 +1048,25 @@ mod tests {
         assert_ne!(addr.port(), 0);
 
         let target = SocketAddr::from((Ipv4Addr::LOCALHOST, addr.port()));
-        let hello = lsi_protocol_native_v1::dto::Hello {
-            protocol_version: lsi_protocol_native_v1::dto::PROTOCOL_VERSION,
-            alias: "client".to_string(),
-            pubkey: [9; 32],
-            nonce: b"test-nonce".to_vec(),
-            extensions: lsi_protocol_native_v1::dto::default_extensions(),
-        };
         let mut last_handshake_error = None;
         let mut established = None;
         for _ in 0..20 {
             let attempt = async {
                 let client_endpoint = native_test_client_endpoint()?;
                 let connection = client_endpoint.connect(target, "localhost")?.await?;
+                let channel_binding =
+                    lsi_protocol_native_v1::auth::connection_channel_binding(&connection)?;
+                let hello = lsi_protocol_native_v1::auth::build_authenticated_hello(
+                    &client_identity,
+                    "client".to_string(),
+                    b"test-nonce".to_vec(),
+                    lsi_protocol_native_v1::dto::default_extensions(),
+                    &channel_binding,
+                );
                 let (mut send, mut recv) = connection.open_bi().await?;
                 lsi_protocol_native_v1::framing::write_control(
                     &mut send,
-                    &lsi_protocol_native_v1::framing::ControlMessage::Hello(hello.clone()),
+                    &lsi_protocol_native_v1::framing::ControlMessage::Hello(hello),
                 )
                 .await?;
                 let ack = lsi_protocol_native_v1::framing::read_control(&mut recv).await?;
@@ -1140,6 +1149,91 @@ mod tests {
         .unwrap();
         let written = tokio::fs::read(temp.path().join("inbox/native.txt")).await.unwrap();
         assert_eq!(written, body);
+
+        stop_native_runtime(runtime).await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn native_runtime_rejects_hello_without_valid_identity_proof() {
+        // Regression for the native-mesh identity-spoofing flaw (C-1): a peer that
+        // claims a trusted public key but cannot prove possession of the matching
+        // private key must be rejected before any HelloAck or transfer acceptance.
+        let temp = tempfile::TempDir::new().unwrap();
+        let args = Args::parse_from([
+            "daemon",
+            "--native-port",
+            "0",
+            "--inbox",
+            temp.path().join("inbox").to_str().unwrap(),
+            "--trust-db",
+            temp.path().join("trust.db").to_str().unwrap(),
+            "--disable-native-discovery",
+            "--disable-localsend-v2",
+        ]);
+        let identity = Keypair::generate();
+        let fingerprint = Fingerprint::from_pubkey(&identity.public_bytes()).to_string();
+        let token = lsi_core::api_token::ApiToken::new("temporary-api-token").unwrap();
+        let state =
+            DaemonState::from_args(&args, identity, fingerprint, token, AppConfig::default());
+
+        // The victim's public key is trusted as AutoAccept. The attacker knows the
+        // public key (it is broadcast over mDNS) but not the private key.
+        let victim = Keypair::generate();
+        TrustStore::open(&state.trust_db_path)
+            .unwrap()
+            .trust(victim.public_bytes(), "victim", PeerPolicy::AutoAccept)
+            .unwrap();
+        let runtime = start_native_runtime(&args, &state).await.unwrap();
+        let target = SocketAddr::from((Ipv4Addr::LOCALHOST, runtime.local_addr.port()));
+
+        let mut last_error = None;
+        let mut connected = None;
+        for _ in 0..20 {
+            match async {
+                let endpoint = native_test_client_endpoint()?;
+                let connection = endpoint.connect(target, "localhost")?.await?;
+                anyhow::Ok((endpoint, connection))
+            }
+            .await
+            {
+                Ok(result) => {
+                    connected = Some(result);
+                    break;
+                }
+                Err(error) => {
+                    last_error = Some(error);
+                    tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+                }
+            }
+        }
+        let (_endpoint, connection) = connected.unwrap_or_else(|| {
+            panic!("native test connect failed: {:?}", last_error.map(|e| e.to_string()))
+        });
+
+        // Claim the victim's identity with no proof of possession.
+        let spoofed = lsi_protocol_native_v1::dto::Hello {
+            protocol_version: lsi_protocol_native_v1::dto::PROTOCOL_VERSION,
+            alias: "attacker".to_string(),
+            pubkey: victim.public_bytes(),
+            nonce: b"spoofed".to_vec(),
+            extensions: lsi_protocol_native_v1::dto::default_extensions(),
+            identity_proof: Vec::new(),
+        };
+        let (mut send, mut recv) = connection.open_bi().await.unwrap();
+        lsi_protocol_native_v1::framing::write_control(
+            &mut send,
+            &lsi_protocol_native_v1::framing::ControlMessage::Hello(spoofed),
+        )
+        .await
+        .unwrap();
+
+        // Connection/stream closed or any non-ack response means the spoof was rejected;
+        // only a HelloAck would indicate the daemon wrongly accepted the spoofed identity.
+        if let Ok(lsi_protocol_native_v1::framing::ControlMessage::HelloAck(_)) =
+            lsi_protocol_native_v1::framing::read_control(&mut recv).await
+        {
+            panic!("daemon accepted a spoofed hello lacking a valid identity proof");
+        }
 
         stop_native_runtime(runtime).await.unwrap();
     }
