@@ -40,11 +40,17 @@ pub(crate) async fn scan_and_cache(trust_db_path: &Path) -> Result<Vec<LocalSend
         }
     }
 
-    if discovered.is_empty() {
-        Ok(store.list_localsend_lan_peers()?)
-    } else {
-        Ok(discovered)
+    let mut peers = store.list_localsend_lan_peers()?;
+    for peer in discovered {
+        if let Some(existing) =
+            peers.iter_mut().find(|existing| existing.fingerprint == peer.fingerprint)
+        {
+            *existing = peer;
+        } else {
+            peers.push(peer);
+        }
     }
+    Ok(peers)
 }
 
 async fn probe_candidate(client: reqwest::Client, ip: Ipv4Addr) -> Result<LocalSendLanPeer> {

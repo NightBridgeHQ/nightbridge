@@ -81,6 +81,8 @@ impl AppState {
     pub fn handle_key(&mut self, key: KeyEvent) -> AppAction {
         match key.code {
             KeyCode::Char('q') | KeyCode::Esc => self.should_quit = true,
+            KeyCode::Tab | KeyCode::Right | KeyCode::Char('l') => self.select_next_tab(),
+            KeyCode::BackTab | KeyCode::Left | KeyCode::Char('h') => self.select_previous_tab(),
             KeyCode::Char('j') | KeyCode::Down => self.select_next_localsend_peer(),
             KeyCode::Char('k') | KeyCode::Up => self.select_previous_localsend_peer(),
             KeyCode::Char('a') => return self.approve_selected_localsend_peer(),
@@ -88,6 +90,20 @@ impl AppState {
             _ => {}
         }
         AppAction::None
+    }
+
+    fn select_next_tab(&mut self) {
+        let selected = Tab::ALL.iter().position(|tab| *tab == self.selected_tab).unwrap_or(0);
+        self.selected_tab = Tab::ALL[(selected + 1) % Tab::ALL.len()];
+    }
+
+    fn select_previous_tab(&mut self) {
+        let selected = Tab::ALL.iter().position(|tab| *tab == self.selected_tab).unwrap_or(0);
+        self.selected_tab = if selected == 0 {
+            *Tab::ALL.last().expect("tabs should not be empty")
+        } else {
+            Tab::ALL[selected - 1]
+        };
     }
 
     fn select_next_localsend_peer(&mut self) {
@@ -264,5 +280,19 @@ mod tests {
             state.handle_key(KeyEvent::new(KeyCode::Char('d'), KeyModifiers::NONE)),
             AppAction::DenyLocalSend { fingerprint: "two".to_string() }
         );
+    }
+
+    #[test]
+    fn tab_keys_move_between_dashboard_tabs() {
+        let mut state = AppState::default();
+
+        state.handle_key(KeyEvent::new(KeyCode::Tab, KeyModifiers::NONE));
+        assert_eq!(state.selected_tab, Tab::LocalSend);
+
+        state.handle_key(KeyEvent::new(KeyCode::BackTab, KeyModifiers::SHIFT));
+        assert_eq!(state.selected_tab, Tab::Dashboard);
+
+        state.handle_key(KeyEvent::new(KeyCode::Left, KeyModifiers::NONE));
+        assert_eq!(state.selected_tab, Tab::Inbox);
     }
 }

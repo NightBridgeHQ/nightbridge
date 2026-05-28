@@ -75,9 +75,9 @@ struct Args {
     #[arg(long, default_value_t = default_alias())]
     alias: String,
 
-    /// Directory where received LocalSend v2 files are stored.
-    #[arg(long, default_value_os_t = paths::default_inbox())]
-    inbox: PathBuf,
+    /// Directory where received LocalSend v2 files are stored. Overrides [localsend].inbox_dir.
+    #[arg(long)]
+    inbox: Option<PathBuf>,
 
     /// Disable the LocalSend v2 receiver and LAN discovery announcer.
     #[arg(long = "disable-localsend-v2")]
@@ -843,7 +843,7 @@ mod tests {
 
         assert_eq!(args.localsend_port, 53317);
         assert_eq!(args.alias, default_alias());
-        assert_eq!(args.inbox, paths::default_inbox());
+        assert_eq!(args.inbox, None);
         assert!(!args.disable_localsend_v2);
         assert_eq!(args.localsend_receive_policy, None);
         assert!(args.trusted_localsend_fingerprint.is_empty());
@@ -886,7 +886,7 @@ mod tests {
 
         assert_eq!(args.localsend_port, 4444);
         assert_eq!(args.alias, "workstation");
-        assert_eq!(args.inbox, PathBuf::from("/tmp/lsi-inbox"));
+        assert_eq!(args.inbox, Some(PathBuf::from("/tmp/lsi-inbox")));
         assert_eq!(args.localsend_receive_policy, Some(LocalSendReceivePolicyArg::Trusted));
         assert_eq!(args.trusted_localsend_fingerprint, vec!["ios-fingerprint"]);
         assert!(args.disable_localsend_v2);
@@ -896,6 +896,7 @@ mod tests {
     fn localsend_receive_policy_prefers_arg_over_config() {
         let mut config = LocalSendConfig {
             receive_policy: "trusted".to_string(),
+            inbox_dir: None,
             trusted_fingerprints: Vec::new(),
             trusted_fingerprints_file: None,
         };
