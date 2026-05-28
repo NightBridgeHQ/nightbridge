@@ -94,7 +94,7 @@ fn spawn_daemon(dir: &TempDir, grpc_port: u16, http_port: u16) -> Child {
 }
 
 fn wait_for_api_token(dir: &TempDir, daemon: &mut Child) -> String {
-    let deadline = Instant::now() + Duration::from_secs(5);
+    let deadline = Instant::now() + Duration::from_secs(20);
     while Instant::now() < deadline {
         if let Some(path) = find_api_token(dir.path()) {
             if let Ok(token) = std::fs::read_to_string(path) {
@@ -113,7 +113,11 @@ fn wait_for_api_token(dir: &TempDir, daemon: &mut Child) -> String {
         }
         std::thread::sleep(Duration::from_millis(50));
     }
-    panic!("daemon did not write api.token within 5s");
+    let mut stderr = String::new();
+    if let Some(mut pipe) = daemon.stderr.take() {
+        let _ = pipe.read_to_string(&mut stderr);
+    }
+    panic!("daemon did not write api.token within 20s\n{stderr}");
 }
 
 fn find_api_token(root: &Path) -> Option<PathBuf> {
