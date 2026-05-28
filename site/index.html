@@ -36,6 +36,7 @@
       <nav class="site-nav" aria-label="Primary">
         <a href="#try-alpha">Try alpha</a>
         <a href="#service">Service</a>
+        <a href="#technical">Technical</a>
         <a href="#status">Status</a>
         <a href="#evidence">Evidence</a>
         <a href="https://github.com/NightBridgeHQ/nightbridge">GitHub</a>
@@ -135,22 +136,25 @@ night-bridge peers approve-local-send &lt;fingerprint&gt; \
           <h2>The installer does not configure startup.</h2>
           <p>
             The curl installer only places binaries on disk. For an
-            always-on host, install the daemon as a systemd service and allow
-            the LocalSend ports through the LAN firewall.
+            always-on Linux host, install the daemon as a systemd service and
+            allow the LocalSend ports through the LAN firewall. macOS can run
+            the same daemon directly; Windows is not wired into the curl
+            installer for this alpha.
           </p>
         </div>
 
         <div class="service-grid">
           <article class="service-panel">
-            <h3>Install to a user-owned directory</h3>
+            <h3>Linux and macOS install</h3>
             <pre><code>mkdir -p "$HOME/.local/bin"
 curl -fsSL https://raw.githubusercontent.com/NightBridgeHQ/nightbridge/main/install.sh | \
   sh -s -- --version 26.5.0-alpha \
   --install-dir "$HOME/.local/bin"</code></pre>
+            <p class="note">The curl installer supports Linux and macOS release tarballs.</p>
           </article>
 
           <article class="service-panel">
-            <h3>Minimal systemd unit</h3>
+            <h3>Linux systemd unit</h3>
             <pre><code>sudo tee /etc/systemd/system/night-bridge.service &gt;/dev/null &lt;&lt;'EOF'
 [Unit]
 Description=NightBridge daemon
@@ -180,6 +184,24 @@ sudo systemctl enable --now night-bridge.service</code></pre>
           </article>
 
           <article class="service-panel">
+            <h3>macOS run-direct alpha path</h3>
+            <pre><code>mkdir -p "$HOME/NightBridgeInbox"
+"$HOME/.local/bin/night-bridge-daemon" \
+  --alias "Mac Server" \
+  --localsend-receive-policy trusted \
+  --inbox "$HOME/NightBridgeInbox"</code></pre>
+            <p class="note">A LaunchAgent can keep it running, but the alpha site keeps macOS startup explicit for now.</p>
+          </article>
+
+          <article class="service-panel">
+            <h3>Windows alpha status</h3>
+            <pre><code># Windows native install is not in install.sh yet.
+# For this alpha, use WSL/Linux or build from source.
+cargo build --release -p lsi-cli -p lsi-daemon -p lsi-tui</code></pre>
+            <p class="note">Windows CI build and tests are green, but polished Windows packaging is still pre-release work.</p>
+          </article>
+
+          <article class="service-panel">
             <h3>LAN firewall ports</h3>
             <pre><code>sudo ufw allow from 10.0.0.0/8 to any port 53317 proto tcp
 sudo ufw allow from 10.0.0.0/8 to any port 53317 proto udp
@@ -192,6 +214,87 @@ sudo ufw allow from 10.0.0.0/8 to any port 53400 proto udp</code></pre>
             <pre><code>systemctl status night-bridge.service
 journalctl -u night-bridge.service -f
 curl -k https://127.0.0.1:53317/api/localsend/v2/info</code></pre>
+            <p class="note">On macOS, use the same <code>curl -k</code> check against the daemon process you started.</p>
+          </article>
+        </div>
+      </section>
+
+      <section id="technical" class="section technical-docs">
+        <div class="section-heading">
+          <p class="eyebrow">Technical alpha notes</p>
+          <h2>Commands and ports alpha testers will actually need.</h2>
+          <p>
+            NightBridge has two transfer surfaces in this alpha:
+            LocalSend-compatible receive for official apps, and Native Mesh
+            LAN for trusted NightBridge daemons.
+          </p>
+        </div>
+
+        <div class="technical-grid">
+          <article class="technical-panel">
+            <h3>Daemon parameters</h3>
+            <dl class="param-list">
+              <div>
+                <dt><code>--alias</code></dt>
+                <dd>Name shown to LocalSend and native peers.</dd>
+              </div>
+              <div>
+                <dt><code>--inbox</code></dt>
+                <dd>Directory where accepted LocalSend uploads land.</dd>
+              </div>
+              <div>
+                <dt><code>--localsend-port</code></dt>
+                <dd>HTTPS receive port for LocalSend v2. Default: <code>53317</code>.</dd>
+              </div>
+              <div>
+                <dt><code>--localsend-receive-policy</code></dt>
+                <dd><code>prompt</code>, <code>trusted</code>, or <code>auto</code>. Use <code>trusted</code> for normal alpha testing.</dd>
+              </div>
+              <div>
+                <dt><code>--native-port</code></dt>
+                <dd>Native QUIC receive port. Default: <code>53400/udp</code>.</dd>
+              </div>
+              <div>
+                <dt><code>--api-grpc-port</code></dt>
+                <dd>Loopback CLI API port. Default: <code>53500</code>.</dd>
+              </div>
+            </dl>
+          </article>
+
+          <article class="technical-panel">
+            <h3>LocalSend operations</h3>
+            <pre><code>night-bridge peers pending-local-send
+night-bridge peers approve-local-send &lt;fingerprint&gt; \
+  --label "Phone"
+night-bridge send --peer "Phone" ./file.zip</code></pre>
+            <p class="note">
+              First attempts from unknown LocalSend apps are rejected and
+              recorded as pending when the daemon runs in trusted mode.
+            </p>
+          </article>
+
+          <article class="technical-panel">
+            <h3>Native Mesh LAN preview</h3>
+            <pre><code>night-bridge peers list-native
+night-bridge peers approve-native &lt;alias-or-fingerprint&gt; \
+  --label "Home NAS"
+night-bridge send --native --peer "Home NAS" ./file.zip</code></pre>
+            <p class="note">
+              Native Mesh is NightBridge-to-NightBridge over LAN QUIC with
+              pinned peer identity. Allow <code>53400/udp</code> between trusted
+              hosts.
+            </p>
+          </article>
+
+          <article class="technical-panel">
+            <h3>Reference docs</h3>
+            <ul class="doc-links">
+              <li><a href="https://github.com/NightBridgeHQ/nightbridge/blob/main/docs/users/quickstart.md">Quickstart</a></li>
+              <li><a href="https://github.com/NightBridgeHQ/nightbridge/blob/main/docs/operators/daemon.md">Daemon operations</a></li>
+              <li><a href="https://github.com/NightBridgeHQ/nightbridge/blob/main/docs/users/migration-from-localsend.md">Migration from LocalSend</a></li>
+              <li><a href="https://github.com/NightBridgeHQ/nightbridge/blob/main/docs/release/26.5-notes.md">26.5 alpha notes</a></li>
+              <li><a href="https://github.com/NightBridgeHQ/nightbridge/blob/main/docs/interop/localsend-matrix.md">LocalSend interop matrix</a></li>
+            </ul>
           </article>
         </div>
       </section>

@@ -358,6 +358,7 @@ pre code {
 .steps-grid,
 .status-grid,
 .service-grid,
+.technical-grid,
 .evidence-list {
   display: grid;
   gap: 1rem;
@@ -375,8 +376,13 @@ pre code {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
+.technical-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
 .step-panel,
 .service-panel,
+.technical-panel,
 .status-panel,
 .evidence-list article {
   border: 1px solid var(--color-border);
@@ -398,6 +404,7 @@ pre code {
 
 .step-panel h3,
 .service-panel h3,
+.technical-panel h3,
 .status-panel h3,
 .evidence-list h3 {
   margin: 1rem 0 0;
@@ -407,14 +414,45 @@ pre code {
 
 .step-panel p,
 .service-panel p,
+.technical-panel p,
 .status-panel p,
 .evidence-list p {
   margin: 0.65rem 0 0;
   color: var(--color-muted);
 }
 
-.service-panel h3 {
+.service-panel h3,
+.technical-panel h3 {
   margin-top: 0;
+}
+
+.param-list {
+  display: grid;
+  gap: 0.8rem;
+  margin: 1rem 0 0;
+}
+
+.param-list div {
+  display: grid;
+  grid-template-columns: minmax(9rem, 0.32fr) minmax(0, 1fr);
+  gap: 0.85rem;
+  align-items: start;
+}
+
+.param-list dt,
+.param-list dd {
+  margin: 0;
+}
+
+.param-list dd {
+  color: var(--color-muted);
+}
+
+.doc-links {
+  display: grid;
+  gap: 0.65rem;
+  margin: 1rem 0 0;
+  padding-left: 1.1rem;
 }
 
 .note {
@@ -504,6 +542,7 @@ pre code {
   .hero,
   .steps-grid,
   .service-grid,
+  .technical-grid,
   .status-grid,
   .evidence-list {
     grid-template-columns: 1fr;
@@ -567,5 +606,10 @@ pre code {
 
   .status-grid {
     grid-template-columns: 1fr;
+  }
+
+  .param-list div {
+    grid-template-columns: 1fr;
+    gap: 0.25rem;
   }
 }
