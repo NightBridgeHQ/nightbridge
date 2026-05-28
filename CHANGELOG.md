@@ -92,6 +92,8 @@ This project follows the spirit of [Keep a Changelog](https://keepachangelog.com
 
 - LocalSend LAN discovery builds in final preflight by enabling the `socket2`
   feature required for multicast `SO_REUSEPORT` setup on Unix hosts.
+- Docker release builds use the pinned Rust 1.93.1 toolchain instead of a
+  floating `stable` compiler.
 
 ### Known Limitations
 

@@ -12,7 +12,8 @@ Current local release candidate:
 
 - Branch: `main`
 - Commit: pending final commit; current checkout is based on `e10ade9` plus
-  release evidence updates and a `socket2` release-blocker fix
+  release evidence updates, a `socket2` release-blocker fix, and a Rust 1.93.1
+  toolchain pin for Docker release builds
 - Status: long native soak, post-refresh delta soak, and final preflight passed
 - Gate: regenerate release artifacts from the release commit and smoke the
   final artifacts before tagging
