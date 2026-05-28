@@ -13,6 +13,7 @@ Attach these files to the GitHub release tagged `26.5.0-alpha`:
 - `night-bridge-daemon_26.5.0-1_amd64.deb`
 - `SHA256SUMS`
 - `sbom.cdx.json`
+- `install.sh`
 
 Each tarball contains the validated binaries available for that platform:
 

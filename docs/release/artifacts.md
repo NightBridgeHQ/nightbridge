@@ -186,3 +186,21 @@ Final Debian package and systemd smoke:
 - Evidence logs:
   - `/home/serveradmin/nightbridge-release/05af10d/target/release-evidence/systemd-deb/build-26.5.0.log`
   - `/home/serveradmin/nightbridge-release/05af10d/target/release-evidence/systemd-deb/install-systemd-26.5.0.log`
+
+Final GitHub release and installer smoke:
+
+- Date: 2026-05-28
+- Tag: `26.5.0-alpha`
+- URL: `https://github.com/NightBridgeHQ/nightbridge/releases/tag/26.5.0-alpha`
+- Release type: pre-release
+- Uploaded assets:
+  - `nightbridge-26.5.0-alpha-linux-amd64.tar.gz`
+  - `nightbridge-26.5.0-alpha-linux-arm64.tar.gz`
+  - `nightbridge-26.5.0-alpha-macos-arm64.tar.gz`
+  - `night-bridge-daemon_26.5.0-1_amd64.deb`
+  - `SHA256SUMS`
+  - `sbom.cdx.json`
+  - `install.sh`
+- Installer smoke: PASS on 2026-05-28T07:02:15Z using the public
+  `raw.githubusercontent.com/NightBridgeHQ/nightbridge/main/install.sh`
+  command with `--version 26.5.0-alpha`.

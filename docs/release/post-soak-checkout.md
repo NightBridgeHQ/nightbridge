@@ -219,7 +219,11 @@ the local tag points at the intended release commit.
 
 ## 9. Publish GitHub Release Assets
 
-Create or update the GitHub release tagged `26.5.0-alpha` and attach:
+Created GitHub pre-release:
+
+- URL: `https://github.com/NightBridgeHQ/nightbridge/releases/tag/26.5.0-alpha`
+- Result: PASS
+- Uploaded assets:
 
 - `nightbridge-26.5.0-alpha-linux-amd64.tar.gz`
 - `nightbridge-26.5.0-alpha-linux-arm64.tar.gz`
@@ -229,7 +233,7 @@ Create or update the GitHub release tagged `26.5.0-alpha` and attach:
 - `sbom.cdx.json`
 - `install.sh`
 
-Then verify the curl installer against the published release:
+Verified the curl installer against the published release:
 
 ```bash
 tmp_home="$(mktemp -d)"
@@ -241,3 +245,12 @@ rm -rf "${tmp_home}"
 
 Record the release URL, uploaded asset list, installer command, and installer
 smoke result in `docs/release/26.5-notes.md`.
+
+Installer smoke result:
+
+- Start: `2026-05-28T07:02:13Z`
+- Finish: `2026-05-28T07:02:15Z`
+- Result: PASS
+- Evidence: `nightbridge-26.5.0-alpha-macos-arm64.tar.gz: OK`,
+  four binaries installed to a temporary directory, and
+  `night-bridge --help` ran successfully.
