@@ -14,6 +14,7 @@ use tempfile::TempDir;
 
 fn set_isolated_dirs_assert(cmd: &mut Command, dir: &TempDir) {
     let root = dir.path().to_path_buf();
+    create_isolated_dirs(&root);
     cmd.env("XDG_CONFIG_HOME", root.join("config"));
     cmd.env("XDG_DATA_HOME", root.join("data"));
     cmd.env("HOME", &root);
@@ -24,12 +25,20 @@ fn set_isolated_dirs_assert(cmd: &mut Command, dir: &TempDir) {
 
 fn set_isolated_dirs_process(cmd: &mut std::process::Command, dir: &TempDir) {
     let root = dir.path().to_path_buf();
+    create_isolated_dirs(&root);
     cmd.env("XDG_CONFIG_HOME", root.join("config"));
     cmd.env("XDG_DATA_HOME", root.join("data"));
     cmd.env("HOME", &root);
     cmd.env("USERPROFILE", &root);
     cmd.env("APPDATA", root.join("AppData/Roaming"));
     cmd.env("LOCALAPPDATA", root.join("AppData/Local"));
+}
+
+fn create_isolated_dirs(root: &Path) {
+    let _ = std::fs::create_dir_all(root.join("config"));
+    let _ = std::fs::create_dir_all(root.join("data"));
+    let _ = std::fs::create_dir_all(root.join("AppData/Roaming"));
+    let _ = std::fs::create_dir_all(root.join("AppData/Local"));
 }
 
 #[cfg_attr(windows, ignore = "daemon send E2E is not stable on Windows CI")]

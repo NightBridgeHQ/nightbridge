@@ -11,6 +11,10 @@ where
     C: EnvLike,
 {
     let root = dir.path().to_path_buf();
+    let _ = std::fs::create_dir_all(root.join("config"));
+    let _ = std::fs::create_dir_all(root.join("data"));
+    let _ = std::fs::create_dir_all(root.join("AppData/Roaming"));
+    let _ = std::fs::create_dir_all(root.join("AppData/Local"));
     cmd.env("XDG_CONFIG_HOME", root.join("config"));
     cmd.env("XDG_DATA_HOME", root.join("data"));
     cmd.env("HOME", &root);
