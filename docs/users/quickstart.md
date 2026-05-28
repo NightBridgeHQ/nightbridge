@@ -12,6 +12,24 @@ ecosystem without keeping the official desktop app open.
    cargo build --release -p lsi-daemon
    ```
 
+   The GHCR container preview is also available for testers:
+
+   ```bash
+   docker pull ghcr.io/nightbridgehq/nightbridge:develop
+   docker run --rm \
+     --network host \
+     -v nightbridge-data:/var/lib/night-bridge \
+     ghcr.io/nightbridgehq/nightbridge:develop \
+     --alias "NAS" \
+     --localsend-receive-policy trusted \
+     --inbox /var/lib/night-bridge/inbox
+   ```
+
+   Use host networking on Linux so LocalSend LAN discovery and native UDP
+   transfer ports are visible on the local network. The `develop` container tag
+   is a preview for testers; use release assets for the published alpha until a
+   versioned container tag is promoted.
+
 2. Configure the LocalSend receive policy.
 
    ```toml
@@ -66,13 +84,13 @@ controlled by the daemon policy above.
 Use an explicit LocalSend peer URL when discovery is not wired into your flow:
 
 ```bash
-night-bridge send --direct --url http://192.168.1.20:53317 ./photo.jpg
+night-bridge send --direct --url http://<peer-lan-ip>:53317 ./photo.jpg
 ```
 
 For daemon-mediated sends:
 
 ```bash
-night-bridge send --url http://192.168.1.20:53317 ./photo.jpg
+night-bridge send --url http://<peer-lan-ip>:53317 ./photo.jpg
 ```
 
 Native direct sends are separate from LocalSend compatibility and require

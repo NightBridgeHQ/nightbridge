@@ -180,11 +180,11 @@ mod tests {
             native_port: Some(53400),
             pending_localsend_peers: vec![LocalSendPeer {
                 fingerprint: "ios-fingerprint".to_string(),
-                alias: "Diego iPhone".to_string(),
+                alias: "iOS Test Device".to_string(),
                 label: None,
                 status: "pending".to_string(),
                 attempt_count: 2,
-                source_ip: Some("10.16.20.53".to_string()),
+                source_ip: Some("192.0.2.53".to_string()),
             }],
             ..AppState::default()
         };
@@ -195,7 +195,7 @@ mod tests {
 
         let rendered = format!("{:?}", terminal.backend().buffer());
         assert!(rendered.contains("LocalSend"), "{rendered}");
-        assert!(rendered.contains("Diego iPhone"), "{rendered}");
+        assert!(rendered.contains("iOS Test Device"), "{rendered}");
         assert!(rendered.contains("pending"), "{rendered}");
         assert!(!rendered.contains("native"), "{rendered}");
         assert!(!rendered.contains("QUIC"), "{rendered}");

@@ -18,11 +18,11 @@ Current local release candidate:
 
 ## 1. Confirm Soak Completion
 
-Read the soak session on `camelia`:
+Read the soak session on a representative soak host:
 
 ```bash
-ssh camelia 'sudo -n -u serveradmin sh -lc '"'"'
-  cd /home/serveradmin/nightbridge-release/d46c64a
+ssh soak-host 'sudo -n -u nightbridge sh -lc '"'"'
+  cd ~/nightbridge-release/<commit>
   tail -40 target/soak/evidence/soak-session.log
   find target/soak/evidence -maxdepth 1 -name "native-soak-*.log" | wc -l
   grep -nEi "fail|error|panic|aborted|SIG|timeout|killed" \
@@ -45,11 +45,11 @@ evidence, but do not treat it as the only final soak evidence for the refreshed
 binary. A shorter delta soak covered the updated TLS, HTTP, URL, and time
 dependency stack.
 
-Delta soak evidence on `camelia`:
+Delta soak evidence on a representative soak host:
 
 ```bash
-ssh camelia 'sudo -n -u serveradmin sh -lc '"'"'
-  cd /home/serveradmin/nightbridge-release/e10ade9
+ssh soak-host 'sudo -n -u nightbridge sh -lc '"'"'
+  cd ~/nightbridge-release/<commit>
   tail -40 target/soak/evidence/delta-soak-session.log
   find target/soak/evidence -maxdepth 1 -name "delta-native-soak-*.log" | wc -l
   tail -20 target/soak/evidence/delta-native-soak-928.log
@@ -63,7 +63,7 @@ Recorded in `docs/release/26.5-notes.md`:
 - release commit: `e10ade9`
 - completed runs: `928`
 - result: PASS
-- evidence path: `/home/serveradmin/nightbridge-release/e10ade9/target/soak/evidence/`
+- evidence path: `~/nightbridge-release/<commit>/target/soak/evidence/`
 
 ## 3. Freeze The Release Commit
 
@@ -122,19 +122,20 @@ Recorded final artifact evidence:
   - `SHA256SUMS`
   - `sbom.cdx.json`
 
-Linux `amd64` was built on `zelda`. Linux `arm64` was built in Colima
-`aarch64` with `CARGO_BUILD_JOBS=1` and copied into the final local asset set
-before rerunning `packaging/release/checksums.sh`.
+Linux `amd64` was built on a representative Ubuntu package host. Linux `arm64`
+was built in Colima `aarch64` with `CARGO_BUILD_JOBS=1` and copied into the
+final local asset set before rerunning `packaging/release/checksums.sh`.
 
 ## 6. Run Final Docker Smoke
 
-On `link`, build and smoke the final release tag from the release commit:
+On a representative Docker host, build and smoke the final release tag from the
+release commit:
 
 ```bash
 release_commit="$(git rev-parse --short HEAD)"
-ssh link "mkdir -p ~/nightbridge-release/${release_commit}"
-rsync -a --delete --exclude target . link:~/nightbridge-release/${release_commit}/
-ssh link "cd ~/nightbridge-release/${release_commit} && \
+ssh docker-host "mkdir -p ~/nightbridge-release/${release_commit}"
+rsync -a --delete --exclude target . docker-host:~/nightbridge-release/${release_commit}/
+ssh docker-host "cd ~/nightbridge-release/${release_commit} && \
   mkdir -p target/release-evidence/docker && \
   NIGHTBRIDGE_DOCKER_IMAGE=night-bridge:26.5.0 \
   bash packaging/docker/smoke.sh 2>&1 | tee target/release-evidence/docker/smoke-26.5.0.log && \
@@ -143,34 +144,36 @@ ssh link "cd ~/nightbridge-release/${release_commit} && \
 
 Recorded final Docker smoke evidence:
 
-- Host: `link` (`10.16.20.130`)
+- Host: a representative Ubuntu Docker host
 - Image tag: `night-bridge:26.5.0`
 - Image ID:
   `sha256:1a53e8b3e133342aa1d2f8186366e33716026f5ef9b35728582ec04924c25239`
 - Image size: `43690136`
 - Result: PASS
 - Evidence log:
-  `/home/serveradmin/nightbridge-release/05af10d/target/release-evidence/docker/smoke-26.5.0.log`
+  `~/nightbridge-release/<commit>/target/release-evidence/docker/smoke-26.5.0.log`
 
 ## 7. Run Final DEB And systemd Smoke
 
-On `zelda`, build the final Debian package and run the systemd smoke:
+On a representative systemd host, build the final Debian package and run the
+systemd smoke:
 
 ```bash
 release_commit="$(git rev-parse --short HEAD)"
-ssh zelda "mkdir -p ~/nightbridge-release/${release_commit}"
-rsync -a --delete --exclude target . zelda:~/nightbridge-release/${release_commit}/
-ssh zelda "cd ~/nightbridge-release/${release_commit} && \
+ssh systemd-host "mkdir -p ~/nightbridge-release/${release_commit}"
+rsync -a --delete --exclude target . systemd-host:~/nightbridge-release/${release_commit}/
+ssh systemd-host "cd ~/nightbridge-release/${release_commit} && \
   . ~/.cargo/env && \
   mkdir -p target/release-evidence/systemd-deb && \
   bash packaging/build-packages.sh --deb-only 2>&1 | tee target/release-evidence/systemd-deb/build-26.5.0.log"
 ```
 
-Then install and validate the generated package on `zelda`:
+Then install and validate the generated package on the representative systemd
+host:
 
 ```bash
 release_commit="$(git rev-parse --short HEAD)"
-ssh zelda "cd ~/nightbridge-release/${release_commit} && \
+ssh systemd-host "cd ~/nightbridge-release/${release_commit} && \
   { sudo dpkg -i target/debian/night-bridge-daemon_26.5.0-1_amd64.deb && \
     sudo systemd-analyze verify /lib/systemd/system/night-bridge.service && \
     sudo systemctl start night-bridge.service && \
@@ -186,15 +189,15 @@ direct `.deb` download is covered by `SHA256SUMS`.
 
 Recorded final DEB and systemd smoke evidence:
 
-- Host: `zelda` (`10.16.20.129`)
+- Host: a representative Ubuntu systemd host
 - Package:
-  `/home/serveradmin/nightbridge-release/05af10d/target/debian/night-bridge-daemon_26.5.0-1_amd64.deb`
+  `~/nightbridge-release/<commit>/target/debian/night-bridge-daemon_26.5.0-1_amd64.deb`
 - Package size: `4508660`
 - Service status: `active`
 - `/healthz`: PASS on retry attempt 2 after restart
 - Evidence logs:
-  - `/home/serveradmin/nightbridge-release/05af10d/target/release-evidence/systemd-deb/build-26.5.0.log`
-  - `/home/serveradmin/nightbridge-release/05af10d/target/release-evidence/systemd-deb/install-systemd-26.5.0.log`
+  - `~/nightbridge-release/<commit>/target/release-evidence/systemd-deb/build-26.5.0.log`
+  - `~/nightbridge-release/<commit>/target/release-evidence/systemd-deb/install-systemd-26.5.0.log`
 
 ## 8. Update Release Notes And Tag
 

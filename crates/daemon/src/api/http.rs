@@ -777,7 +777,7 @@ mod tests {
         let fixture = HttpFixture::start().await;
         TrustStore::open(&fixture.state.trust_db_path)
             .unwrap()
-            .record_pending_localsend_peer("AA:BB", "Diego iPhone", Some("10.16.20.53"))
+            .record_pending_localsend_peer("AA:BB", "iOS Test Device", Some("192.0.2.53"))
             .unwrap();
         let client = reqwest::Client::new();
 
