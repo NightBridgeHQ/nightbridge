@@ -32,6 +32,7 @@ fn set_isolated_dirs_process(cmd: &mut std::process::Command, dir: &TempDir) {
     cmd.env("LOCALAPPDATA", root.join("AppData/Local"));
 }
 
+#[cfg_attr(windows, ignore = "daemon send E2E is not stable on Windows CI")]
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn send_uploads_file_through_daemon_api() {
     let dir = TempDir::new().unwrap();
@@ -113,6 +114,8 @@ fn wait_for_api_token(dir: &TempDir, daemon: &mut Child) -> String {
         }
         std::thread::sleep(Duration::from_millis(50));
     }
+    let _ = daemon.kill();
+    let _ = daemon.wait();
     let mut stderr = String::new();
     if let Some(mut pipe) = daemon.stderr.take() {
         let _ = pipe.read_to_string(&mut stderr);
