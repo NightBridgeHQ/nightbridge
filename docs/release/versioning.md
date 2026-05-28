@@ -22,7 +22,7 @@ owner is ready to:
 
 ## Current Release Blockers
 
-NightBridge `26.5.0` must not be tagged until:
+NightBridge `26.5.0-alpha` must not be tagged until:
 
 - final `scripts/preflight-26.5.sh` evidence passes on the release commit and
   is attached to the release notes

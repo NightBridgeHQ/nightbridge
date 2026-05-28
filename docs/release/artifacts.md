@@ -138,17 +138,17 @@ Final 26.5 artifact generation:
 - Artifact source commit: `05af10d`
 - Directory: `/private/tmp/nightbridge-dist-05af10d-macos-arm64`
 - Assets:
-  - `nightbridge-26.5.0-macos-arm64.tar.gz`
-  - `nightbridge-26.5.0-linux-amd64.tar.gz`
-  - `nightbridge-26.5.0-linux-arm64.tar.gz`
+  - `nightbridge-26.5.0-alpha-macos-arm64.tar.gz`
+  - `nightbridge-26.5.0-alpha-linux-amd64.tar.gz`
+  - `nightbridge-26.5.0-alpha-linux-arm64.tar.gz`
   - `night-bridge-daemon_26.5.0-1_amd64.deb`
   - `SHA256SUMS`
   - `sbom.cdx.json`
 - SHA-256:
   - `0d70428b7c403c32a56a7f0763ec33d98d17517719705589fefe320cb9f9a977  night-bridge-daemon_26.5.0-1_amd64.deb`
-  - `8b7791ba284333055f987a7cabe3880ddf1b6e59f0bedb2d3886d5bcb6d0d5a8  nightbridge-26.5.0-linux-amd64.tar.gz`
-  - `85cc9f6bddffb7ef35a37bc7a8767989af2b57f91db135727640f8a37b166148  nightbridge-26.5.0-linux-arm64.tar.gz`
-  - `6c4909938353fd548d13c1feab6db07a500b6ba32dca2728d453d2f820b84860  nightbridge-26.5.0-macos-arm64.tar.gz`
+  - `8b7791ba284333055f987a7cabe3880ddf1b6e59f0bedb2d3886d5bcb6d0d5a8  nightbridge-26.5.0-alpha-linux-amd64.tar.gz`
+  - `85cc9f6bddffb7ef35a37bc7a8767989af2b57f91db135727640f8a37b166148  nightbridge-26.5.0-alpha-linux-arm64.tar.gz`
+  - `6c4909938353fd548d13c1feab6db07a500b6ba32dca2728d453d2f820b84860  nightbridge-26.5.0-alpha-macos-arm64.tar.gz`
   - `13bd095e125e2519a3e0db159adc2671ff601b324da60601a08806a4be6a41d1  sbom.cdx.json`
 - Result: PASS; `shasum -a 256 -c SHA256SUMS` verified every listed asset
 - Notes: `sbom.cdx.json` is the fallback minimal CycloneDX output from

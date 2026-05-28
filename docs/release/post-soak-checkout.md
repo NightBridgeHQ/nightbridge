@@ -1,7 +1,7 @@
 # Post-Soak Release Checkout
 
 Use this checklist after the current 7-day native soak completes and before
-tagging NightBridge `26.5.0`. It is intentionally limited to release closure
+tagging NightBridge `26.5.0-alpha`. It is intentionally limited to release closure
 work. NightBridge `26.5.0` is in pre-release closure: do not add alpha features
 during this pass. Limit changes to bug fixes, release-blocker fixes, security
 fixes, documentation corrections, packaging/release evidence improvements, and
@@ -116,9 +116,9 @@ Recorded final artifact evidence:
 - Source commit: `05af10d`
 - Result: PASS; `shasum -a 256 -c SHA256SUMS` verified every listed asset
 - Assets:
-  - `nightbridge-26.5.0-macos-arm64.tar.gz`
-  - `nightbridge-26.5.0-linux-amd64.tar.gz`
-  - `nightbridge-26.5.0-linux-arm64.tar.gz`
+  - `nightbridge-26.5.0-alpha-macos-arm64.tar.gz`
+  - `nightbridge-26.5.0-alpha-linux-amd64.tar.gz`
+  - `nightbridge-26.5.0-alpha-linux-arm64.tar.gz`
   - `night-bridge-daemon_26.5.0-1_amd64.deb`
   - `SHA256SUMS`
   - `sbom.cdx.json`
@@ -211,7 +211,7 @@ Only tag after all blockers in `docs/release/versioning.md` are closed or
 explicitly scoped out:
 
 ```bash
-git tag -a 26.5.0 -m "NightBridge 26.5.0"
+git tag -a 26.5.0-alpha -m "NightBridge 26.5.0 alpha"
 ```
 
 Do not push the tag until the release notes contain final evidence paths and
@@ -219,11 +219,11 @@ the local tag points at the intended release commit.
 
 ## 9. Publish GitHub Release Assets
 
-Create or update the GitHub release tagged `26.5.0` and attach:
+Create or update the GitHub release tagged `26.5.0-alpha` and attach:
 
-- `nightbridge-26.5.0-linux-amd64.tar.gz`
-- `nightbridge-26.5.0-linux-arm64.tar.gz`
-- `nightbridge-26.5.0-macos-arm64.tar.gz`
+- `nightbridge-26.5.0-alpha-linux-amd64.tar.gz`
+- `nightbridge-26.5.0-alpha-linux-arm64.tar.gz`
+- `nightbridge-26.5.0-alpha-macos-arm64.tar.gz`
 - `night-bridge-daemon_26.5.0-1_amd64.deb`
 - `SHA256SUMS`
 - `sbom.cdx.json`
@@ -234,7 +234,7 @@ Then verify the curl installer against the published release:
 ```bash
 tmp_home="$(mktemp -d)"
 curl -fsSL https://raw.githubusercontent.com/NightBridgeHQ/nightbridge/main/install.sh | \
-  sh -s -- --version 26.5.0 --install-dir "${tmp_home}/bin"
+  sh -s -- --version 26.5.0-alpha --install-dir "${tmp_home}/bin"
 "${tmp_home}/bin/night-bridge" --help
 rm -rf "${tmp_home}"
 ```

@@ -5,11 +5,11 @@ APT repositories, PPAs, Homebrew taps, and platform app stores are deferred.
 
 ## Release Assets
 
-Attach these files to the GitHub release tagged `26.5.0`:
+Attach these files to the GitHub release tagged `26.5.0-alpha`:
 
-- `nightbridge-26.5.0-linux-amd64.tar.gz`
-- `nightbridge-26.5.0-linux-arm64.tar.gz`
-- `nightbridge-26.5.0-macos-arm64.tar.gz`
+- `nightbridge-26.5.0-alpha-linux-amd64.tar.gz`
+- `nightbridge-26.5.0-alpha-linux-arm64.tar.gz`
+- `nightbridge-26.5.0-alpha-macos-arm64.tar.gz`
 - `night-bridge-daemon_26.5.0-1_amd64.deb`
 - `SHA256SUMS`
 - `sbom.cdx.json`
@@ -38,7 +38,7 @@ PPA repository setup are explicitly deferred.
 Install the Debian package manually with:
 
 ```bash
-curl -fLO https://github.com/NightBridgeHQ/nightbridge/releases/download/26.5.0/night-bridge-daemon_26.5.0-1_amd64.deb
+curl -fLO https://github.com/NightBridgeHQ/nightbridge/releases/download/26.5.0-alpha/night-bridge-daemon_26.5.0-1_amd64.deb
 sudo apt install ./night-bridge-daemon_26.5.0-1_amd64.deb
 ```
 
@@ -54,14 +54,14 @@ curl -fsSL https://raw.githubusercontent.com/NightBridgeHQ/nightbridge/main/inst
 For a pinned release:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/NightBridgeHQ/nightbridge/main/install.sh | sh -s -- --version 26.5.0
+curl -fsSL https://raw.githubusercontent.com/NightBridgeHQ/nightbridge/main/install.sh | sh -s -- --version 26.5.0-alpha
 ```
 
 For a different repository or install directory:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/NightBridgeHQ/nightbridge/main/install.sh | \
-  sh -s -- --repo NightBridgeHQ/nightbridge --version 26.5.0 --install-dir "$HOME/.local/bin"
+  sh -s -- --repo NightBridgeHQ/nightbridge --version 26.5.0-alpha --install-dir "$HOME/.local/bin"
 ```
 
 ## Trust Boundary
@@ -78,8 +78,8 @@ Users who do not want `curl | sh` can download the same tarball and verify it
 manually:
 
 ```bash
-curl -fLO https://github.com/NightBridgeHQ/nightbridge/releases/download/26.5.0/nightbridge-26.5.0-linux-amd64.tar.gz
-curl -fLO https://github.com/NightBridgeHQ/nightbridge/releases/download/26.5.0/SHA256SUMS
-grep '  nightbridge-26.5.0-linux-amd64.tar.gz$' SHA256SUMS | shasum -a 256 -c -
-tar -xzf nightbridge-26.5.0-linux-amd64.tar.gz
+curl -fLO https://github.com/NightBridgeHQ/nightbridge/releases/download/26.5.0-alpha/nightbridge-26.5.0-alpha-linux-amd64.tar.gz
+curl -fLO https://github.com/NightBridgeHQ/nightbridge/releases/download/26.5.0-alpha/SHA256SUMS
+grep '  nightbridge-26.5.0-alpha-linux-amd64.tar.gz$' SHA256SUMS | shasum -a 256 -c -
+tar -xzf nightbridge-26.5.0-alpha-linux-amd64.tar.gz
 ```
