@@ -19,6 +19,15 @@ env:
     -p lsi-tui
     -p lsi-webui
     -p lsi-rendezvous
+  WINDOWS_PACKAGES: >-
+    -p lsi-core
+    -p lsi-proto
+    -p lsi-protocol-localsend-v2
+    -p lsi-protocol-native-v1
+    -p lsi-cli
+    -p lsi-tui
+    -p lsi-webui
+    -p lsi-rendezvous
 
 defaults:
   run:
@@ -69,7 +78,14 @@ jobs:
         shell: pwsh
         run: choco install protoc -y
       - uses: Swatinem/rust-cache@v2
-      - run: cargo test $HEADLESS_PACKAGES --all-features
+      - name: Select package set
+        run: |
+          if [[ "${{ runner.os }}" == "Windows" ]]; then
+            echo "PACKAGE_SET=$WINDOWS_PACKAGES" >> "$GITHUB_ENV"
+          else
+            echo "PACKAGE_SET=$HEADLESS_PACKAGES" >> "$GITHUB_ENV"
+          fi
+      - run: cargo test $PACKAGE_SET --all-features
 
   build:
     name: Build (${{ matrix.target }})
@@ -103,12 +119,19 @@ jobs:
         shell: pwsh
         run: choco install protoc -y
       - uses: Swatinem/rust-cache@v2
+      - name: Select package set
+        run: |
+          if [[ "${{ runner.os }}" == "Windows" ]]; then
+            echo "PACKAGE_SET=$WINDOWS_PACKAGES" >> "$GITHUB_ENV"
+          else
+            echo "PACKAGE_SET=$HEADLESS_PACKAGES" >> "$GITHUB_ENV"
+          fi
       - if: matrix.cross
         run: cargo install cross --locked
       - if: matrix.cross
-        run: cross build $HEADLESS_PACKAGES --release --target ${{ matrix.target }}
+        run: cross build $PACKAGE_SET --release --target ${{ matrix.target }}
       - if: '!matrix.cross'
-        run: cargo build $HEADLESS_PACKAGES --release --target ${{ matrix.target }}
+        run: cargo build $PACKAGE_SET --release --target ${{ matrix.target }}
 
   interop-localsend:
     name: LocalSend interop smoke
