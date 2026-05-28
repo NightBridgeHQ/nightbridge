@@ -19,7 +19,7 @@ are available.
 | Windows TUI binary | `night-bridge-tui.exe` | release workflow Rust build | Required |
 | GitHub release tarballs | `nightbridge-<version>-<os>-<arch>.tar.gz` | release workflow or local final `dist/` | Required for curl installer |
 | Tauri desktop bundles | platform-specific app bundle, installer, or archive | Tauri build job | Deferred for production 26.5; unsigned builds are pre-release only |
-| Docker image | `night-bridge:<version>` | Docker build job | Validated on Ubuntu host; final tag still required |
+| Docker image | `night-bridge:<version>` | Docker build job | Final `night-bridge:26.5.0` smoke passed on Ubuntu host |
 | Debian package | `.deb` | `packaging/build-packages.sh --deb-only` | Required as a GitHub release asset; no APT/PPA repo |
 | RPM package | `.rpm` | `packaging/build-packages.sh` | Deferred for 26.5 |
 | Checksums | `dist/SHA256SUMS` | `packaging/release/checksums.sh` | Always generated |
@@ -131,3 +131,58 @@ Current release-script rehearsal:
   `packaging/release/checksums.sh /private/tmp/nightbridge-dist-rehearsal-9f99bbd-macos-arm64`
 - Result: PASS; fallback CycloneDX SBOM and clean relative-path `SHA256SUMS`
   were generated, and `shasum -a 256 -c SHA256SUMS` verified every file
+
+Final 26.5 artifact generation:
+
+- Date: 2026-05-28
+- Artifact source commit: `05af10d`
+- Directory: `/private/tmp/nightbridge-dist-05af10d-macos-arm64`
+- Assets:
+  - `nightbridge-26.5.0-macos-arm64.tar.gz`
+  - `nightbridge-26.5.0-linux-amd64.tar.gz`
+  - `nightbridge-26.5.0-linux-arm64.tar.gz`
+  - `night-bridge-daemon_26.5.0-1_amd64.deb`
+  - `SHA256SUMS`
+  - `sbom.cdx.json`
+- SHA-256:
+  - `0d70428b7c403c32a56a7f0763ec33d98d17517719705589fefe320cb9f9a977  night-bridge-daemon_26.5.0-1_amd64.deb`
+  - `8b7791ba284333055f987a7cabe3880ddf1b6e59f0bedb2d3886d5bcb6d0d5a8  nightbridge-26.5.0-linux-amd64.tar.gz`
+  - `85cc9f6bddffb7ef35a37bc7a8767989af2b57f91db135727640f8a37b166148  nightbridge-26.5.0-linux-arm64.tar.gz`
+  - `6c4909938353fd548d13c1feab6db07a500b6ba32dca2728d453d2f820b84860  nightbridge-26.5.0-macos-arm64.tar.gz`
+  - `13bd095e125e2519a3e0db159adc2671ff601b324da60601a08806a4be6a41d1  sbom.cdx.json`
+- Result: PASS; `shasum -a 256 -c SHA256SUMS` verified every listed asset
+- Notes: `sbom.cdx.json` is the fallback minimal CycloneDX output from
+  `packaging/release/sbom.sh`.
+
+Final Docker smoke:
+
+- Date: 2026-05-28
+- Host: `link` (`10.16.20.130`)
+- Commit: `05af10d`
+- Docker server: `29.1.3`
+- Image: `night-bridge:26.5.0`
+- Image ID:
+  `sha256:1a53e8b3e133342aa1d2f8186366e33716026f5ef9b35728582ec04924c25239`
+- Image size: `43690136`
+- Command: `NIGHTBRIDGE_DOCKER_IMAGE=night-bridge:26.5.0 bash packaging/docker/smoke.sh`
+- Result: PASS
+- Evidence log:
+  `/home/serveradmin/nightbridge-release/05af10d/target/release-evidence/docker/smoke-26.5.0.log`
+
+Final Debian package and systemd smoke:
+
+- Date: 2026-05-28
+- Host: `zelda` (`10.16.20.129`)
+- Commit: `05af10d`
+- Package:
+  `/home/serveradmin/nightbridge-release/05af10d/target/debian/night-bridge-daemon_26.5.0-1_amd64.deb`
+- Package size: `4508660`
+- Package was copied into the final local release asset directory and covered
+  by `SHA256SUMS`.
+- Installed with `dpkg -i`, verified with `systemd-analyze verify`, restarted
+  with `systemctl restart night-bridge.service`, reported `active`, and
+  `/healthz` on `127.0.0.1:53501` passed on retry attempt 2.
+- Service was stopped after validation.
+- Evidence logs:
+  - `/home/serveradmin/nightbridge-release/05af10d/target/release-evidence/systemd-deb/build-26.5.0.log`
+  - `/home/serveradmin/nightbridge-release/05af10d/target/release-evidence/systemd-deb/install-systemd-26.5.0.log`

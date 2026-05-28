@@ -11,12 +11,11 @@ adding a new product surface.
 Current local release candidate:
 
 - Branch: `main`
-- Commit: pending final commit; current checkout is based on `e10ade9` plus
-  release evidence updates, a `socket2` release-blocker fix, and a Rust 1.93.1
-  toolchain pin for Docker release builds
-- Status: long native soak, post-refresh delta soak, and final preflight passed
-- Gate: regenerate release artifacts from the release commit and smoke the
-  final artifacts before tagging
+- Artifact source commit: `05af10d`
+- Status: long native soak, post-refresh delta soak, final preflight, final
+  artifact generation, Docker smoke, DEB build, and systemd smoke passed
+- Gate: publish GitHub release assets and smoke the installer against the
+  published release before broad distribution
 
 ## 1. Confirm Soak Completion
 
@@ -111,12 +110,22 @@ packaging/release/checksums.sh "${dist}"
 (cd "${dist}" && shasum -a 256 -c SHA256SUMS)
 ```
 
-Record the final `dist` path, artifact list, `SHA256SUMS`, and
-`sbom.cdx.json` status in `docs/release/26.5-notes.md`.
+Recorded final artifact evidence:
 
-Repeat the archive step on Linux release hosts for `linux-amd64` and
-`linux-arm64`, then copy those tarballs into the final GitHub release asset
-set and rerun `packaging/release/checksums.sh`.
+- Dist path: `/private/tmp/nightbridge-dist-05af10d-macos-arm64`
+- Source commit: `05af10d`
+- Result: PASS; `shasum -a 256 -c SHA256SUMS` verified every listed asset
+- Assets:
+  - `nightbridge-26.5.0-macos-arm64.tar.gz`
+  - `nightbridge-26.5.0-linux-amd64.tar.gz`
+  - `nightbridge-26.5.0-linux-arm64.tar.gz`
+  - `night-bridge-daemon_26.5.0-1_amd64.deb`
+  - `SHA256SUMS`
+  - `sbom.cdx.json`
+
+Linux `amd64` was built on `zelda`. Linux `arm64` was built in Colima
+`aarch64` with `CARGO_BUILD_JOBS=1` and copied into the final local asset set
+before rerunning `packaging/release/checksums.sh`.
 
 ## 6. Run Final Docker Smoke
 
@@ -133,7 +142,16 @@ ssh link "cd ~/nightbridge-release/${release_commit} && \
   docker image inspect night-bridge:26.5.0 --format '{{.Id}} {{.Size}}'"
 ```
 
-Record the image tag, image ID, image size, result, and evidence log.
+Recorded final Docker smoke evidence:
+
+- Host: `link` (`10.16.20.130`)
+- Image tag: `night-bridge:26.5.0`
+- Image ID:
+  `sha256:1a53e8b3e133342aa1d2f8186366e33716026f5ef9b35728582ec04924c25239`
+- Image size: `43690136`
+- Result: PASS
+- Evidence log:
+  `/home/serveradmin/nightbridge-release/05af10d/target/release-evidence/docker/smoke-26.5.0.log`
 
 ## 7. Run Final DEB And systemd Smoke
 
@@ -167,8 +185,17 @@ Copy `target/debian/night-bridge-daemon_26.5.0-1_amd64.deb` into the final
 GitHub release asset set and rerun `packaging/release/checksums.sh` so the
 direct `.deb` download is covered by `SHA256SUMS`.
 
-Record package size, package path, service status, health check result, and
-evidence logs.
+Recorded final DEB and systemd smoke evidence:
+
+- Host: `zelda` (`10.16.20.129`)
+- Package:
+  `/home/serveradmin/nightbridge-release/05af10d/target/debian/night-bridge-daemon_26.5.0-1_amd64.deb`
+- Package size: `4508660`
+- Service status: `active`
+- `/healthz`: PASS on retry attempt 2 after restart
+- Evidence logs:
+  - `/home/serveradmin/nightbridge-release/05af10d/target/release-evidence/systemd-deb/build-26.5.0.log`
+  - `/home/serveradmin/nightbridge-release/05af10d/target/release-evidence/systemd-deb/install-systemd-26.5.0.log`
 
 ## 8. Update Release Notes And Tag
 
