@@ -61,8 +61,8 @@ app matrix runs unless those tools and artifacts are explicitly available.
 
 ## Evidence
 
-Attach the command output or terminal log to the release notes draft before
-tagging 26.5. At minimum, record:
+Attach the command output or terminal log to the release notes. At minimum,
+record:
 
 - branch and commit SHA
 - start and finish time

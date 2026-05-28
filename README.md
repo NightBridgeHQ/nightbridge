@@ -2,13 +2,14 @@
 
 > A LocalSend-compatible headless server for homelabs, NAS boxes, and always-on machines.
 
-**Status:** pre-alpha. The first release is focused on the original problem:
-run a LocalSend-compatible receiver without a desktop app open. The repository
-now includes the headless daemon, CLI, LocalSend v2 receive/send paths, TUI,
-Docker/systemd/DEB packaging work, Native Mesh LAN preview, WAN
-rendezvous work, and Tauri desktop GUI scaffolding. Desktop packages are
-pre-release until signing, notarization, and updater infrastructure are
-configured. See the [26.5 release notes draft](docs/release/26.5-notes.md),
+**Status:** `26.5.0-alpha` is published as a GitHub pre-release. The first
+release is focused on the original problem: run a LocalSend-compatible receiver
+without a desktop app open. The repository includes the headless daemon, CLI,
+LocalSend v2 receive/send paths, TUI, Docker/systemd/DEB packaging, Native Mesh
+LAN preview, WAN rendezvous work, and Tauri desktop GUI scaffolding. Desktop
+packages are pre-release until signing, notarization, and updater
+infrastructure are configured. See the
+[26.5 alpha announcement](docs/release/26.5-alpha-announcement.md),
 [release artifact matrix](docs/release/artifacts.md), and
 [operator guide](docs/operators/index.md).
 
@@ -100,7 +101,8 @@ Operator setup, service management, and troubleshooting live in the
 ## Release
 
 - Changelog: [CHANGELOG.md](CHANGELOG.md)
-- 26.5 release notes draft: [docs/release/26.5-notes.md](docs/release/26.5-notes.md)
+- 26.5 alpha announcement: [docs/release/26.5-alpha-announcement.md](docs/release/26.5-alpha-announcement.md)
+- 26.5 release notes: [docs/release/26.5-notes.md](docs/release/26.5-notes.md)
 - Release artifact matrix: [docs/release/artifacts.md](docs/release/artifacts.md)
 - Versioning policy: [docs/release/versioning.md](docs/release/versioning.md)
 

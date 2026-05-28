@@ -6,12 +6,9 @@ This project follows the spirit of [Keep a Changelog](https://keepachangelog.com
 
 ## [Unreleased]
 
-- 26.5 is now in pre-release closure. Feature scope is closed; only bug fixes,
-  release-blocker fixes, security fixes, documentation corrections,
-  packaging/release evidence improvements, and small existing-surface
-  enhancements should land before tagging.
+- No unreleased changes yet.
 
-## [26.5.0] - TBD
+## [26.5.0-alpha] - 2026-05-28
 
 ### Added
 
@@ -97,8 +94,9 @@ This project follows the spirit of [Keep a Changelog](https://keepachangelog.com
 
 ### Known Limitations
 
-- 26.5 is not release-tagged until final release artifacts are regenerated and
-  smoked from the release commit.
+- `26.5.0-alpha` is published as a GitHub pre-release with validated Linux and
+  macOS server tarballs, direct Debian package asset, SBOM, checksums, and
+  installer smoke evidence.
 - Desktop packages are unsigned pre-release artifacts until platform signing,
   notarization, and updater infrastructure are configured.
 - Windows and Linux desktop packages need platform-native validation.
@@ -110,5 +108,5 @@ This project follows the spirit of [Keep a Changelog](https://keepachangelog.com
 - No default public rendezvous service is configured; operators must self-host.
 - Existing trusted peers without native certificate metadata must be refreshed
   or re-paired before native WAN auto-send is allowed.
-- Docker, systemd, DEB, RPM, and release artifact paths still require validation
-  on representative target hosts before public production distribution.
+- RPM, APT/PPA, Homebrew, production desktop signing/notarization, and strict
+  GUI WebDriver coverage remain deferred.

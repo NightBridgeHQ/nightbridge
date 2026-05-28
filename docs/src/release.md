@@ -1,6 +1,7 @@
 # Release
 
-- [26.5 Release Notes Draft](../release/26.5-notes.md)
+- [26.5 Alpha Announcement](../release/26.5-alpha-announcement.md)
+- [26.5 Release Notes](../release/26.5-notes.md)
 - [GitHub Distribution](../release/github-distribution.md)
 - [Release Artifacts](../release/artifacts.md)
 - [Post-Soak Release Checkout](../release/post-soak-checkout.md)

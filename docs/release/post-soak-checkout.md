@@ -1,12 +1,11 @@
 # Post-Soak Release Checkout
 
-Use this checklist after the current 7-day native soak completes and before
-tagging NightBridge `26.5.0-alpha`. It is intentionally limited to release closure
-work. NightBridge `26.5.0` is in pre-release closure: do not add alpha features
-during this pass. Limit changes to bug fixes, release-blocker fixes, security
-fixes, documentation corrections, packaging/release evidence improvements, and
-small enhancements that improve the existing pre-release experience without
-adding a new product surface.
+This checklist records the completed post-soak closure for NightBridge
+`26.5.0-alpha`. It is intentionally limited to release closure work. For
+follow-up commits on this train, do not add alpha features; limit changes to
+bug fixes, release-blocker fixes, security fixes, documentation corrections,
+packaging/release evidence improvements, and small enhancements that improve
+the existing pre-release experience without adding a new product surface.
 
 Current local release candidate:
 
@@ -14,8 +13,8 @@ Current local release candidate:
 - Artifact source commit: `05af10d`
 - Status: long native soak, post-refresh delta soak, final preflight, final
   artifact generation, Docker smoke, DEB build, and systemd smoke passed
-- Gate: publish GitHub release assets and smoke the installer against the
-  published release before broad distribution
+- Gate: GitHub release assets were published and the installer passed smoke
+  against the published release
 
 ## 1. Confirm Soak Completion
 
@@ -77,7 +76,7 @@ git log -1 --oneline
 ```
 
 Only continue if the worktree contains the intended release docs and release
-script changes. Do not tag until all remaining checklist items pass.
+script changes. This gate passed before the alpha tag was published.
 
 ## 4. Run Final Preflight
 
@@ -199,7 +198,7 @@ Recorded final DEB and systemd smoke evidence:
 
 ## 8. Update Release Notes And Tag
 
-Before tagging:
+Final tag readiness checks:
 
 ```bash
 rg -n "TBD" docs/release/26.5-notes.md docs/release/artifacts.md
@@ -207,15 +206,15 @@ git diff -- docs/release packaging install.sh
 git status --short --branch
 ```
 
-Only tag after all blockers in `docs/release/versioning.md` are closed or
-explicitly scoped out:
+The alpha tag was created after all blockers in `docs/release/versioning.md`
+were closed or explicitly scoped out:
 
 ```bash
 git tag -a 26.5.0-alpha -m "NightBridge 26.5.0 alpha"
 ```
 
-Do not push the tag until the release notes contain final evidence paths and
-the local tag points at the intended release commit.
+The tag was pushed after the release notes contained final evidence paths and
+the local tag pointed at the intended release commit.
 
 ## 9. Publish GitHub Release Assets
 
@@ -243,8 +242,8 @@ curl -fsSL https://raw.githubusercontent.com/NightBridgeHQ/nightbridge/main/inst
 rm -rf "${tmp_home}"
 ```
 
-Record the release URL, uploaded asset list, installer command, and installer
-smoke result in `docs/release/26.5-notes.md`.
+The release URL, uploaded asset list, installer command, and installer smoke
+result are recorded in `docs/release/26.5-notes.md`.
 
 Installer smoke result:
 

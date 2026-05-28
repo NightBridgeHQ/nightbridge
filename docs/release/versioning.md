@@ -20,9 +20,9 @@ owner is ready to:
 - run release verification
 - tag the release if all release blockers are cleared
 
-## Current Release Blockers
+## Alpha Release Evidence
 
-NightBridge `26.5.0-alpha` must not be tagged until:
+NightBridge `26.5.0-alpha` was tagged and published after:
 
 - final `scripts/preflight-26.5.sh` evidence passes on the release commit and
   is attached to the release notes
@@ -34,8 +34,7 @@ NightBridge `26.5.0-alpha` must not be tagged until:
   remains optional unless a headless-capable artifact is available
 - release artifacts are reproducible from a clean final `dist/` directory
 - checksums and SBOM are generated for the final artifacts
-- Docker validation evidence is recorded for a representative Ubuntu host;
-  final release artifacts still need to be regenerated from the release commit
+- Docker validation evidence was recorded for a representative Ubuntu host
 - Debian package and systemd validation evidence is recorded for a
   representative Ubuntu host; the `.deb` is distributed as a GitHub release
   asset, not through an APT/PPA repository
@@ -45,17 +44,17 @@ NightBridge `26.5.0-alpha` must not be tagged until:
   packaging decisions are explicit; production desktop artifacts are deferred
   and unsigned desktop artifacts must be labeled pre-release
 - GUI WebDriver strict mode is scoped out for 26.5 unless `tauri-driver` and an
-  interactive host are available before tagging
+  interactive host are available for a later validation pass
 - security disclosure contact is real: `diego.resendez@zero-oneit.com`
 - third-party audit expectations are documented: no completed audit for 26.5,
   public open-source review is welcome, and a paid audit remains future work
 
-## Pre-Release Scope Freeze
+## Published Alpha Scope
 
-NightBridge `26.5.0` is in pre-release closure. Feature scope is officially
-closed for the `26.5.0` train.
+NightBridge `26.5.0-alpha` is published. Feature scope is closed for the
+`26.5.0-alpha` train.
 
-Allowed changes before tagging:
+Allowed follow-up changes:
 
 - bug fixes
 - release-blocker fixes
@@ -65,7 +64,7 @@ Allowed changes before tagging:
 - small enhancements that reduce release risk or improve the existing
   pre-release experience without adding a new product surface
 
-Not allowed before tagging:
+Not allowed on this alpha train:
 
 - new alpha features
 - new public protocol surfaces
