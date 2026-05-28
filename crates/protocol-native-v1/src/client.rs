@@ -20,7 +20,7 @@ use crate::transfer::{write_chunk_frame, NativeTransferSender, TransferChunk};
 pub struct NativeTransferClient;
 
 impl NativeTransferClient {
-    /// Sends files to a peer URL such as `quic://192.168.1.20:53317`.
+    /// Sends files to a peer URL such as `quic://192.0.2.20:53317`.
     pub async fn send_files_to_url(
         url: &str,
         paths: Vec<PathBuf>,

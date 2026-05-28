@@ -281,7 +281,7 @@ mod tests {
         let fixture = ApiFixture::start().await;
         lsi_core::trust::TrustStore::open(&fixture.state.trust_db_path)
             .unwrap()
-            .record_pending_localsend_peer("AA:BB", "Diego iPhone", Some("10.16.20.53"))
+            .record_pending_localsend_peer("AA:BB", "iOS Test Device", Some("192.0.2.53"))
             .unwrap();
         let mut client = fixture.peers_client().await;
 
@@ -296,7 +296,7 @@ mod tests {
 
         assert_eq!(pending.peers.len(), 1);
         assert_eq!(pending.peers[0].fingerprint, "aabb");
-        assert_eq!(pending.peers[0].alias, "Diego iPhone");
+        assert_eq!(pending.peers[0].alias, "iOS Test Device");
         assert_eq!(pending.peers[0].status, LocalSendPeerStatus::LocalsendPeerStatusPending as i32);
 
         let approved = client
@@ -335,7 +335,9 @@ mod tests {
     async fn grpc_list_lan_does_not_treat_trusted_source_ip_as_discovery() {
         let fixture = ApiFixture::start().await;
         let store = lsi_core::trust::TrustStore::open(&fixture.state.trust_db_path).unwrap();
-        store.record_pending_localsend_peer("AA:BB", "Rich Pear", Some("10.16.20.81")).unwrap();
+        store
+            .record_pending_localsend_peer("AA:BB", "Android Test Device", Some("192.0.2.81"))
+            .unwrap();
         store.approve_localsend_peer("aa-bb", Some("Android LocalSend")).unwrap();
         let mut client = fixture.peers_client().await;
 
@@ -360,8 +362,8 @@ mod tests {
         store
             .record_localsend_lan_peer(lsi_core::trust::LocalSendLanPeer {
                 fingerprint: "AA:BB".to_string(),
-                alias: "Rich Pear".to_string(),
-                source_ip: "10.16.20.81".to_string(),
+                alias: "Android Test Device".to_string(),
+                source_ip: "192.0.2.81".to_string(),
                 port: 53317,
                 protocol: "https".to_string(),
                 device_model: Some("Android".to_string()),
@@ -390,8 +392,8 @@ mod tests {
                     == Some("aabb")
             })
             .expect("registered LocalSend discovery peer should be returned");
-        assert_eq!(peer.alias, "Rich Pear");
-        assert_eq!(peer.address, "10.16.20.81");
+        assert_eq!(peer.alias, "Android Test Device");
+        assert_eq!(peer.address, "192.0.2.81");
         assert_eq!(peer.port, 53317);
         assert_eq!(peer.device_type.as_deref(), Some("mobile"));
         assert_eq!(peer.fingerprint.as_ref().unwrap().value, "aabb");

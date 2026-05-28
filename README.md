@@ -58,6 +58,18 @@ router.
 - Quickstart: [docs/users/quickstart.md](docs/users/quickstart.md)
 - Migration from LocalSend: [docs/users/migration-from-localsend.md](docs/users/migration-from-localsend.md)
 
+## Container Preview
+
+The develop preview image is published to GitHub Container Registry:
+
+```bash
+docker pull ghcr.io/nightbridgehq/nightbridge:develop
+docker run --rm ghcr.io/nightbridgehq/nightbridge:develop --help
+```
+
+Use release binaries for the published alpha until a versioned container tag is
+promoted.
+
 ## WAN Rendezvous
 
 Sprint 5 adds a self-hosted rendezvous service for WAN discovery. Rendezvous is

@@ -705,23 +705,22 @@ mod tests {
         let store = TrustStore::open_in_memory().unwrap();
 
         let first = store
-            .record_pending_localsend_peer("AA:BB", "Diego iPhone", Some("10.16.20.53"))
+            .record_pending_localsend_peer("AA:BB", "iOS Test Device", Some("192.0.2.53"))
             .unwrap();
-        let second =
-            store.record_pending_localsend_peer("aa-bb", "Diego Personal iPhone", None).unwrap();
+        let second = store.record_pending_localsend_peer("aa-bb", "iOS Test Device", None).unwrap();
 
         assert_eq!(first.fingerprint, "aabb");
         assert_eq!(second.fingerprint, "aabb");
-        assert_eq!(second.alias, "Diego Personal iPhone");
+        assert_eq!(second.alias, "iOS Test Device");
         assert_eq!(second.attempt_count, 2);
-        assert_eq!(second.source_ip.as_deref(), Some("10.16.20.53"));
+        assert_eq!(second.source_ip.as_deref(), Some("192.0.2.53"));
         assert!(second.last_seen >= first.first_seen);
     }
 
     #[test]
     fn approve_and_deny_localsend_pending_peer() {
         let store = TrustStore::open_in_memory().unwrap();
-        store.record_pending_localsend_peer("AA:BB", "Diego iPhone", None).unwrap();
+        store.record_pending_localsend_peer("AA:BB", "iOS Test Device", None).unwrap();
 
         let approved = store.approve_localsend_peer("aa-bb", Some("personal phone")).unwrap();
 
@@ -750,14 +749,14 @@ mod tests {
     #[test]
     fn lists_trusted_localsend_peers_with_source_ip() {
         let store = TrustStore::open_in_memory().unwrap();
-        store.record_pending_localsend_peer("AA:BB", "Android", Some("10.16.20.81")).unwrap();
+        store.record_pending_localsend_peer("AA:BB", "Android", Some("192.0.2.81")).unwrap();
         store.approve_localsend_peer("aa-bb", None).unwrap();
 
         let trusted = store.list_trusted_localsend_peers().unwrap();
 
         assert_eq!(trusted.len(), 1);
         assert_eq!(trusted[0].fingerprint, "aabb");
-        assert_eq!(trusted[0].source_ip.as_deref(), Some("10.16.20.81"));
+        assert_eq!(trusted[0].source_ip.as_deref(), Some("192.0.2.81"));
     }
 
     #[test]
@@ -765,14 +764,15 @@ mod tests {
         let store = TrustStore::open_in_memory().unwrap();
         store.approve_localsend_peer("AA:BB", Some("Android")).unwrap();
 
-        let seen =
-            store.record_trusted_localsend_peer("aa-bb", "Rich Pear", Some("10.16.20.81")).unwrap();
+        let seen = store
+            .record_trusted_localsend_peer("aa-bb", "Android Test Device", Some("192.0.2.81"))
+            .unwrap();
 
         assert_eq!(seen.status, LocalSendPeerStatus::Trusted);
-        assert_eq!(seen.alias, "Rich Pear");
+        assert_eq!(seen.alias, "Android Test Device");
         assert_eq!(seen.label.as_deref(), Some("Android"));
         assert_eq!(seen.attempt_count, 0);
-        assert_eq!(seen.source_ip.as_deref(), Some("10.16.20.81"));
+        assert_eq!(seen.source_ip.as_deref(), Some("192.0.2.81"));
     }
 
     #[test]
@@ -782,8 +782,8 @@ mod tests {
         let seen = store
             .record_localsend_lan_peer(LocalSendLanPeer {
                 fingerprint: "AA:BB".to_string(),
-                alias: "Rich Pear".to_string(),
-                source_ip: "10.16.20.81".to_string(),
+                alias: "Android Test Device".to_string(),
+                source_ip: "192.0.2.81".to_string(),
                 port: 53317,
                 protocol: "https".to_string(),
                 device_model: Some("Pixel".to_string()),
@@ -798,8 +798,8 @@ mod tests {
 
         assert_eq!(seen.fingerprint, "aabb");
         assert_eq!(lan.len(), 1);
-        assert_eq!(lan[0].alias, "Rich Pear");
-        assert_eq!(lan[0].source_ip, "10.16.20.81");
+        assert_eq!(lan[0].alias, "Android Test Device");
+        assert_eq!(lan[0].source_ip, "192.0.2.81");
         assert_eq!(lan[0].port, 53317);
         assert_eq!(lan[0].device_model.as_deref(), Some("Pixel"));
         assert!(store.list_pending_localsend_peers().unwrap().is_empty());

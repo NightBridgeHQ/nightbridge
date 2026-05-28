@@ -15,7 +15,7 @@ use lsi_protocol_native_v1::client::NativeTransferClient;
 /// Send files to a LocalSend peer.
 #[derive(Args)]
 pub struct Cmd {
-    /// Explicit peer API URL, for example https://192.168.1.20:53317.
+    /// Explicit peer API URL, for example https://192.0.2.20:53317.
     #[arg(long, required_unless_present_any = ["native", "wan", "peer"])]
     url: Option<String>,
     /// Send through WAN rendezvous using a trusted peer fingerprint.

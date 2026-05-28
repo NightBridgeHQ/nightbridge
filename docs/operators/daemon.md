@@ -83,7 +83,7 @@ rejected before a session is created. An admin can approve or deny later:
 
 ```bash
 night-bridge peers pending-local-send
-night-bridge peers approve-local-send <fingerprint> --label "Diego iPhone"
+night-bridge peers approve-local-send <fingerprint> --label "iOS Test Device"
 night-bridge peers deny-local-send <fingerprint>
 ```
 

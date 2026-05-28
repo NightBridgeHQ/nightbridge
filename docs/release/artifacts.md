@@ -67,7 +67,7 @@ notarization are wired for the release channel.
 Docker smoke:
 
 - Date: 2026-05-17
-- Host: `link` (`10.16.20.130`)
+- Host: a representative Ubuntu Docker host
 - Commit: `1d18b86`
 - Docker server: `29.1.3`
 - Command: `bash packaging/docker/smoke.sh`
@@ -82,7 +82,7 @@ Docker smoke:
 Debian package and systemd smoke:
 
 - Date: 2026-05-18
-- Host: `zelda` (`10.16.20.129`)
+- Host: a representative Ubuntu systemd host
 - Commit: `1d18b86`
 - Tooling: `rustc 1.78.0`, `cargo 1.78.0`, `cargo-deb 3.6.2`,
   `libprotoc 3.21.12`
@@ -157,7 +157,7 @@ Final 26.5 artifact generation:
 Final Docker smoke:
 
 - Date: 2026-05-28
-- Host: `link` (`10.16.20.130`)
+- Host: a representative Ubuntu Docker host
 - Commit: `05af10d`
 - Docker server: `29.1.3`
 - Image: `night-bridge:26.5.0`
@@ -167,15 +167,15 @@ Final Docker smoke:
 - Command: `NIGHTBRIDGE_DOCKER_IMAGE=night-bridge:26.5.0 bash packaging/docker/smoke.sh`
 - Result: PASS
 - Evidence log:
-  `/home/serveradmin/nightbridge-release/05af10d/target/release-evidence/docker/smoke-26.5.0.log`
+  `~/nightbridge-release/<commit>/target/release-evidence/docker/smoke-26.5.0.log`
 
 Final Debian package and systemd smoke:
 
 - Date: 2026-05-28
-- Host: `zelda` (`10.16.20.129`)
+- Host: a representative Ubuntu systemd host
 - Commit: `05af10d`
 - Package:
-  `/home/serveradmin/nightbridge-release/05af10d/target/debian/night-bridge-daemon_26.5.0-1_amd64.deb`
+  `~/nightbridge-release/<commit>/target/debian/night-bridge-daemon_26.5.0-1_amd64.deb`
 - Package size: `4508660`
 - Package was copied into the final local release asset directory and covered
   by `SHA256SUMS`.
@@ -184,8 +184,8 @@ Final Debian package and systemd smoke:
   `/healthz` on `127.0.0.1:53501` passed on retry attempt 2.
 - Service was stopped after validation.
 - Evidence logs:
-  - `/home/serveradmin/nightbridge-release/05af10d/target/release-evidence/systemd-deb/build-26.5.0.log`
-  - `/home/serveradmin/nightbridge-release/05af10d/target/release-evidence/systemd-deb/install-systemd-26.5.0.log`
+  - `~/nightbridge-release/<commit>/target/release-evidence/systemd-deb/build-26.5.0.log`
+  - `~/nightbridge-release/<commit>/target/release-evidence/systemd-deb/install-systemd-26.5.0.log`
 
 Final GitHub release and installer smoke:
 

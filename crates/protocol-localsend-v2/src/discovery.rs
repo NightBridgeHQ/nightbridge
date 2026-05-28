@@ -398,25 +398,25 @@ mod tests {
     #[test]
     fn announcer_builds_tcp_register_url_from_peer_announcement() {
         let announcer = DiscoveryAnnouncer::new(device_info("self-fingerprint"));
-        let sender = SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::new(10, 16, 20, 50), 50123));
+        let sender = SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::new(192, 0, 2, 50), 50123));
         let payload =
             serde_json::to_vec(&Announcement::announce(device_info("peer-fingerprint"))).unwrap();
 
         let url = announcer.register_url(&payload, sender).unwrap();
 
-        assert_eq!(url, "https://10.16.20.50:53317/api/localsend/v2/register");
+        assert_eq!(url, "https://192.0.2.50:53317/api/localsend/v2/register");
     }
 
     #[test]
     fn announcer_parses_foreign_response_as_observed_peer() {
         let announcer = DiscoveryAnnouncer::new(device_info("self-fingerprint"));
-        let sender = SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::new(10, 16, 20, 81), 50123));
+        let sender = SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::new(192, 0, 2, 81), 50123));
         let payload =
             serde_json::to_vec(&Announcement::response(device_info("peer-fingerprint"))).unwrap();
 
         let peer = announcer.parse_peer(&payload, sender).unwrap().unwrap();
 
         assert_eq!(peer.info.fingerprint, "peer-fingerprint");
-        assert_eq!(peer.address.to_string(), "10.16.20.81:53317");
+        assert_eq!(peer.address.to_string(), "192.0.2.81:53317");
     }
 }

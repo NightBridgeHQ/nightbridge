@@ -211,7 +211,7 @@ mod tests {
             pubkey: [7; 32],
             candidates: vec![Candidate {
                 kind: CandidateKind::Local,
-                address: "192.168.1.20:53400".to_string(),
+                address: "192.0.2.20:53400".to_string(),
                 priority: 100,
             }],
             ttl_seconds: 60,

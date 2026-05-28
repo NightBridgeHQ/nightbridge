@@ -101,6 +101,20 @@
           </article>
 
           <article class="step-panel">
+            <span class="step-number">1b</span>
+            <h3>Or run the container preview</h3>
+            <pre><code>docker pull ghcr.io/nightbridgehq/nightbridge:develop
+docker run --rm \
+  --network host \
+  -v nightbridge-data:/var/lib/night-bridge \
+  ghcr.io/nightbridgehq/nightbridge:develop \
+  --alias "Home Server" \
+  --localsend-receive-policy trusted \
+  --inbox /var/lib/night-bridge/inbox</code></pre>
+            <p class="note">On Linux, host networking keeps LocalSend discovery and native UDP ports visible on the LAN. The GHCR image is currently a develop preview for testers; do not treat it as the stable alpha tag yet.</p>
+          </article>
+
+          <article class="step-panel">
             <span class="step-number">2</span>
             <h3>Run the daemon</h3>
             <pre><code>night-bridge-daemon \
@@ -189,6 +203,20 @@ sudo systemctl enable --now night-bridge.service</code></pre>
           </article>
 
           <article class="service-panel">
+            <h3>Docker / GHCR preview</h3>
+            <pre><code>docker pull ghcr.io/nightbridgehq/nightbridge:develop
+docker run -d --name nightbridge \
+  --restart unless-stopped \
+  --network host \
+  -v nightbridge-data:/var/lib/night-bridge \
+  ghcr.io/nightbridgehq/nightbridge:develop \
+  --alias "Home Server" \
+  --localsend-receive-policy trusted \
+  --inbox /var/lib/night-bridge/inbox</code></pre>
+            <p class="note">Use the published GHCR image when you want a containerized Linux preview instead of installing host binaries.</p>
+          </article>
+
+          <article class="service-panel">
             <h3>macOS run-direct alpha path</h3>
             <pre><code>mkdir -p "$HOME/NightBridgeInbox"
 "$HOME/.local/bin/night-bridge-daemon" \
@@ -208,10 +236,10 @@ cargo build --release -p lsi-cli -p lsi-daemon -p lsi-tui</code></pre>
 
           <article class="service-panel">
             <h3>LAN firewall ports</h3>
-            <pre><code>sudo ufw allow from 192.168.1.0/24 to any port 53317 proto tcp
-sudo ufw allow from 192.168.1.0/24 to any port 53317 proto udp
-sudo ufw allow from 192.168.1.0/24 to any port 53400 proto udp</code></pre>
-            <p class="note">Adjust the CIDR to your trusted LAN, for example <code>192.168.1.0/24</code>.</p>
+            <pre><code>sudo ufw allow from &lt;trusted-lan-cidr&gt; to any port 53317 proto tcp
+sudo ufw allow from &lt;trusted-lan-cidr&gt; to any port 53317 proto udp
+sudo ufw allow from &lt;trusted-lan-cidr&gt; to any port 53400 proto udp</code></pre>
+            <p class="note">Set the CIDR to your trusted LAN before enabling inbound discovery and transfer traffic.</p>
           </article>
 
           <article class="service-panel">
