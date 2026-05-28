@@ -162,11 +162,7 @@ main() {
   tar -xzf "$tarball" -C "${tmp}/unpack"
 
   if [[ ! -d "$install_dir" ]]; then
-    if [[ "$(id -u)" -eq 0 ]]; then
-      mkdir -p "$install_dir"
-    else
-      sudo mkdir -p "$install_dir"
-    fi
+    mkdir -p "$install_dir" 2>/dev/null || sudo mkdir -p "$install_dir"
   fi
 
   local bin
