@@ -131,7 +131,7 @@ main() {
     exit 1
   fi
 
-  local platform asset base tmp tarball checksums checksum_line
+  local platform asset base tarball checksums checksum_line
   if [[ "$version" == "latest" ]]; then
     version="$(resolve_latest_version)"
   fi
