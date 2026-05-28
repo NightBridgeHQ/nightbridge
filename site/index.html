@@ -35,6 +35,7 @@
       </a>
       <nav class="site-nav" aria-label="Primary">
         <a href="#try-alpha">Try alpha</a>
+        <a href="#service">Service</a>
         <a href="#status">Status</a>
         <a href="#evidence">Evidence</a>
         <a href="https://github.com/NightBridgeHQ/nightbridge">GitHub</a>
@@ -49,7 +50,8 @@
           <p class="hero-lede">
             NightBridge lets official LocalSend apps send files to a daemon
             running on a server, NAS, Raspberry Pi, homelab box, or always-on
-            workstation. One install command, one always-available target.
+            workstation. Install the release binaries, then run the daemon
+            directly or wire it into systemd.
           </p>
           <div class="hero-actions" aria-label="Primary actions">
             <a class="button primary" href="https://github.com/NightBridgeHQ/nightbridge/releases">
@@ -94,16 +96,17 @@
             <h3>Install from release assets</h3>
             <pre><code>curl -fsSL https://raw.githubusercontent.com/NightBridgeHQ/nightbridge/main/install.sh | \
   sh -s -- --version 26.5.0-alpha</code></pre>
-            <p class="note">The alpha install path is curl plus checksum-verified release assets.</p>
+            <p class="note">The installer downloads a platform tarball, verifies SHA256SUMS, and installs the CLI, daemon, TUI, and nbrg shortcut.</p>
           </article>
 
           <article class="step-panel">
             <span class="step-number">2</span>
-            <h3>Start the daemon</h3>
-            <pre><code>night-bridge daemon \
-  --localsend-alias "Home Server" \
-  --localsend-policy prompt</code></pre>
-            <p class="note">Prompt mode keeps new LocalSend senders pending.</p>
+            <h3>Run the daemon</h3>
+            <pre><code>night-bridge-daemon \
+  --alias "Home Server" \
+  --localsend-receive-policy trusted \
+  --inbox "$HOME/NightBridgeInbox"</code></pre>
+            <p class="note">Trusted mode records unknown LocalSend senders as pending until you approve them.</p>
           </article>
 
           <article class="step-panel">
@@ -118,9 +121,77 @@
           <article class="step-panel">
             <span class="step-number">4</span>
             <h3>Approve trusted peers</h3>
-            <pre><code>night-bridge peers list-pending
-night-bridge peers approve-local-send &lt;fingerprint&gt;</code></pre>
+            <pre><code>night-bridge peers pending-local-send
+night-bridge peers approve-local-send &lt;fingerprint&gt; \
+  --label "Diego iPhone"</code></pre>
             <p class="note">Trusted peers can be allowed without reopening the desktop.</p>
+          </article>
+        </div>
+      </section>
+
+      <section id="service" class="section service-guide">
+        <div class="section-heading">
+          <p class="eyebrow">Run it as a service</p>
+          <h2>The installer does not configure startup.</h2>
+          <p>
+            The curl installer only places binaries on disk. For an
+            always-on host, install the daemon as a systemd service and allow
+            the LocalSend ports through the LAN firewall.
+          </p>
+        </div>
+
+        <div class="service-grid">
+          <article class="service-panel">
+            <h3>Install to a user-owned directory</h3>
+            <pre><code>mkdir -p "$HOME/.local/bin"
+curl -fsSL https://raw.githubusercontent.com/NightBridgeHQ/nightbridge/main/install.sh | \
+  sh -s -- --version 26.5.0-alpha \
+  --install-dir "$HOME/.local/bin"</code></pre>
+          </article>
+
+          <article class="service-panel">
+            <h3>Minimal systemd unit</h3>
+            <pre><code>sudo tee /etc/systemd/system/night-bridge.service &gt;/dev/null &lt;&lt;'EOF'
+[Unit]
+Description=NightBridge daemon
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=serveradmin
+Environment=XDG_CONFIG_HOME=/home/serveradmin/.config
+Environment=XDG_DATA_HOME=/home/serveradmin/.local/share
+ExecStart=/home/serveradmin/.local/bin/night-bridge-daemon \
+  --config /home/serveradmin/.config/night-bridge/config.toml \
+  --identity /home/serveradmin/.local/share/night-bridge/identity.key \
+  --trust-db /home/serveradmin/.local/share/night-bridge/trust.db \
+  --inbox /home/serveradmin/NightBridgeInbox \
+  --alias "Home Server" \
+  --localsend-receive-policy trusted
+Restart=on-failure
+RestartSec=5s
+
+[Install]
+WantedBy=multi-user.target
+EOF
+sudo systemctl daemon-reload
+sudo systemctl enable --now night-bridge.service</code></pre>
+          </article>
+
+          <article class="service-panel">
+            <h3>LAN firewall ports</h3>
+            <pre><code>sudo ufw allow from 10.0.0.0/8 to any port 53317 proto tcp
+sudo ufw allow from 10.0.0.0/8 to any port 53317 proto udp
+sudo ufw allow from 10.0.0.0/8 to any port 53400 proto udp</code></pre>
+            <p class="note">Adjust the CIDR to your trusted LAN, for example <code>192.168.1.0/24</code>.</p>
+          </article>
+
+          <article class="service-panel">
+            <h3>Check status</h3>
+            <pre><code>systemctl status night-bridge.service
+journalctl -u night-bridge.service -f
+curl -k https://127.0.0.1:53317/api/localsend/v2/info</code></pre>
           </article>
         </div>
       </section>
@@ -189,23 +260,23 @@ night-bridge peers approve-local-send &lt;fingerprint&gt;</code></pre>
           </div>
           <div class="artifact-row" role="row">
             <span role="cell">Linux and macOS binaries</span>
-            <span role="cell">Planned for alpha assets</span>
+            <span role="cell">Published</span>
           </div>
           <div class="artifact-row" role="row">
             <span role="cell">Docker image</span>
-            <span role="cell">Final smoke before publish</span>
+            <span role="cell">Validated path</span>
           </div>
           <div class="artifact-row" role="row">
             <span role="cell">Debian package with systemd unit</span>
-            <span role="cell">Final smoke before publish</span>
+            <span role="cell">Published asset</span>
           </div>
           <div class="artifact-row" role="row">
             <span role="cell">SHA256SUMS and SBOM</span>
-            <span role="cell">Generated from final artifacts</span>
+            <span role="cell">Published</span>
           </div>
           <div class="artifact-row" role="row">
             <span role="cell">Windows artifact</span>
-            <span role="cell">Manual validation gate</span>
+            <span role="cell">Pre-release validation path</span>
           </div>
         </div>
       </section>
