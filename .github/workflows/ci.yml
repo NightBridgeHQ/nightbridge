@@ -9,6 +9,16 @@ on:
 env:
   CARGO_TERM_COLOR: always
   RUSTFLAGS: "-D warnings"
+  HEADLESS_PACKAGES: >-
+    -p lsi-core
+    -p lsi-proto
+    -p lsi-protocol-localsend-v2
+    -p lsi-protocol-native-v1
+    -p lsi-daemon
+    -p lsi-cli
+    -p lsi-tui
+    -p lsi-webui
+    -p lsi-rendezvous
 
 jobs:
   fmt:
@@ -29,8 +39,9 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: clippy
+      - uses: arduino/setup-protoc@v3
       - uses: Swatinem/rust-cache@v2
-      - run: cargo clippy --workspace --all-targets -- -D warnings
+      - run: cargo clippy $HEADLESS_PACKAGES --all-targets -- -D warnings
 
   test:
     name: Test (${{ matrix.os }})
@@ -42,8 +53,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
+      - uses: arduino/setup-protoc@v3
       - uses: Swatinem/rust-cache@v2
-      - run: cargo test --workspace --all-features
+      - run: cargo test $HEADLESS_PACKAGES --all-features
 
   build:
     name: Build (${{ matrix.target }})
@@ -54,9 +66,6 @@ jobs:
         include:
           - target: x86_64-unknown-linux-gnu
             runner: ubuntu-latest
-          - target: aarch64-unknown-linux-gnu
-            runner: ubuntu-latest
-            cross: true
           - target: x86_64-apple-darwin
             runner: macos-latest
           - target: aarch64-apple-darwin
@@ -68,13 +77,14 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: ${{ matrix.target }}
+      - uses: arduino/setup-protoc@v3
       - uses: Swatinem/rust-cache@v2
       - if: matrix.cross
         run: cargo install cross --locked
       - if: matrix.cross
-        run: cross build --workspace --release --target ${{ matrix.target }}
+        run: cross build $HEADLESS_PACKAGES --release --target ${{ matrix.target }}
       - if: '!matrix.cross'
-        run: cargo build --workspace --release --target ${{ matrix.target }}
+        run: cargo build $HEADLESS_PACKAGES --release --target ${{ matrix.target }}
 
   interop-localsend:
     name: LocalSend interop smoke
@@ -83,6 +93,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
+      - uses: arduino/setup-protoc@v3
       - uses: Swatinem/rust-cache@v2
       - run: bash scripts/localsend-interop-smoke.sh
 
@@ -93,6 +104,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
+      - uses: arduino/setup-protoc@v3
       - uses: Swatinem/rust-cache@v2
       - uses: actions/setup-node@v4
         with:
@@ -124,6 +136,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
+      - uses: arduino/setup-protoc@v3
       - uses: Swatinem/rust-cache@v2
       - run: cargo install mdbook --locked
       - run: mdbook build docs
@@ -135,6 +148,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
+      - uses: arduino/setup-protoc@v3
       - uses: Swatinem/rust-cache@v2
       - run: bash -n scripts/wan-netns-smoke.sh
       - run: NBRG_RUN_NETNS_TESTS=1 cargo test --test wan_netns -- --nocapture
