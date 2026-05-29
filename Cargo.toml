@@ -84,7 +84,7 @@ mdns-sd = "=0.19.1"
 # Wire encoding
 prost = "=0.13.5"
 prost-types = "=0.13.5"
-tonic = { version = "=0.12.3", features = ["transport"] }
+tonic = { version = "=0.14.6", features = ["transport"] }
 tonic-build = "=0.12.3"
 tokio-stream = { version = "=0.1.17", features = ["net"] }
 # Filesystem helpers
