@@ -56,7 +56,7 @@ ed25519-dalek = { version = "=2.1.1", features = ["rand_core", "serde"] }
 hmac = "=0.12.1"
 sha2 = "=0.10.9"
 subtle = "=2.6.1"
-hkdf = "0.12"
+hkdf = "0.13"
 rand = "0.8"
 blake3 = "=1.5.1"
 rcgen = "=0.13.2"
