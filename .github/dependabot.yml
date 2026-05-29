@@ -1,0 +1,27 @@
+version: 2
+updates:
+  # Rust dependencies (workspace Cargo.lock).
+  - package-ecosystem: cargo
+    directory: "/"
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 10
+    groups:
+      cargo-minor-patch:
+        update-types:
+          - minor
+          - patch
+
+  # WebUI npm dependencies.
+  - package-ecosystem: npm
+    directory: "/crates/webui"
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+
+  # GitHub Actions (kept pinned to SHAs; Dependabot bumps the SHA + comment).
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
