@@ -81,6 +81,7 @@ code {
 }
 
 pre {
+  max-width: 100%;
   margin: 1rem 0 0;
   overflow-x: auto;
   border-radius: var(--radius-md);
@@ -430,6 +431,9 @@ pre code {
 .technical-panel,
 .status-panel,
 .evidence-list article {
+  /* min-width:0 lets a grid/flex item shrink below its content so a long line
+     inside <pre> scrolls internally instead of overflowing the viewport. */
+  min-width: 0;
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
   background: var(--color-surface);
