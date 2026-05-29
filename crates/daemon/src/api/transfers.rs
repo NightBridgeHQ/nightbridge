@@ -162,7 +162,8 @@ async fn send_files_to_localsend_lan_peer(
 ) -> Result<(), Status> {
     let peer = resolve_localsend_lan_peer(state, &peer_ref).await?;
     let url = format!("{}://{}:{}", peer.protocol, peer.source_ip, peer.port);
-    LocalSendClient::new()
+    // Pin the discovered peer's certificate fingerprint for the upload (H-3).
+    LocalSendClient::pinned(&peer.fingerprint)
         .map_err(internal_status)?
         .send_files_to_url(&url, paths, sender_info(state))
         .await

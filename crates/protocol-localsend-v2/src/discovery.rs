@@ -1,6 +1,6 @@
 //! UDP multicast discovery for LocalSend v2.
 
-use std::net::{Ipv4Addr, SocketAddr, SocketAddrV4};
+use std::net::{IpAddr, Ipv4Addr, SocketAddr, SocketAddrV4};
 use std::time::{Duration, Instant};
 
 use serde::{Deserialize, Serialize};
@@ -138,9 +138,22 @@ impl DiscoveryAnnouncer {
                     }
                     match self.should_answer(payload) {
                         Ok(true) => {
-                            let url = self.register_url(payload, source)?;
+                            let announcement: Announcement = serde_json::from_slice(payload)?;
+                            let target = peer_api_address(source, announcement.info.port);
+                            if !is_safe_localsend_target(
+                                target.ip(),
+                                target.port(),
+                                &announcement.info.protocol,
+                            ) {
+                                warn!(source = %source, "skipping LocalSend register to unsafe target");
+                                continue;
+                            }
+                            let url = register_url(target, &announcement.info.protocol);
                             info!(source = %source, register_url = %url, "received LocalSend discovery announcement");
-                            if post_register_url(&self.info, &url).await.is_ok() {
+                            if post_register_url(&self.info, &url, &announcement.info.fingerprint)
+                                .await
+                                .is_ok()
+                            {
                                 info!(source = %source, "responded to LocalSend announcement via TCP register");
                             } else {
                                 warn!(source = %source, "TCP register response failed; sending UDP fallback");
@@ -186,19 +199,13 @@ impl DiscoveryAnnouncer {
 
         Ok(Some(serde_json::to_vec(&Announcement::response(self.info.clone()))?))
     }
-
-    fn register_url(&self, payload: &[u8], source: SocketAddr) -> Result<String> {
-        let announcement: Announcement = serde_json::from_slice(payload)?;
-        let target = peer_api_address(source, announcement.info.port);
-        Ok(register_url(target, &announcement.info.protocol))
-    }
 }
 
-async fn post_register_url(info: &DeviceInfo, url: &str) -> Result<()> {
-    let client = reqwest::Client::builder()
-        .danger_accept_invalid_certs(true)
-        .build()
-        .map_err(|error| LocalSendError::Http(error.to_string()))?;
+async fn post_register_url(info: &DeviceInfo, url: &str, expected_fingerprint: &str) -> Result<()> {
+    // Pin the announcer's advertised certificate fingerprint so the register
+    // response (which discloses our DeviceInfo) is not sent over a MITM'd TLS
+    // session (H-3).
+    let client = crate::verifier::pinned_client(expected_fingerprint)?;
     let response = client
         .post(url)
         .json(info)
@@ -215,6 +222,30 @@ async fn post_register_url(info: &DeviceInfo, url: &str) -> Result<()> {
 
 fn register_url(target: SocketAddr, protocol: &Protocol) -> String {
     format!("{}://{target}/api/localsend/v2/register", protocol.as_str())
+}
+
+/// Validate a discovery-derived register/upload target before connecting (H-4).
+///
+/// The port and protocol come from an untrusted UDP announcement, so we reject
+/// non-HTTP(S) schemes, port 0, and non-routable / loopback / multicast targets
+/// to avoid being used as an SSRF/relay against the host or internal services.
+pub fn is_safe_localsend_target(ip: IpAddr, port: u16, protocol: &Protocol) -> bool {
+    if port == 0 {
+        return false;
+    }
+    if !matches!(protocol.as_str(), "http" | "https") {
+        return false;
+    }
+    match ip {
+        IpAddr::V4(v4) => {
+            !(v4.is_loopback()
+                || v4.is_unspecified()
+                || v4.is_multicast()
+                || v4.is_broadcast()
+                || v4.is_link_local())
+        }
+        IpAddr::V6(v6) => !(v6.is_loopback() || v6.is_unspecified() || v6.is_multicast()),
+    }
 }
 
 /// Listens for LocalSend v2 UDP discovery announcements.
@@ -312,7 +343,7 @@ fn peer_api_address(source: SocketAddr, advertised_port: u16) -> SocketAddr {
 
 #[cfg(test)]
 mod tests {
-    use std::net::{Ipv4Addr, SocketAddr, SocketAddrV4};
+    use std::net::{IpAddr, Ipv4Addr, SocketAddr, SocketAddrV4};
 
     use crate::discovery::{Announcement, DiscoveryAnnouncer, DiscoveryBrowser};
     use crate::dto::{DeviceInfo, Protocol};
@@ -397,12 +428,13 @@ mod tests {
 
     #[test]
     fn announcer_builds_tcp_register_url_from_peer_announcement() {
-        let announcer = DiscoveryAnnouncer::new(device_info("self-fingerprint"));
         let sender = SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::new(192, 0, 2, 50), 50123));
         let payload =
             serde_json::to_vec(&Announcement::announce(device_info("peer-fingerprint"))).unwrap();
 
-        let url = announcer.register_url(&payload, sender).unwrap();
+        let announcement: Announcement = serde_json::from_slice(&payload).unwrap();
+        let target = super::peer_api_address(sender, announcement.info.port);
+        let url = super::register_url(target, &announcement.info.protocol);
 
         assert_eq!(url, "https://192.0.2.50:53317/api/localsend/v2/register");
     }
@@ -418,5 +450,48 @@ mod tests {
 
         assert_eq!(peer.info.fingerprint, "peer-fingerprint");
         assert_eq!(peer.address.to_string(), "192.0.2.81:53317");
+    }
+
+    #[test]
+    fn safe_target_accepts_routable_lan_http_and_https() {
+        let lan = IpAddr::V4(Ipv4Addr::new(192, 168, 1, 50));
+        assert!(super::is_safe_localsend_target(lan, 53317, &Protocol::from("http")));
+        assert!(super::is_safe_localsend_target(lan, 53317, &Protocol::from("https")));
+    }
+
+    #[test]
+    fn safe_target_rejects_loopback_and_unspecified() {
+        assert!(!super::is_safe_localsend_target(
+            IpAddr::V4(Ipv4Addr::LOCALHOST),
+            53317,
+            &Protocol::from("http")
+        ));
+        assert!(!super::is_safe_localsend_target(
+            IpAddr::V4(Ipv4Addr::UNSPECIFIED),
+            53317,
+            &Protocol::from("http")
+        ));
+    }
+
+    #[test]
+    fn safe_target_rejects_multicast_and_link_local() {
+        assert!(!super::is_safe_localsend_target(
+            IpAddr::V4(Ipv4Addr::new(224, 0, 0, 167)),
+            53317,
+            &Protocol::from("http")
+        ));
+        assert!(!super::is_safe_localsend_target(
+            IpAddr::V4(Ipv4Addr::new(169, 254, 1, 1)),
+            53317,
+            &Protocol::from("http")
+        ));
+    }
+
+    #[test]
+    fn safe_target_rejects_bad_port_and_scheme() {
+        let lan = IpAddr::V4(Ipv4Addr::new(10, 0, 0, 5));
+        assert!(!super::is_safe_localsend_target(lan, 0, &Protocol::from("http")));
+        assert!(!super::is_safe_localsend_target(lan, 53317, &Protocol::from("gopher")));
+        assert!(!super::is_safe_localsend_target(lan, 53317, &Protocol::from("file")));
     }
 }

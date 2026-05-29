@@ -24,19 +24,27 @@ pub struct LocalSendClient {
 }
 
 impl LocalSendClient {
-    /// Creates a client for LocalSend's self-signed HTTPS compatibility mode.
+    /// Creates a client without certificate pinning. Suitable only for plaintext
+    /// HTTP; HTTPS peers must be reached via [`LocalSendClient::pinned`] so the
+    /// self-signed certificate is bound to the discovered fingerprint (H-3).
     pub fn new() -> Result<Self> {
         let client = reqwest::Client::builder()
-            .danger_accept_invalid_certs(true)
             .build()
             .map_err(|error| LocalSendError::Http(error.to_string()))?;
         Ok(Self { client })
     }
 
-    /// Sends files to a discovered LAN peer using the LocalSend v2 Upload API.
+    /// Creates a client that pins the peer's self-signed certificate to
+    /// `expected_fingerprint` (the SHA-256 advertised during discovery).
+    pub fn pinned(expected_fingerprint: &str) -> Result<Self> {
+        Ok(Self { client: crate::verifier::pinned_client(expected_fingerprint)? })
+    }
+
+    /// Sends files to a discovered LAN peer using the LocalSend v2 Upload API,
+    /// pinning the peer's advertised certificate fingerprint (H-3).
     pub async fn send_files(peer: LanPeer, paths: Vec<PathBuf>, sender: DeviceInfo) -> Result<()> {
         let base_url = format!("{}://{}", peer.info.protocol.as_str(), peer.address);
-        Self::new()?.send_files_to_url(&base_url, paths, sender).await
+        Self::pinned(&peer.info.fingerprint)?.send_files_to_url(&base_url, paths, sender).await
     }
 
     /// Sends files to an explicit LocalSend v2 API base URL.
@@ -285,5 +293,87 @@ mod tests {
             metas["file-0"].meta.sha256.as_deref(),
             Some("2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824")
         );
+    }
+
+    async fn spawn_https_test_server(
+        inbox_dir: impl Into<std::path::PathBuf>,
+        identity: crate::tls::TlsIdentity,
+    ) -> (SocketAddr, tokio::sync::oneshot::Sender<()>, tokio::task::JoinHandle<crate::Result<()>>)
+    {
+        let config = LocalSendServerConfig {
+            bind_addr: "127.0.0.1:0".parse().unwrap(),
+            info: device_info("Receiver", 0),
+            inbox_dir: inbox_dir.into(),
+            session_ttl: Duration::from_secs(60),
+            receive_policy: LocalSendReceivePolicy::Auto,
+            trusted_fingerprints: Default::default(),
+            trusted_fingerprints_file: None,
+            trust_db_path: None,
+            tls_identity: Some(identity),
+        };
+        let server = LocalSendServer::bind(config).await.unwrap();
+        let addr = server.local_addr();
+        let (shutdown_tx, shutdown_rx) = tokio::sync::oneshot::channel();
+        let task = tokio::spawn(server.serve_until_shutdown(async {
+            let _ = shutdown_rx.await;
+        }));
+        (addr, shutdown_tx, task)
+    }
+
+    #[tokio::test]
+    async fn pinned_client_uploads_over_https_when_fingerprint_matches() {
+        let temp = TempDir::new().unwrap();
+        let source = temp.path().join("note.txt");
+        tokio::fs::write(&source, b"hello").await.unwrap();
+        let identity = crate::tls::TlsIdentity::generate("Receiver").unwrap();
+        let fingerprint = identity.fingerprint_sha256_hex();
+        let (addr, shutdown, task) =
+            spawn_https_test_server(temp.path().join("inbox"), identity).await;
+
+        LocalSendClient::pinned(&fingerprint)
+            .unwrap()
+            .send_files_to_url(
+                &format!("https://{addr}"),
+                vec![source],
+                device_info("Sender", 53317),
+            )
+            .await
+            .unwrap();
+
+        let written = tokio::fs::read_to_string(temp.path().join("inbox/note.txt")).await.unwrap();
+        assert_eq!(written, "hello");
+
+        let _ = shutdown.send(());
+        task.await.unwrap().unwrap();
+    }
+
+    #[tokio::test]
+    async fn pinned_client_rejects_https_on_fingerprint_mismatch() {
+        let temp = TempDir::new().unwrap();
+        let source = temp.path().join("note.txt");
+        tokio::fs::write(&source, b"hello").await.unwrap();
+        let identity = crate::tls::TlsIdentity::generate("Receiver").unwrap();
+        let (addr, shutdown, task) =
+            spawn_https_test_server(temp.path().join("inbox"), identity).await;
+
+        // Pin a fingerprint that does not match the server's cert (MITM analogue).
+        let wrong = crate::tls::TlsIdentity::generate("attacker").unwrap().fingerprint_sha256_hex();
+        let result = LocalSendClient::pinned(&wrong)
+            .unwrap()
+            .send_files_to_url(
+                &format!("https://{addr}"),
+                vec![source],
+                device_info("Sender", 53317),
+            )
+            .await;
+
+        assert!(result.is_err(), "a mismatched certificate fingerprint must reject the upload");
+        assert!(
+            !temp.path().join("inbox/note.txt").exists(),
+            "no file should be written when pinning fails"
+        );
+
+        let _ = shutdown.send(());
+        let _ = task.await;
     }
 }

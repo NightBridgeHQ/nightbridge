@@ -11,5 +11,6 @@ pub mod inbox;
 pub mod server;
 pub mod session;
 pub mod tls;
+pub mod verifier;
 
 pub use error::{LocalSendError, Result};
