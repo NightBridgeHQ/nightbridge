@@ -59,7 +59,7 @@ subtle = "=2.6.1"
 hkdf = "0.12"
 rand = "0.8"
 blake3 = "=1.5.1"
-rcgen = "=0.13.2"
+rcgen = "=0.14.8"
 rustls = { version = "=0.23.35", features = ["ring"] }
 time = "=0.3.47"
 # Storage
