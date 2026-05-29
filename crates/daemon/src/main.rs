@@ -725,6 +725,9 @@ async fn receive_native_transfer(
 ) -> Result<()> {
     let manifest = ManifestStore::open(&manifest_path)
         .with_context(|| format!("failed to open native manifest {}", manifest_path.display()))?;
+    // Reject absurd declared sizes before accepting, bounding disk use and the
+    // chunk-receive loop (M-7).
+    checked_declared_transfer_bytes(&request)?;
     let receiver = NativeTransferReceiver::trusted(inbox_dir, manifest, peer.fingerprint.clone());
     let accepted = receiver
         .accept_transfer(peer, &request)
@@ -760,6 +763,26 @@ async fn receive_native_transfer(
         .await
         .context("failed to publish native files")?;
     stream.write(&ControlMessage::Done(done)).await.context("failed to write native completion ack")
+}
+
+/// Maximum total declared size accepted for a single native transfer, bounding
+/// disk exhaustion and the receive/chunk-count loop against a peer declaring an
+/// absurd size (M-7).
+const MAX_NATIVE_TRANSFER_BYTES: u64 = 64 * 1024 * 1024 * 1024;
+
+/// Sum the declared file sizes, rejecting overflow or transfers above the cap (M-7).
+fn checked_declared_transfer_bytes(request: &RequestTransfer) -> Result<u64> {
+    let total = request
+        .files
+        .iter()
+        .try_fold(0_u64, |acc, file| acc.checked_add(file.size))
+        .ok_or_else(|| anyhow::anyhow!("native transfer declared size overflows u64"))?;
+    if total > MAX_NATIVE_TRANSFER_BYTES {
+        anyhow::bail!(
+            "native transfer declared size {total} exceeds maximum {MAX_NATIVE_TRANSFER_BYTES}"
+        );
+    }
+    Ok(total)
 }
 
 fn expected_chunk_count(request: &RequestTransfer, chunk_size: u64) -> u64 {
@@ -1027,6 +1050,32 @@ mod tests {
         let error = load_daemon_config(&args).unwrap_err();
 
         assert!(error.to_string().contains("exec command is required"), "{error}");
+    }
+
+    #[test]
+    fn declared_transfer_size_rejects_overflow_and_oversize() {
+        use lsi_protocol_native_v1::dto::{FileOffer, RequestTransfer};
+        let offer = |id: &str, size| FileOffer {
+            file_id: id.to_string(),
+            file_name: format!("{id}.bin"),
+            size,
+            blake3: None,
+        };
+
+        let ok = RequestTransfer { transfer_id: "t".into(), files: vec![offer("a", 1024)] };
+        assert!(super::checked_declared_transfer_bytes(&ok).is_ok());
+
+        let overflow = RequestTransfer {
+            transfer_id: "t".into(),
+            files: vec![offer("a", u64::MAX), offer("b", 1)],
+        };
+        assert!(super::checked_declared_transfer_bytes(&overflow).is_err());
+
+        let oversize = RequestTransfer {
+            transfer_id: "t".into(),
+            files: vec![offer("a", super::MAX_NATIVE_TRANSFER_BYTES + 1)],
+        };
+        assert!(super::checked_declared_transfer_bytes(&oversize).is_err());
     }
 
     #[tokio::test]

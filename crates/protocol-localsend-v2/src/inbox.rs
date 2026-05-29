@@ -60,9 +60,18 @@ impl InboxWriter {
                 break;
             }
 
+            bytes_written += bytes_read as u64;
+            // Abort before writing past the declared size so a peer cannot fill the
+            // disk by declaring a tiny size and streaming unbounded data (C-4).
+            if bytes_written > upload.meta.size {
+                return Err(inbox_error(format!(
+                    "upload exceeds declared size {}",
+                    upload.meta.size
+                )));
+            }
+
             file.write_all(&buffer[..bytes_read]).await?;
             hasher.update(&buffer[..bytes_read]);
-            bytes_written += bytes_read as u64;
         }
 
         file.flush().await?;
@@ -229,6 +238,26 @@ mod tests {
         assert_eq!(written.bytes_written, body.len() as u64);
         assert_eq!(read(temp.path().join("hello.txt")).await, body);
         assert!(!temp.path().join(".incoming").join("session-1-file-1.part").exists());
+    }
+
+    #[tokio::test]
+    async fn upload_exceeding_declared_size_is_rejected_and_bounded() {
+        let temp = TempDir::new().unwrap();
+        let writer = InboxWriter::new(temp.path());
+        // Declares 4 bytes but streams 9: the write must abort and never publish.
+        let mut upload = upload("big.txt", b"1234");
+        upload.meta.sha256 = None;
+        let body = b"123456789";
+
+        let result = writer.write_upload(&upload, &body[..]).await;
+
+        assert!(result.is_err());
+        assert!(!temp.path().join("big.txt").exists());
+        let partial = temp.path().join(".incoming").join("session-1-file-1.part");
+        if partial.exists() {
+            let written = read(&partial).await.len() as u64;
+            assert!(written <= upload.meta.size, "partial {written} exceeds declared size");
+        }
     }
 
     #[tokio::test]
