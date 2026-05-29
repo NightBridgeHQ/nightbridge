@@ -65,7 +65,7 @@
     <main>
       <section class="hero">
         <div class="hero-copy">
-          <p class="eyebrow">26.5.0-alpha pre-release</p>
+          <p class="eyebrow">26.5.0-alpha.1 pre-release</p>
           <h1>Receive LocalSend files on a headless server.</h1>
           <p class="hero-lede">
             NightBridge is a LocalSend-compatible daemon for your NAS, homelab,
@@ -113,22 +113,22 @@
             <span class="step-number">1</span>
             <h3>Install from release assets</h3>
             <pre><code>curl -fsSL https://raw.githubusercontent.com/NightBridgeHQ/nightbridge/main/install.sh | \
-  sh -s -- --version 26.5.0-alpha</code></pre>
+  sh -s -- --version 26.5.0-alpha.1</code></pre>
             <p class="note">The installer downloads a platform tarball, verifies SHA256SUMS, and installs the CLI, daemon, TUI, and nbrg shortcut.</p>
           </article>
 
           <article class="step-panel">
             <span class="step-number">1b</span>
             <h3>Or run the container preview</h3>
-            <pre><code>docker pull ghcr.io/nightbridgehq/nightbridge:develop
+            <pre><code>docker pull ghcr.io/nightbridgehq/nightbridge:26.5.0-alpha.1
 docker run --rm \
   --network host \
   -v nightbridge-data:/var/lib/night-bridge \
-  ghcr.io/nightbridgehq/nightbridge:develop \
+  ghcr.io/nightbridgehq/nightbridge:26.5.0-alpha.1 \
   --alias "Home Server" \
   --localsend-receive-policy trusted \
   --inbox /var/lib/night-bridge/inbox</code></pre>
-            <p class="note">On Linux, host networking keeps LocalSend discovery and native UDP ports visible on the LAN. The GHCR image is currently a develop preview for testers; do not treat it as the stable alpha tag yet.</p>
+            <p class="note">On Linux, host networking keeps LocalSend discovery and native UDP ports visible on the LAN. Pin <code>:26.5.0-alpha.1</code> for the stable alpha image, or use <code>:develop</code> to track the latest build &mdash; today they point to the same image.</p>
           </article>
 
           <article class="step-panel">
@@ -179,7 +179,7 @@ night-bridge peers approve-local-send &lt;fingerprint&gt; \
             <h3>Linux and macOS install</h3>
             <pre><code>mkdir -p "$HOME/.local/bin"
 curl -fsSL https://raw.githubusercontent.com/NightBridgeHQ/nightbridge/main/install.sh | \
-  sh -s -- --version 26.5.0-alpha \
+  sh -s -- --version 26.5.0-alpha.1 \
   --install-dir "$HOME/.local/bin"</code></pre>
             <p class="note">The curl installer supports Linux and macOS release tarballs.</p>
           </article>
@@ -202,16 +202,16 @@ systemctl status night-bridge.service</code></pre>
 
           <article class="service-panel">
             <h3>Docker / GHCR preview</h3>
-            <pre><code>docker pull ghcr.io/nightbridgehq/nightbridge:develop
+            <pre><code>docker pull ghcr.io/nightbridgehq/nightbridge:26.5.0-alpha.1
 docker run -d --name nightbridge \
   --restart unless-stopped \
   --network host \
   -v nightbridge-data:/var/lib/night-bridge \
-  ghcr.io/nightbridgehq/nightbridge:develop \
+  ghcr.io/nightbridgehq/nightbridge:26.5.0-alpha.1 \
   --alias "Home Server" \
   --localsend-receive-policy trusted \
   --inbox /var/lib/night-bridge/inbox</code></pre>
-            <p class="note">Use the published GHCR image when you want a containerized Linux preview instead of installing host binaries.</p>
+            <p class="note">Use the published GHCR image for a containerized Linux preview instead of host binaries. Pin <code>:26.5.0-alpha.1</code> for the stable alpha, or <code>:develop</code> for the most recent build &mdash; today they are identical.</p>
           </article>
 
           <article class="service-panel">
@@ -425,8 +425,9 @@ night-bridge send --native --peer "Server" ./file.zip</code></pre>
           <article>
             <h3>Native reliability</h3>
             <p>
-              Extended native transfer soak and post-refresh delta soak passed
-              before the alpha tag was published.
+              A 9-hour native + LocalSend mesh soak (2,109 cycles across 17
+              receiver restarts) passed before the alpha.1 tag, with flat
+              memory and no leaks under sustained load.
             </p>
           </article>
           <article>

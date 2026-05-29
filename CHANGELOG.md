@@ -8,6 +8,46 @@ This project follows the spirit of [Keep a Changelog](https://keepachangelog.com
 
 - No unreleased changes yet.
 
+## [26.5.0-alpha.1] - 2026-05-29
+
+Security hardening from the 2026-05-28 audit, plus the gothic-bridge rebrand
+and release automation. Validated by a 9-hour native + LocalSend mesh soak
+(2,109 cycles across 17 receiver restarts, flat memory, no leaks).
+
+### Security
+
+- Authenticate the peer identity on the native receive handshake with a
+  proof-of-possession signed over the QUIC TLS exporter (channel binding),
+  verified before the peer is trusted (C-1).
+- Pin the LocalSend peer certificate fingerprint and validate send targets to
+  block SSRF (H-3, H-4).
+- Bound native chunk-frame size, native transfer size, and LocalSend upload
+  size to guard against disk and memory exhaustion (H-1, M-7, C-4).
+- Add a `cargo-audit` CI gate and Dependabot, and pin all GitHub Actions to
+  commit SHAs (M-2, M-3).
+
+### Added
+
+- Release workflow now builds, checksums, and publishes all artifacts
+  automatically on a tag push (Linux and macOS tarballs, `.deb`, SBOM,
+  `install.sh`, and `SHA256SUMS`) and pushes the Docker image to
+  `ghcr.io/nightbridgehq/nightbridge:<tag>`.
+- macOS Intel (`macos-amd64`) release tarball alongside `macos-arm64`.
+
+### Changed
+
+- Persist the native TLS identity across daemon restarts so a receiver restart
+  no longer rotates its cert and breaks pinned native mesh sends (OP-1).
+- Add the `NBRG_NATIVE_DISABLE_GSO` opt-out for NICs with flaky UDP GSO (OP-2).
+- Rebrand to the gothic-bridge identity: favicon, Open Graph assets, site
+  header, `docs/brand/palette.md`, and the TUI theme.
+- `install.sh` is now POSIX `sh` so `curl | sh` works under dash/ash, and it
+  adds the install directory to the shell PATH when needed.
+
+### Fixed
+
+- Site no longer overflows horizontally on mobile from wide code blocks.
+
 ## [26.5.0-alpha] - 2026-05-28
 
 ### Added
