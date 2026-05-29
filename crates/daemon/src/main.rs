@@ -508,6 +508,8 @@ fn bind_native_endpoint(
     native_port: u16,
     server_config: quinn::ServerConfig,
 ) -> Result<quinn::Endpoint> {
+    // The GSO opt-out (OP-2) travels with `server_config`'s transport config, so
+    // both bind paths inherit it.
     if native_port == 0 {
         return quinn::Endpoint::server(
             server_config,

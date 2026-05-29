@@ -10,6 +10,11 @@ use crate::{NativeError, Result};
 /// ALPN identifier for LocalSend Improvements native LAN protocol v1.
 pub const NATIVE_ALPN: &[u8] = b"lsi-native-v1";
 
+/// Environment variable that disables UDP Generic Segmentation Offload (GSO) for
+/// native QUIC connections. Set it on hosts whose NIC/driver mishandle GSO and
+/// return `sendmsg` `EIO`, which otherwise causes spurious packet loss (OP-2).
+pub const DISABLE_GSO_ENV: &str = "NBRG_NATIVE_DISABLE_GSO";
+
 /// Transport-level defaults for native QUIC connections.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct NativeTransportConfig {
@@ -73,6 +78,11 @@ impl NativeTransportConfig {
             .max_concurrent_uni_streams(quinn::VarInt::from_u32(self.max_concurrent_uni_streams));
         transport.max_idle_timeout(Some(idle_timeout));
         transport.keep_alive_interval(self.keep_alive_interval_ms.map(Duration::from_millis));
+        // OP-2: opt out of UDP GSO on hosts whose NIC/driver returns sendmsg EIO,
+        // where quinn's late auto-disable still loses the in-flight datagrams.
+        if std::env::var_os(DISABLE_GSO_ENV).is_some() {
+            transport.enable_segmentation_offload(false);
+        }
         Ok(transport)
     }
 

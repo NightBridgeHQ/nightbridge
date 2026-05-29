@@ -182,7 +182,10 @@ fn native_client_endpoint(expected_certificate_fingerprint: String) -> Result<qu
         .with_no_client_auth();
     rustls_config.alpn_protocols = vec![crate::transport::NATIVE_ALPN.to_vec()];
     let quic_crypto = quinn::crypto::rustls::QuicClientConfig::try_from(rustls_config)?;
-    let client_config = quinn::ClientConfig::new(Arc::new(quic_crypto));
+    // Apply the native transport config so the GSO opt-out (OP-2) reaches the
+    // sender, which is the side that hits sendmsg EIO during bulk transmits.
+    let client_config = crate::transport::NativeTransportConfig::default()
+        .apply_to_client_config(quinn::ClientConfig::new(Arc::new(quic_crypto)))?;
     let mut endpoint = quinn::Endpoint::client(SocketAddr::from(([0, 0, 0, 0], 0)))?;
     endpoint.set_default_client_config(client_config);
     Ok(endpoint)
