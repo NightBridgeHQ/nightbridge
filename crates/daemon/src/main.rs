@@ -26,7 +26,7 @@ use lsi_protocol_native_v1::{
     },
     framing::ControlMessage,
     manifest::ManifestStore,
-    tls::NativeTlsIdentity,
+    tls::NativeTlsVault,
     transfer::{read_chunk_frame, NativeTransferReceiver},
     transport::{
         bind_server_endpoint, NativeControlStream, NativeServerBind, NativeTransportConfig,
@@ -444,8 +444,17 @@ fn record_localsend_lan_peer(trust_db_path: &Path, peer: LanPeer) -> Result<()> 
 }
 
 async fn start_native_runtime(args: &Args, state: &DaemonState) -> Result<NativeRuntime> {
-    let tls_identity = NativeTlsIdentity::generate(&state.alias)
-        .context("failed to generate native TLS identity")?;
+    // Persist the native TLS cert next to the per-node trust store so its
+    // fingerprint stays stable across restarts (OP-1) and stays isolated per
+    // daemon instance (and per test) rather than in a shared global dir.
+    let native_tls_dir = state
+        .trust_db_path
+        .parent()
+        .map(std::path::Path::to_path_buf)
+        .unwrap_or_else(paths::config_dir);
+    let tls_identity = NativeTlsVault::new(native_tls_dir)
+        .load_or_generate(&state.alias)
+        .context("failed to load or generate native TLS identity")?;
     let server_config = NativeTransportConfig::default()
         .apply_to_server_config(tls_identity.quinn_server_config()?)
         .context("failed to build native QUIC server config")?;
