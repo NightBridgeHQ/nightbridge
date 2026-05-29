@@ -94,9 +94,7 @@ impl NativeTlsVault {
                 cert_der: read_file(&cert_path)?,
                 key_der: read_file(&key_path)?,
             })),
-            _ => Err(NativeError::Crypto(
-                "incomplete native TLS identity on disk".to_string(),
-            )),
+            _ => Err(NativeError::Crypto("incomplete native TLS identity on disk".to_string())),
         }
     }
 
@@ -149,7 +147,8 @@ fn set_owner_only_permissions(path: &Path) -> Result<()> {
         .map_err(|error| NativeError::Crypto(error.to_string()))?
         .permissions();
     permissions.set_mode(0o600);
-    std::fs::set_permissions(path, permissions).map_err(|error| NativeError::Crypto(error.to_string()))
+    std::fs::set_permissions(path, permissions)
+        .map_err(|error| NativeError::Crypto(error.to_string()))
 }
 
 #[cfg(not(unix))]
@@ -362,11 +361,9 @@ mod tests {
         let vault = NativeTlsVault::new(dir.path());
         vault.save(&NativeTlsIdentity::generate("native-peer").unwrap()).unwrap();
 
-        let mode = std::fs::metadata(dir.path().join("native-v1.key.der"))
-            .unwrap()
-            .permissions()
-            .mode()
-            & 0o777;
+        let mode =
+            std::fs::metadata(dir.path().join("native-v1.key.der")).unwrap().permissions().mode()
+                & 0o777;
         assert_eq!(mode, 0o600);
     }
 }
