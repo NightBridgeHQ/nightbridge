@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 680 432" role="img" aria-label="NightBridge daemon receiving files over the LAN">
+<style>text{font-family:'IBM Plex Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:15px;white-space:pre}.ln{opacity:0}@keyframes blink{0%,49%{opacity:1}50%,100%{opacity:0}}.cursor{animation:blink 1s steps(1) infinite}@media(prefers-reduced-motion:reduce){.ln{opacity:1!important;animation:none!important}.cursor{animation:none!important}}@keyframes a0{0%,0.0%{opacity:0}1.50%,94%{opacity:1}100%{opacity:0}}.l0{animation:a0 15.0s ease-in infinite}@keyframes a1{0%,6.6%{opacity:0}8.10%,94%{opacity:1}100%{opacity:0}}.l1{animation:a1 15.0s ease-in infinite}@keyframes a2{0%,13.2%{opacity:0}14.70%,94%{opacity:1}100%{opacity:0}}.l2{animation:a2 15.0s ease-in infinite}@keyframes a3{0%,19.8%{opacity:0}21.30%,94%{opacity:1}100%{opacity:0}}.l3{animation:a3 15.0s ease-in infinite}@keyframes a4{0%,26.4%{opacity:0}27.90%,94%{opacity:1}100%{opacity:0}}.l4{animation:a4 15.0s ease-in infinite}@keyframes a5{0%,33.0%{opacity:0}34.50%,94%{opacity:1}100%{opacity:0}}.l5{animation:a5 15.0s ease-in infinite}@keyframes a6{0%,39.6%{opacity:0}41.10%,94%{opacity:1}100%{opacity:0}}.l6{animation:a6 15.0s ease-in infinite}@keyframes a7{0%,46.2%{opacity:0}47.70%,94%{opacity:1}100%{opacity:0}}.l7{animation:a7 15.0s ease-in infinite}@keyframes a8{0%,52.8%{opacity:0}54.30%,94%{opacity:1}100%{opacity:0}}.l8{animation:a8 15.0s ease-in infinite}@keyframes a9{0%,59.4%{opacity:0}60.90%,94%{opacity:1}100%{opacity:0}}.l9{animation:a9 15.0s ease-in infinite}@keyframes a10{0%,66.0%{opacity:0}67.50%,94%{opacity:1}100%{opacity:0}}.l10{animation:a10 15.0s ease-in infinite}</style>
+<rect x="0" y="0" width="680" height="432" rx="12" fill="#0b1210"/>
+<rect x="0" y="0" width="680" height="40" rx="12" fill="#13201c"/>
+<rect x="0" y="28" width="680" height="12" fill="#13201c"/>
+<circle cx="24" cy="20" r="6" fill="#ec6a5e"/>
+<circle cx="46" cy="20" r="6" fill="#f4c766"/>
+<circle cx="68" cy="20" r="6" fill="#58c7b7"/>
+<text x="340" y="25" text-anchor="middle" fill="#5d6d64" font-size="13">night-bridge — Home Server</text>
+<text class="ln l0" x="22" y="92" fill="#e6f4ef">$ night-bridge-daemon --alias "Home Server" \</text>
+<text class="ln l1" x="22" y="119" fill="#e6f4ef">    --localsend-receive-policy trusted</text>
+<text class="ln l2" x="22" y="146" fill="#8fb3a8">identity loaded · fp 10d2-1b58-e261-775e</text>
+<text class="ln l3" x="22" y="173" fill="#58c7b7">LocalSend v2 receiver   https  0.0.0.0:53317</text>
+<text class="ln l4" x="22" y="200" fill="#58c7b7">native mesh listener    quic   0.0.0.0:53400</text>
+<text class="ln l5" x="22" y="227" fill="#8fb3a8">ready — waiting for transfers on the LAN</text>
+<text class="ln l6" x="22" y="254" fill="#f4c766">↪ pending LocalSend peer: Pixel 8</text>
+<text class="ln l7" x="22" y="281" fill="#e6f4ef">$ night-bridge peers approve-local-send 3f9a</text>
+<text class="ln l8" x="22" y="308" fill="#8fb3a8">approved · Pixel 8</text>
+<text class="ln l9" x="22" y="335" fill="#89f0b8">✓ received  vacation-photos.zip   248 MB</text>
+<text class="ln l10" x="22" y="362" fill="#89f0b8">✓ received  backup.tar.gz         1.2 GB</text>
+<rect class="cursor" x="22" y="376" width="9" height="17" fill="#58c7b7"/>
+</svg>

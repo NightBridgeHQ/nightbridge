@@ -219,9 +219,9 @@ pre code {
 }
 
 .hero h1 {
-  max-width: 12.8ch;
-  font-size: 5.75rem;
-  line-height: 1;
+  max-width: 16ch;
+  font-size: clamp(2.5rem, 5vw, 4rem);
+  line-height: 1.04;
 }
 
 .hero-lede {
@@ -229,6 +229,35 @@ pre code {
   margin: 1.5rem 0 0;
   color: var(--color-muted);
   font-size: 1.2rem;
+}
+
+.trust-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 0.75rem;
+  margin: 1.4rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.trust-row li {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  padding: 0.32rem 0.7rem;
+  color: var(--color-text);
+  font-size: 0.84rem;
+  font-weight: 600;
+}
+
+.trust-row li::before {
+  content: "";
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 999px;
+  background: var(--color-primary);
 }
 
 .hero-actions {
@@ -262,10 +291,26 @@ pre code {
 }
 
 .product-visual {
-  display: grid;
-  grid-template-columns: 0.82fr minmax(2rem, 0.2fr) 1.1fr;
+  display: flex;
+  justify-content: center;
   align-items: center;
-  min-height: 24rem;
+}
+
+.demo-terminal {
+  width: 100%;
+  max-width: 40rem;
+  height: auto;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-panel);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* The terminal SVG animation respects the user's motion preference via the
+     img; nothing else animates beyond smooth scroll. */
+  html {
+    scroll-behavior: auto;
+  }
 }
 
 .device-card {
@@ -552,11 +597,6 @@ pre code {
     min-height: auto;
   }
 
-  .hero h1 {
-    max-width: 13.5ch;
-    font-size: 4.5rem;
-  }
-
   .product-visual {
     grid-template-columns: 1fr;
     gap: 1rem;
@@ -590,10 +630,6 @@ pre code {
   .site-nav,
   .site-footer nav {
     justify-content: flex-start;
-  }
-
-  .hero h1 {
-    font-size: 3.25rem;
   }
 
   .hero-lede {

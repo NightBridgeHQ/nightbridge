@@ -3,17 +3,37 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>NightBridge — Self-hosted LocalSend receive for headless servers</title>
     <meta
       name="description"
-      content="NightBridge alpha: a LocalSend-compatible headless server for homelabs, NAS boxes, and always-on machines."
+      content="NightBridge is a LocalSend-compatible daemon that receives files on a headless NAS, homelab, or Raspberry Pi. Open source, self-hosted, LAN-only — your files never touch the cloud."
     >
-    <title>NightBridge Alpha</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link
-      href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700;800&display=swap"
-      rel="stylesheet"
+    <link rel="canonical" href="https://nightbridge.dev/">
+    <link rel="icon" href="favicon.svg" type="image/svg+xml">
+    <link rel="apple-touch-icon" href="apple-touch-icon.png">
+    <meta name="theme-color" content="#0a4f47">
+
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="NightBridge">
+    <meta property="og:title" content="NightBridge — Self-hosted LocalSend receive for headless servers">
+    <meta
+      property="og:description"
+      content="A LocalSend-compatible daemon for your NAS, homelab, or Pi. Open source, self-hosted, LAN-only."
     >
+    <meta property="og:url" content="https://nightbridge.dev/">
+    <meta property="og:image" content="https://nightbridge.dev/og.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta property="og:image:alt" content="NightBridge — receive LocalSend files on headless servers.">
+
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="NightBridge — Self-hosted LocalSend receive for headless servers">
+    <meta
+      name="twitter:description"
+      content="A LocalSend-compatible daemon for your NAS, homelab, or Pi. Open source, self-hosted, LAN-only."
+    >
+    <meta name="twitter:image" content="https://nightbridge.dev/og.png">
+
     <link rel="stylesheet" href="styles.css">
   </head>
   <body>
@@ -47,37 +67,35 @@
       <section class="hero">
         <div class="hero-copy">
           <p class="eyebrow">26.5.0-alpha pre-release</p>
-          <h1>LocalSend-compatible receive for headless machines.</h1>
+          <h1>Receive LocalSend files on a headless server.</h1>
           <p class="hero-lede">
-            NightBridge lets official LocalSend apps send files to a daemon
-            running on a server, NAS, Raspberry Pi, homelab box, or always-on
-            workstation. Install the release binaries, then run the daemon
-            directly or wire it into systemd.
+            NightBridge is a LocalSend-compatible daemon for your NAS, homelab,
+            or Raspberry Pi. Send from the official LocalSend app on any device;
+            files land on your always-on machine — no screen, no cloud, no
+            account.
           </p>
+          <ul class="trust-row" aria-label="Why NightBridge">
+            <li>Open source (AGPL-3.0)</li>
+            <li>Self-hosted</li>
+            <li>LAN-only · no cloud</li>
+          </ul>
           <div class="hero-actions" aria-label="Primary actions">
-            <a class="button primary" href="https://github.com/NightBridgeHQ/nightbridge/releases">
-              GitHub Releases
-            </a>
-            <a class="button secondary" href="https://github.com/NightBridgeHQ/nightbridge/blob/main/docs/users/quickstart.md">
-              Quickstart docs
+            <a class="button primary" href="#try-alpha">Get started</a>
+            <a class="button secondary" href="https://github.com/NightBridgeHQ/nightbridge">
+              View on GitHub
             </a>
           </div>
         </div>
 
-        <div class="product-visual" aria-label="NightBridge receive flow">
-          <div class="device-card phone">
-            <span class="device-label">LocalSend app</span>
-            <span class="device-line"></span>
-            <span class="device-line short"></span>
-            <span class="send-chip">Send file</span>
-          </div>
-          <div class="bridge-line" aria-hidden="true"></div>
-          <div class="device-card server">
-            <span class="device-label">NightBridge daemon</span>
-            <span class="terminal-line prompt">$ night-bridge daemon</span>
-            <span class="terminal-line">pending peer: Pixel 8</span>
-            <span class="terminal-line success">received: photos.zip</span>
-          </div>
+        <div class="product-visual">
+          <img
+            class="demo-terminal"
+            src="demo.svg"
+            width="680"
+            height="432"
+            loading="lazy"
+            alt="NightBridge daemon starting a LocalSend v2 receiver on https 0.0.0.0:53317 and a native mesh listener on quic 0.0.0.0:53400, approving a pending peer, then receiving vacation-photos.zip and backup.tar.gz over the LAN."
+          >
         </div>
       </section>
 
@@ -169,37 +187,18 @@ curl -fsSL https://raw.githubusercontent.com/NightBridgeHQ/nightbridge/main/inst
 
           <article class="service-panel">
             <h3>Linux systemd unit</h3>
-            <pre><code>sudo useradd --system --home /var/lib/night-bridge \
-  --shell /usr/sbin/nologin nightbridge
-sudo install -d -o nightbridge -g nightbridge /var/lib/night-bridge/inbox
-sudo install -d -m 0755 /etc/night-bridge
-
-sudo tee /etc/systemd/system/night-bridge.service &gt;/dev/null &lt;&lt;'EOF'
-[Unit]
-Description=NightBridge daemon
-After=network-online.target
-Wants=network-online.target
-
-[Service]
-Type=simple
-User=nightbridge
-Environment=XDG_CONFIG_HOME=/etc
-Environment=XDG_DATA_HOME=/var/lib
-ExecStart=/usr/local/bin/night-bridge-daemon \
-  --config /etc/night-bridge/config.toml \
-  --identity /var/lib/night-bridge/identity.key \
-  --trust-db /var/lib/night-bridge/trust.db \
-  --inbox /var/lib/night-bridge/inbox \
-  --alias "Home Server" \
-  --localsend-receive-policy trusted
-Restart=on-failure
-RestartSec=5s
-
-[Install]
-WantedBy=multi-user.target
-EOF
-sudo systemctl daemon-reload
-sudo systemctl enable --now night-bridge.service</code></pre>
+            <p>
+              Run NightBridge as a hardened system service with a dedicated
+              user, persistent identity, and restart-on-failure. The complete,
+              copy-pasteable unit and setup steps live in the daemon operations
+              guide.
+            </p>
+            <pre><code>sudo systemctl enable --now night-bridge.service
+systemctl status night-bridge.service</code></pre>
+            <p class="note">
+              Full unit file:
+              <a href="https://github.com/NightBridgeHQ/nightbridge/blob/main/docs/operators/daemon.md">Daemon operations guide →</a>
+            </p>
           </article>
 
           <article class="service-panel">
