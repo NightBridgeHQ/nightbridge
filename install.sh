@@ -5,6 +5,7 @@ repo="${NIGHTBRIDGE_REPO:-NightBridgeHQ/nightbridge}"
 version="${NIGHTBRIDGE_VERSION:-latest}"
 install_dir="${NIGHTBRIDGE_INSTALL_DIR:-/usr/local/bin}"
 github_base="${GITHUB_API_URL:-https://api.github.com}"
+modify_path=1
 
 usage() {
   cat <<'EOF'
@@ -16,6 +17,7 @@ Options:
   --repo OWNER/REPO      GitHub repository. Defaults to NIGHTBRIDGE_REPO.
   --version VERSION      Release version or tag. Defaults to latest.
   --install-dir DIR      Install directory. Defaults to /usr/local/bin.
+  --no-modify-path       Do not add the install directory to your shell PATH.
   -h, --help             Show this help.
 
 Environment:
@@ -49,6 +51,10 @@ while [[ $# -gt 0 ]]; do
     --install-dir)
       install_dir="${2:?missing value for --install-dir}"
       shift 2
+      ;;
+    --no-modify-path)
+      modify_path=0
+      shift
       ;;
     -h|--help)
       usage
@@ -120,6 +126,53 @@ install_file() {
   fi
 }
 
+ensure_on_path() {
+  # Nothing to do when the install dir is already reachable (e.g. the default
+  # /usr/local/bin). Match the whole path component, not a substring.
+  case ":${PATH}:" in
+    *":${install_dir}:"*) return 0 ;;
+  esac
+
+  local shell_name
+  shell_name="$(basename "${SHELL:-sh}")"
+
+  if [[ "$modify_path" -ne 1 ]]; then
+    err "${install_dir} is not on your PATH"
+    printf 'Add it with:\n  export PATH="%s:$PATH"\n' "$install_dir" >&2
+    return 0
+  fi
+
+  local marker="# Added by NightBridge install.sh"
+  local target line
+  case "$shell_name" in
+    fish)
+      target="${HOME}/.config/fish/config.fish"
+      line="fish_add_path \"${install_dir}\""
+      ;;
+    zsh)
+      target="${ZDOTDIR:-$HOME}/.zshrc"
+      line="export PATH=\"${install_dir}:\$PATH\""
+      ;;
+    bash)
+      target="${HOME}/.bashrc"
+      line="export PATH=\"${install_dir}:\$PATH\""
+      ;;
+    *)
+      target="${HOME}/.profile"
+      line="export PATH=\"${install_dir}:\$PATH\""
+      ;;
+  esac
+
+  mkdir -p "$(dirname "$target")"
+  if [[ -f "$target" ]] && grep -qF "$marker" "$target"; then
+    printf 'PATH entry for %s already present in %s\n' "$install_dir" "$target"
+  else
+    printf '\n%s\n%s\n' "$marker" "$line" >> "$target"
+    printf 'Added %s to PATH in %s\n' "$install_dir" "$target"
+  fi
+  printf 'Open a new shell, or run now:\n  export PATH="%s:$PATH"\n' "$install_dir"
+}
+
 main() {
   need_cmd curl
   need_cmd shasum
@@ -173,7 +226,9 @@ main() {
     fi
   done
 
-  printf 'NightBridge installed. Try: %s/night-bridge --help\n' "$install_dir"
+  ensure_on_path
+
+  printf 'NightBridge installed. Try: night-bridge --help\n'
 }
 
 main "$@"
