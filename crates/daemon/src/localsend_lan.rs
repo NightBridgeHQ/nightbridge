@@ -12,6 +12,9 @@ const LOCALSEND_PORT: u16 = 53317;
 pub(crate) async fn scan_and_cache(trust_db_path: &Path) -> Result<Vec<LocalSendLanPeer>> {
     let local_ip = local_ipv4().context("failed to determine local IPv4 address")?;
     let octets = local_ip.octets();
+    // Discovery probe only (GET /info to learn each peer's fingerprint); it cannot
+    // pin a not-yet-known fingerprint — trust-on-first-discovery, matching
+    // LocalSend's model. The actual upload pins the discovered fingerprint (H-3).
     let client = reqwest::Client::builder()
         .danger_accept_invalid_certs(true)
         .timeout(Duration::from_millis(350))
@@ -40,11 +43,17 @@ pub(crate) async fn scan_and_cache(trust_db_path: &Path) -> Result<Vec<LocalSend
         }
     }
 
-    if discovered.is_empty() {
-        Ok(store.list_localsend_lan_peers()?)
-    } else {
-        Ok(discovered)
+    let mut peers = store.list_localsend_lan_peers()?;
+    for peer in discovered {
+        if let Some(existing) =
+            peers.iter_mut().find(|existing| existing.fingerprint == peer.fingerprint)
+        {
+            *existing = peer;
+        } else {
+            peers.push(peer);
+        }
     }
+    Ok(peers)
 }
 
 async fn probe_candidate(client: reqwest::Client, ip: Ipv4Addr) -> Result<LocalSendLanPeer> {

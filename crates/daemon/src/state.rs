@@ -50,7 +50,11 @@ impl DaemonState {
             identity,
             fingerprint,
             trust_db_path: args.trust_db.clone().unwrap_or_else(paths::trust_db_file),
-            inbox_dir: args.inbox.clone(),
+            inbox_dir: args
+                .inbox
+                .clone()
+                .or_else(|| config.localsend.inbox_dir.as_ref().map(PathBuf::from))
+                .unwrap_or_else(paths::default_inbox),
             localsend_port: args.localsend_port,
             localsend_receive_policy: crate::localsend_receive_policy(
                 args.localsend_receive_policy,
@@ -154,6 +158,54 @@ mod tests {
     }
 
     #[test]
+    fn state_from_args_uses_configured_inbox_when_cli_inbox_is_absent() {
+        let args = Args::parse_from(["daemon"]);
+        let identity = Keypair::generate();
+        let fingerprint = Fingerprint::from_pubkey(&identity.public_bytes()).to_string();
+        let config = AppConfig {
+            localsend: LocalSendConfig {
+                inbox_dir: Some("/srv/nightbridge/inbox".to_string()),
+                ..LocalSendConfig::default()
+            },
+            ..AppConfig::default()
+        };
+
+        let state = DaemonState::from_args(
+            &args,
+            identity,
+            fingerprint,
+            ApiToken::new("token").unwrap(),
+            config,
+        );
+
+        assert_eq!(state.inbox_dir, PathBuf::from("/srv/nightbridge/inbox"));
+    }
+
+    #[test]
+    fn state_from_args_cli_inbox_overrides_configured_inbox() {
+        let args = Args::parse_from(["daemon", "--inbox", "/tmp/cli-inbox"]);
+        let identity = Keypair::generate();
+        let fingerprint = Fingerprint::from_pubkey(&identity.public_bytes()).to_string();
+        let config = AppConfig {
+            localsend: LocalSendConfig {
+                inbox_dir: Some("/srv/nightbridge/inbox".to_string()),
+                ..LocalSendConfig::default()
+            },
+            ..AppConfig::default()
+        };
+
+        let state = DaemonState::from_args(
+            &args,
+            identity,
+            fingerprint,
+            ApiToken::new("token").unwrap(),
+            config,
+        );
+
+        assert_eq!(state.inbox_dir, PathBuf::from("/tmp/cli-inbox"));
+    }
+
+    #[test]
     fn state_uses_configured_localsend_fingerprints_file() {
         let args = Args::parse_from(["daemon"]);
         let identity = Keypair::generate();
@@ -161,6 +213,7 @@ mod tests {
         let config = AppConfig {
             localsend: LocalSendConfig {
                 receive_policy: "trusted".to_string(),
+                inbox_dir: None,
                 trusted_fingerprints: vec!["inline-fingerprint".to_string()],
                 trusted_fingerprints_file: Some("/etc/night-bridge/localsend-trusted.txt".into()),
             },

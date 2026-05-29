@@ -10,7 +10,7 @@ use tokio::io::{AsyncReadExt, AsyncSeekExt};
 
 use crate::candidates::{CandidateKind, NativeCandidate};
 use crate::chunk::{blake3_hex, plan_chunks};
-use crate::dto::{default_extensions, DoneTransfer, Hello, PROTOCOL_VERSION};
+use crate::dto::{default_extensions, DoneTransfer};
 use crate::framing::{read_control, write_control, ControlMessage};
 use crate::hole_punch::{dial_candidates, NativeDialTrust};
 use crate::tls::{ensure_ring_crypto_provider, NativeServerVerifier};
@@ -113,13 +113,14 @@ async fn send_prepared_native_files(
 ) -> Result<()> {
     let (mut send, mut recv) = connection.open_bi().await?;
 
-    let hello = Hello {
-        protocol_version: PROTOCOL_VERSION,
-        alias: "night-bridge".to_string(),
-        pubkey: keypair.public_bytes(),
-        nonce: request.transfer_id.as_bytes().to_vec(),
-        extensions: default_extensions(),
-    };
+    let channel_binding = crate::auth::connection_channel_binding(connection)?;
+    let hello = crate::auth::build_authenticated_hello(
+        &keypair,
+        "night-bridge".to_string(),
+        request.transfer_id.as_bytes().to_vec(),
+        default_extensions(),
+        &channel_binding,
+    );
     write_control(&mut send, &ControlMessage::Hello(hello)).await?;
     match read_control(&mut recv).await? {
         ControlMessage::HelloAck(_) => {}
@@ -181,7 +182,10 @@ fn native_client_endpoint(expected_certificate_fingerprint: String) -> Result<qu
         .with_no_client_auth();
     rustls_config.alpn_protocols = vec![crate::transport::NATIVE_ALPN.to_vec()];
     let quic_crypto = quinn::crypto::rustls::QuicClientConfig::try_from(rustls_config)?;
-    let client_config = quinn::ClientConfig::new(Arc::new(quic_crypto));
+    // Apply the native transport config so the GSO opt-out (OP-2) reaches the
+    // sender, which is the side that hits sendmsg EIO during bulk transmits.
+    let client_config = crate::transport::NativeTransportConfig::default()
+        .apply_to_client_config(quinn::ClientConfig::new(Arc::new(quic_crypto)))?;
     let mut endpoint = quinn::Endpoint::client(SocketAddr::from(([0, 0, 0, 0], 0)))?;
     endpoint.set_default_client_config(client_config);
     Ok(endpoint)

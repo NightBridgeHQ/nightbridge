@@ -202,6 +202,9 @@ pub struct LocalSendConfig {
     /// Receive policy: `prompt`, `trusted`, or `auto`.
     #[serde(default = "default_localsend_receive_policy")]
     pub receive_policy: String,
+    /// Optional default inbox directory for received files.
+    #[serde(default)]
+    pub inbox_dir: Option<String>,
     /// Inline LocalSend fingerprints allowed when receive policy is `trusted`.
     #[serde(default)]
     pub trusted_fingerprints: Vec<String>,
@@ -214,6 +217,7 @@ impl Default for LocalSendConfig {
     fn default() -> Self {
         Self {
             receive_policy: default_localsend_receive_policy(),
+            inbox_dir: None,
             trusted_fingerprints: Vec::new(),
             trusted_fingerprints_file: None,
         }
@@ -231,6 +235,9 @@ impl LocalSendConfig {
             }
         }
 
+        if let Some(path) = &self.inbox_dir {
+            require_nonblank("localsend inbox_dir", path)?;
+        }
         for fingerprint in &self.trusted_fingerprints {
             require_nonblank("trusted LocalSend fingerprint", fingerprint)?;
         }
@@ -397,15 +404,17 @@ stun_servers = ["stun.example.net:3478"]
         let config = parse("").unwrap();
 
         assert_eq!(config.localsend.receive_policy, "prompt");
+        assert!(config.localsend.inbox_dir.is_none());
         assert!(config.localsend.trusted_fingerprints.is_empty());
         assert!(config.localsend.trusted_fingerprints_file.is_none());
     }
 
     #[test]
-    fn localsend_config_accepts_trusted_fingerprints_file() {
+    fn localsend_config_accepts_inbox_dir_and_trusted_fingerprints_file() {
         let config = parse(
             r#"
 [localsend]
+inbox_dir = "/srv/nightbridge/inbox"
 receive_policy = "trusted"
 trusted_fingerprints = ["ios-fingerprint"]
 trusted_fingerprints_file = "/etc/night-bridge/localsend-trusted.txt"
@@ -414,6 +423,7 @@ trusted_fingerprints_file = "/etc/night-bridge/localsend-trusted.txt"
         .unwrap();
 
         assert_eq!(config.localsend.receive_policy, "trusted");
+        assert_eq!(config.localsend.inbox_dir.as_deref(), Some("/srv/nightbridge/inbox"));
         assert_eq!(config.localsend.trusted_fingerprints, vec!["ios-fingerprint"]);
         assert_eq!(
             config.localsend.trusted_fingerprints_file.as_deref(),
@@ -426,6 +436,13 @@ trusted_fingerprints_file = "/etc/night-bridge/localsend-trusted.txt"
         let error = parse("[localsend]\nreceive_policy = \"open\"\n").unwrap_err();
 
         assert!(error.to_string().contains("unsupported localsend receive_policy"), "{error}");
+    }
+
+    #[test]
+    fn localsend_config_rejects_blank_inbox_dir() {
+        let error = parse("[localsend]\ninbox_dir = \"\"\n").unwrap_err();
+
+        assert!(error.to_string().contains("localsend inbox_dir is required"), "{error}");
     }
 
     #[test]

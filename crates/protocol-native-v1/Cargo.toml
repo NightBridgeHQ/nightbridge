@@ -12,6 +12,7 @@ lsi-core = { path = "../core" }
 anyhow.workspace = true
 blake3.workspace = true
 bytes.workspace = true
+ed25519-dalek.workspace = true
 mdns-sd.workspace = true
 prost.workspace = true
 prost-types.workspace = true

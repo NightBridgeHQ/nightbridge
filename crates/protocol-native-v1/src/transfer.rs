@@ -13,6 +13,11 @@ use crate::dto::{AcceptTransfer, FileOffer, NativePeerInfo, RequestTransfer};
 use crate::manifest::{ManifestStore, ResumeRange, TransferDirection, TransferState};
 use crate::{NativeError, Result};
 
+/// Maximum accepted size of a single native chunk frame, bounding the buffer a
+/// receiver allocates from an attacker-declared length (H-1). Generous headroom
+/// over `DEFAULT_CHUNK_SIZE` (1 MiB).
+pub const MAX_CHUNK_FRAME_BYTES: usize = 8 * 1024 * 1024;
+
 /// Native transfer sender.
 #[derive(Clone, Debug)]
 pub struct NativeTransferSender {
@@ -192,6 +197,10 @@ where
     let frame_len = reader.read_u32().await? as usize;
     if frame_len < 2 + 8 + 64 + 4 {
         return Err(transfer_error("chunk frame is too small"));
+    }
+    // Bound the allocation before reading any attacker-controlled length (H-1).
+    if frame_len > MAX_CHUNK_FRAME_BYTES {
+        return Err(transfer_error("chunk frame exceeds maximum size"));
     }
 
     let file_id_len = reader.read_u16().await? as usize;
@@ -616,5 +625,20 @@ mod tests {
         let decoded = crate::transfer::read_chunk_frame(&mut encoded.as_slice()).await.unwrap();
 
         assert_eq!(decoded, chunk);
+    }
+
+    #[tokio::test]
+    async fn read_chunk_frame_rejects_oversized_frame_before_allocating() {
+        // A frame declaring more than MAX_CHUNK_FRAME_BYTES must be rejected at the
+        // length check, not by attempting a multi-gigabyte allocation (H-1).
+        let oversized = (super::MAX_CHUNK_FRAME_BYTES as u32) + 1;
+        let header = oversized.to_be_bytes();
+
+        let error = crate::transfer::read_chunk_frame(&mut header.as_slice()).await.unwrap_err();
+
+        assert!(
+            error.to_string().contains("maximum size"),
+            "expected a max-size rejection, got: {error}"
+        );
     }
 }

@@ -144,6 +144,7 @@ mod tests {
             pubkey: [7; 32],
             nonce: b"nonce".to_vec(),
             extensions: default_extensions(),
+            identity_proof: Vec::new(),
         })
     }
 

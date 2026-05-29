@@ -1,6 +1,7 @@
 //! TLS identity helpers for native QUIC transport.
 
 use std::fmt::Write as _;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use quinn::crypto::rustls::QuicServerConfig;
@@ -63,6 +64,96 @@ impl NativeTlsIdentity {
             .map_err(|error| NativeError::Crypto(error.to_string()))?;
         Ok(quinn::ServerConfig::with_crypto(Arc::new(quic_crypto)))
     }
+}
+
+/// File name for the persisted native TLS certificate (DER).
+const NATIVE_CERT_FILE: &str = "native-v1.cert.der";
+/// File name for the persisted native TLS private key (DER).
+const NATIVE_KEY_FILE: &str = "native-v1.key.der";
+
+/// Filesystem-backed vault that persists the native TLS identity so the
+/// certificate fingerprint stays stable across daemon restarts (OP-1).
+#[derive(Clone, Debug)]
+pub struct NativeTlsVault {
+    config_dir: PathBuf,
+}
+
+impl NativeTlsVault {
+    /// Create a vault rooted at `config_dir`.
+    pub fn new(config_dir: impl Into<PathBuf>) -> Self {
+        Self { config_dir: config_dir.into() }
+    }
+
+    /// Load the native TLS identity, returning `None` when both files are missing.
+    pub fn load(&self) -> Result<Option<NativeTlsIdentity>> {
+        let cert_path = self.cert_path();
+        let key_path = self.key_path();
+        match (cert_path.exists(), key_path.exists()) {
+            (false, false) => Ok(None),
+            (true, true) => Ok(Some(NativeTlsIdentity {
+                cert_der: read_file(&cert_path)?,
+                key_der: read_file(&key_path)?,
+            })),
+            _ => Err(NativeError::Crypto("incomplete native TLS identity on disk".to_string())),
+        }
+    }
+
+    /// Persist the native TLS identity, overwriting any previous pair.
+    pub fn save(&self, identity: &NativeTlsIdentity) -> Result<()> {
+        std::fs::create_dir_all(&self.config_dir)
+            .map_err(|error| NativeError::Crypto(error.to_string()))?;
+        write_atomically(&self.cert_path(), &identity.cert_der, false)?;
+        write_atomically(&self.key_path(), &identity.key_der, true)?;
+        Ok(())
+    }
+
+    /// Load the stored identity, or generate and persist a new one.
+    pub fn load_or_generate(&self, alias: &str) -> Result<NativeTlsIdentity> {
+        if let Some(identity) = self.load()? {
+            return Ok(identity);
+        }
+        let identity = NativeTlsIdentity::generate(alias)?;
+        self.save(&identity)?;
+        Ok(identity)
+    }
+
+    fn cert_path(&self) -> PathBuf {
+        self.config_dir.join(NATIVE_CERT_FILE)
+    }
+
+    fn key_path(&self) -> PathBuf {
+        self.config_dir.join(NATIVE_KEY_FILE)
+    }
+}
+
+fn read_file(path: &Path) -> Result<Vec<u8>> {
+    std::fs::read(path).map_err(|error| NativeError::Crypto(error.to_string()))
+}
+
+fn write_atomically(path: &Path, bytes: &[u8], owner_only: bool) -> Result<()> {
+    let tmp_path = path.with_extension("tmp");
+    std::fs::write(&tmp_path, bytes).map_err(|error| NativeError::Crypto(error.to_string()))?;
+    if owner_only {
+        set_owner_only_permissions(&tmp_path)?;
+    }
+    std::fs::rename(&tmp_path, path).map_err(|error| NativeError::Crypto(error.to_string()))?;
+    Ok(())
+}
+
+#[cfg(unix)]
+fn set_owner_only_permissions(path: &Path) -> Result<()> {
+    use std::os::unix::fs::PermissionsExt;
+    let mut permissions = std::fs::metadata(path)
+        .map_err(|error| NativeError::Crypto(error.to_string()))?
+        .permissions();
+    permissions.set_mode(0o600);
+    std::fs::set_permissions(path, permissions)
+        .map_err(|error| NativeError::Crypto(error.to_string()))
+}
+
+#[cfg(not(unix))]
+fn set_owner_only_permissions(_path: &Path) -> Result<()> {
+    Ok(())
 }
 
 /// Return the lowercase hex SHA-256 fingerprint of certificate DER bytes.
@@ -224,5 +315,55 @@ mod tests {
         let identity = NativeTlsIdentity::generate("native-peer").unwrap();
 
         let _config = identity.quinn_server_config().unwrap();
+    }
+
+    #[test]
+    fn vault_load_returns_none_when_missing() {
+        let dir = tempfile::tempdir().unwrap();
+
+        assert!(NativeTlsVault::new(dir.path()).load().unwrap().is_none());
+    }
+
+    #[test]
+    fn vault_save_then_load_roundtrip() {
+        let dir = tempfile::tempdir().unwrap();
+        let vault = NativeTlsVault::new(dir.path());
+        let identity = NativeTlsIdentity::generate("native-peer").unwrap();
+
+        vault.save(&identity).unwrap();
+        let loaded = vault.load().unwrap().unwrap();
+
+        assert_eq!(loaded.cert_der, identity.cert_der);
+        assert_eq!(loaded.key_der, identity.key_der);
+    }
+
+    #[test]
+    fn vault_load_or_generate_is_stable_across_restarts() {
+        // OP-1 regression: a daemon restart must reuse the persisted native cert,
+        // so the fingerprint a peer pinned stays valid.
+        let dir = tempfile::tempdir().unwrap();
+        let vault = NativeTlsVault::new(dir.path());
+
+        let first = vault.load_or_generate("native-peer").unwrap();
+        let second = vault.load_or_generate("native-peer").unwrap();
+
+        assert_eq!(first.fingerprint_sha256_hex(), second.fingerprint_sha256_hex());
+        assert_eq!(first.cert_der, second.cert_der);
+        assert_eq!(first.key_der, second.key_der);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn vault_writes_key_with_owner_only_permissions() {
+        use std::os::unix::fs::PermissionsExt;
+
+        let dir = tempfile::tempdir().unwrap();
+        let vault = NativeTlsVault::new(dir.path());
+        vault.save(&NativeTlsIdentity::generate("native-peer").unwrap()).unwrap();
+
+        let mode =
+            std::fs::metadata(dir.path().join("native-v1.key.der")).unwrap().permissions().mode()
+                & 0o777;
+        assert_eq!(mode, 0o600);
     }
 }

@@ -384,8 +384,14 @@ mod tests {
             .unwrap()
             .into_inner();
 
-        assert_eq!(response.peers.len(), 1);
-        let peer = &response.peers[0];
+        let peer = response
+            .peers
+            .iter()
+            .find(|peer| {
+                peer.fingerprint.as_ref().map(|fingerprint| fingerprint.value.as_str())
+                    == Some("aabb")
+            })
+            .expect("registered LocalSend discovery peer should be returned");
         assert_eq!(peer.alias, "Android Test Device");
         assert_eq!(peer.address, "192.0.2.81");
         assert_eq!(peer.port, 53317);

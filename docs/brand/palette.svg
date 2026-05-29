@@ -1,0 +1,112 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="832" viewBox="0 0 900 832" font-family="IBM Plex Sans,Segoe UI,system-ui,sans-serif">
+<rect width="900" height="832" fill="#0d1513"/>
+<text x="40" y="46" fill="#e7efe9" font-size="28" font-weight="800">NightBridge — design palette</text>
+<text x="40" y="74" fill="#a7b8ae" font-size="14">gothic-tech · each swatch shows LIGHT / DARK token values · teal = brand, blood-red = signature</text>
+<text x="40" y="110" fill="#5ec5b5" font-size="15" font-weight="700">Teal — primary (tech anchor)</text>
+<rect x="40" y="122" width="150" height="86" rx="9" fill="#58c7b7" stroke="#2a3a36"/>
+<rect x="40" y="122" width="75" height="86" rx="9" fill="#136f63"/>
+<rect x="106" y="122" width="18" height="86" fill="#136f63"/>
+<text x="50" y="198" fill="#ffffff" font-size="11" font-family="IBM Plex Mono,monospace">#136f63</text>
+<text x="180" y="140" text-anchor="end" fill="#000000" font-size="11" font-family="IBM Plex Mono,monospace">#58c7b7</text>
+<text x="40" y="226" fill="#cdd6e6" font-size="12" font-weight="600">primary</text>
+<rect x="204" y="122" width="150" height="86" rx="9" fill="#8de3d4" stroke="#2a3a36"/>
+<rect x="204" y="122" width="75" height="86" rx="9" fill="#0a4f47"/>
+<rect x="270" y="122" width="18" height="86" fill="#0a4f47"/>
+<text x="214" y="198" fill="#ffffff" font-size="11" font-family="IBM Plex Mono,monospace">#0a4f47</text>
+<text x="344" y="140" text-anchor="end" fill="#000000" font-size="11" font-family="IBM Plex Mono,monospace">#8de3d4</text>
+<text x="204" y="226" fill="#cdd6e6" font-size="12" font-weight="600">primary-strong</text>
+<rect x="368" y="122" width="150" height="86" rx="9" fill="#173932" stroke="#2a3a36"/>
+<rect x="368" y="122" width="75" height="86" rx="9" fill="#dff3ed"/>
+<rect x="434" y="122" width="18" height="86" fill="#dff3ed"/>
+<text x="378" y="198" fill="#000000" font-size="11" font-family="IBM Plex Mono,monospace">#dff3ed</text>
+<text x="508" y="140" text-anchor="end" fill="#ffffff" font-size="11" font-family="IBM Plex Mono,monospace">#173932</text>
+<text x="368" y="226" fill="#cdd6e6" font-size="12" font-weight="600">primary-soft</text>
+<rect x="532" y="122" width="150" height="86" rx="9" fill="#5ec5b5" stroke="#2a3a36"/>
+<rect x="532" y="122" width="75" height="86" rx="9" fill="#5ec5b5"/>
+<rect x="598" y="122" width="18" height="86" fill="#5ec5b5"/>
+<text x="542" y="198" fill="#000000" font-size="11" font-family="IBM Plex Mono,monospace">#5ec5b5</text>
+<text x="672" y="140" text-anchor="end" fill="#000000" font-size="11" font-family="IBM Plex Mono,monospace">#5ec5b5</text>
+<text x="532" y="226" fill="#cdd6e6" font-size="12" font-weight="600">mark-teal</text>
+<text x="40" y="280" fill="#5ec5b5" font-size="15" font-weight="700">Blood-red — signature accent</text>
+<rect x="40" y="292" width="150" height="86" rx="9" fill="#e0564f" stroke="#2a3a36"/>
+<rect x="40" y="292" width="75" height="86" rx="9" fill="#b3322f"/>
+<rect x="106" y="292" width="18" height="86" fill="#b3322f"/>
+<text x="50" y="368" fill="#ffffff" font-size="11" font-family="IBM Plex Mono,monospace">#b3322f</text>
+<text x="180" y="310" text-anchor="end" fill="#ffffff" font-size="11" font-family="IBM Plex Mono,monospace">#e0564f</text>
+<text x="40" y="396" fill="#cdd6e6" font-size="12" font-weight="600">accent</text>
+<rect x="204" y="292" width="150" height="86" rx="9" fill="#3a1614" stroke="#2a3a36"/>
+<rect x="204" y="292" width="75" height="86" rx="9" fill="#f6dedb"/>
+<rect x="270" y="292" width="18" height="86" fill="#f6dedb"/>
+<text x="214" y="368" fill="#000000" font-size="11" font-family="IBM Plex Mono,monospace">#f6dedb</text>
+<text x="344" y="310" text-anchor="end" fill="#ffffff" font-size="11" font-family="IBM Plex Mono,monospace">#3a1614</text>
+<text x="204" y="396" fill="#cdd6e6" font-size="12" font-weight="600">accent-soft</text>
+<text x="40" y="450" fill="#5ec5b5" font-size="15" font-weight="700">Moonlight — foreground</text>
+<rect x="40" y="462" width="150" height="86" rx="9" fill="#e7efe9" stroke="#2a3a36"/>
+<rect x="40" y="462" width="75" height="86" rx="9" fill="#e7efe9"/>
+<rect x="106" y="462" width="18" height="86" fill="#e7efe9"/>
+<text x="50" y="538" fill="#000000" font-size="11" font-family="IBM Plex Mono,monospace">#e7efe9</text>
+<text x="180" y="480" text-anchor="end" fill="#000000" font-size="11" font-family="IBM Plex Mono,monospace">#e7efe9</text>
+<text x="40" y="566" fill="#cdd6e6" font-size="12" font-weight="600">moon</text>
+<rect x="204" y="462" width="150" height="86" rx="9" fill="#edf5f0" stroke="#2a3a36"/>
+<rect x="204" y="462" width="75" height="86" rx="9" fill="#17211c"/>
+<rect x="270" y="462" width="18" height="86" fill="#17211c"/>
+<text x="214" y="538" fill="#ffffff" font-size="11" font-family="IBM Plex Mono,monospace">#17211c</text>
+<text x="344" y="480" text-anchor="end" fill="#000000" font-size="11" font-family="IBM Plex Mono,monospace">#edf5f0</text>
+<text x="204" y="566" fill="#cdd6e6" font-size="12" font-weight="600">text</text>
+<rect x="368" y="462" width="150" height="86" rx="9" fill="#a7b8ae" stroke="#2a3a36"/>
+<rect x="368" y="462" width="75" height="86" rx="9" fill="#5d6d64"/>
+<rect x="434" y="462" width="18" height="86" fill="#5d6d64"/>
+<text x="378" y="538" fill="#ffffff" font-size="11" font-family="IBM Plex Mono,monospace">#5d6d64</text>
+<text x="508" y="480" text-anchor="end" fill="#000000" font-size="11" font-family="IBM Plex Mono,monospace">#a7b8ae</text>
+<text x="368" y="566" fill="#cdd6e6" font-size="12" font-weight="600">muted</text>
+<text x="40" y="620" fill="#5ec5b5" font-size="15" font-weight="700">Night — surfaces</text>
+<rect x="40" y="632" width="150" height="86" rx="9" fill="#0f1513" stroke="#2a3a36"/>
+<rect x="40" y="632" width="75" height="86" rx="9" fill="#f8faf8"/>
+<rect x="106" y="632" width="18" height="86" fill="#f8faf8"/>
+<text x="50" y="708" fill="#000000" font-size="11" font-family="IBM Plex Mono,monospace">#f8faf8</text>
+<text x="180" y="650" text-anchor="end" fill="#ffffff" font-size="11" font-family="IBM Plex Mono,monospace">#0f1513</text>
+<text x="40" y="736" fill="#cdd6e6" font-size="12" font-weight="600">bg</text>
+<rect x="204" y="632" width="150" height="86" rx="9" fill="#151d1a" stroke="#2a3a36"/>
+<rect x="204" y="632" width="75" height="86" rx="9" fill="#ffffff"/>
+<rect x="270" y="632" width="18" height="86" fill="#ffffff"/>
+<text x="214" y="708" fill="#000000" font-size="11" font-family="IBM Plex Mono,monospace">#ffffff</text>
+<text x="344" y="650" text-anchor="end" fill="#ffffff" font-size="11" font-family="IBM Plex Mono,monospace">#151d1a</text>
+<text x="204" y="736" fill="#cdd6e6" font-size="12" font-weight="600">surface</text>
+<rect x="368" y="632" width="150" height="86" rx="9" fill="#1d2824" stroke="#2a3a36"/>
+<rect x="368" y="632" width="75" height="86" rx="9" fill="#eef3f0"/>
+<rect x="434" y="632" width="18" height="86" fill="#eef3f0"/>
+<text x="378" y="708" fill="#000000" font-size="11" font-family="IBM Plex Mono,monospace">#eef3f0</text>
+<text x="508" y="650" text-anchor="end" fill="#ffffff" font-size="11" font-family="IBM Plex Mono,monospace">#1d2824</text>
+<text x="368" y="736" fill="#cdd6e6" font-size="12" font-weight="600">surface-muted</text>
+<rect x="532" y="632" width="150" height="86" rx="9" fill="#0a0f0d" stroke="#2a3a36"/>
+<rect x="532" y="632" width="75" height="86" rx="9" fill="#0d1513"/>
+<rect x="598" y="632" width="18" height="86" fill="#0d1513"/>
+<text x="542" y="708" fill="#ffffff" font-size="11" font-family="IBM Plex Mono,monospace">#0d1513</text>
+<text x="672" y="650" text-anchor="end" fill="#ffffff" font-size="11" font-family="IBM Plex Mono,monospace">#0a0f0d</text>
+<text x="532" y="736" fill="#cdd6e6" font-size="12" font-weight="600">deep-night (chip)</text>
+<rect x="696" y="632" width="150" height="86" rx="9" fill="#30413a" stroke="#2a3a36"/>
+<rect x="696" y="632" width="75" height="86" rx="9" fill="#d7e0da"/>
+<rect x="762" y="632" width="18" height="86" fill="#d7e0da"/>
+<text x="706" y="708" fill="#000000" font-size="11" font-family="IBM Plex Mono,monospace">#d7e0da</text>
+<text x="836" y="650" text-anchor="end" fill="#ffffff" font-size="11" font-family="IBM Plex Mono,monospace">#30413a</text>
+<text x="696" y="736" fill="#cdd6e6" font-size="12" font-weight="600">border</text>
+<text x="40" y="790" fill="#5ec5b5" font-size="15" font-weight="700">Support</text>
+<rect x="40" y="802" width="150" height="86" rx="9" fill="#86bff4" stroke="#2a3a36"/>
+<rect x="40" y="802" width="75" height="86" rx="9" fill="#1d5f9f"/>
+<rect x="106" y="802" width="18" height="86" fill="#1d5f9f"/>
+<text x="50" y="878" fill="#ffffff" font-size="11" font-family="IBM Plex Mono,monospace">#1d5f9f</text>
+<text x="180" y="820" text-anchor="end" fill="#000000" font-size="11" font-family="IBM Plex Mono,monospace">#86bff4</text>
+<text x="40" y="906" fill="#cdd6e6" font-size="12" font-weight="600">blue (links)</text>
+<rect x="204" y="802" width="150" height="86" rx="9" fill="#f4c766" stroke="#2a3a36"/>
+<rect x="204" y="802" width="75" height="86" rx="9" fill="#946200"/>
+<rect x="270" y="802" width="18" height="86" fill="#946200"/>
+<text x="214" y="878" fill="#ffffff" font-size="11" font-family="IBM Plex Mono,monospace">#946200</text>
+<text x="344" y="820" text-anchor="end" fill="#000000" font-size="11" font-family="IBM Plex Mono,monospace">#f4c766</text>
+<text x="204" y="906" fill="#cdd6e6" font-size="12" font-weight="600">gold (status only)</text>
+<rect x="368" y="802" width="150" height="86" rx="9" fill="#090d0c" stroke="#2a3a36"/>
+<rect x="368" y="802" width="75" height="86" rx="9" fill="#101816"/>
+<rect x="434" y="802" width="18" height="86" fill="#101816"/>
+<text x="378" y="878" fill="#ffffff" font-size="11" font-family="IBM Plex Mono,monospace">#101816</text>
+<text x="508" y="820" text-anchor="end" fill="#ffffff" font-size="11" font-family="IBM Plex Mono,monospace">#090d0c</text>
+<text x="368" y="906" fill="#cdd6e6" font-size="12" font-weight="600">code-bg</text>
+</svg>

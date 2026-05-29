@@ -2524,6 +2524,7 @@ dependencies = [
  "anyhow",
  "blake3",
  "bytes",
+ "ed25519-dalek",
  "lsi-core",
  "mdns-sd",
  "proptest",
