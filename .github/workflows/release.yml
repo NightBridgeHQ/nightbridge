@@ -103,7 +103,10 @@ jobs:
           - platform: linux-arm64
             runner: ubuntu-24.04-arm
           - platform: macos-amd64
-            runner: macos-13
+            # Cross-compile Intel on the plentiful Apple Silicon runner; the
+            # macos-13 Intel runners are scarce and queue indefinitely.
+            runner: macos-14
+            target: x86_64-apple-darwin
           - platform: macos-arm64
             runner: macos-14
     steps:
@@ -118,7 +121,19 @@ jobs:
             sudo apt-get update && sudo apt-get install -y protobuf-compiler
           fi
       - name: Build release binaries
-        run: cargo build --release -p lsi-daemon -p lsi-cli -p lsi-tui
+        run: |
+          if [ -n "${{ matrix.target }}" ]; then
+            # Cross-compile (e.g. Intel macOS on an Apple Silicon runner), then
+            # stage the binaries where archive-binaries.sh expects them.
+            rustup target add "${{ matrix.target }}"
+            cargo build --release --target "${{ matrix.target }}" -p lsi-daemon -p lsi-cli -p lsi-tui
+            mkdir -p target/release
+            for b in night-bridge nbrg night-bridge-daemon night-bridge-tui; do
+              cp "target/${{ matrix.target }}/release/$b" "target/release/$b"
+            done
+          else
+            cargo build --release -p lsi-daemon -p lsi-cli -p lsi-tui
+          fi
       - name: Archive binaries
         # Strip a leading "v" so asset names match what install.sh requests
         # (install.sh downloads nightbridge-${version#v}-<platform>.tar.gz).
