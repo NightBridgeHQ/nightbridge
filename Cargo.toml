@@ -78,7 +78,7 @@ tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
 metrics = "=0.22.3"
 metrics-exporter-prometheus = { version = "=0.14.0", default-features = false }
 # Network helpers
-socket2 = { version = "=0.5.7", features = ["all"] }
+socket2 = { version = "=0.6.3", features = ["all"] }
 quinn = { version = "=0.11.9", default-features = false, features = ["runtime-tokio", "rustls-ring", "log"] }
 mdns-sd = "=0.19.1"
 # Wire encoding
