@@ -33,44 +33,44 @@ rust-version = "1.85"
 # Async
 tokio = { version = "1.38", features = ["full"] }
 tokio-rustls = "=0.26.4"
-tokio-util = { version = "=0.7.10", features = ["io"] }
+tokio-util = { version = "=0.7.18", features = ["io"] }
 bytes = "=1.11.1"
 # CLI
-clap = { version = "=4.5.0", features = ["derive"] }
+clap = { version = "=4.6.1", features = ["derive"] }
 crossterm = "=0.27.0"
 ratatui = "=0.26.3"
 # HTTP
 axum = "=0.7.5"
 async-stream = "=0.3.6"
-futures-util = "=0.3.31"
-http = "=1.1.0"
-hyper = "=1.8.1"
+futures-util = "=0.3.32"
+http = "=1.4.2"
+hyper = "=1.10.1"
 hyper-util = { version = "=0.1.20", features = ["server", "http1", "http2", "tokio", "service"] }
 reqwest = { version = "=0.12.23", default-features = false, features = ["json", "stream", "rustls-tls"] }
-url = "=2.5.4"
+url = "=2.5.8"
 # Errors
 thiserror = "1.0"
 anyhow = "1.0"
 # Crypto
-ed25519-dalek = { version = "=2.1.1", features = ["rand_core", "serde"] }
+ed25519-dalek = { version = "=2.2.0", features = ["rand_core", "serde"] }
 hmac = "=0.12.1"
 sha2 = "=0.10.9"
 subtle = "=2.6.1"
 hkdf = "0.12"
 rand = "0.8"
-blake3 = "=1.5.1"
+blake3 = "=1.8.5"
 rcgen = "=0.13.2"
-rustls = { version = "=0.23.35", features = ["ring"] }
-time = "=0.3.47"
+rustls = { version = "=0.23.40", features = ["ring"] }
+time = "=0.3.48"
 # Storage
 rusqlite = { version = "0.31", features = ["bundled"] }
-indexmap = "=2.2.6"
+indexmap = "=2.14.0"
 # Serde
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 toml = "=0.8.12"
 # File/media helpers
-mime_guess = "=2.0.4"
+mime_guess = "=2.0.5"
 # Logging
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
@@ -86,17 +86,17 @@ prost = "=0.13.5"
 prost-types = "=0.13.5"
 tonic = { version = "=0.12.3", features = ["transport"] }
 tonic-build = "=0.12.3"
-tokio-stream = { version = "=0.1.17", features = ["net"] }
+tokio-stream = { version = "=0.1.18", features = ["net"] }
 # Filesystem helpers
 directories = "5.0"
-rust-embed = "=8.3.0"
+rust-embed = "=8.11.0"
 # IDs
-uuid = { version = "=1.8.0", features = ["v4", "serde"] }
+uuid = { version = "=1.23.3", features = ["v4", "serde"] }
 # Tests
-tempfile = "=3.10.1"
-proptest = "=1.4.0"
-assert_cmd = "=2.0.14"
-predicates = "=3.1.0"
+tempfile = "=3.27.0"
+proptest = "=1.11.0"
+assert_cmd = "=2.2.2"
+predicates = "=3.1.4"
 
 [profile.release]
 lto = "thin"
