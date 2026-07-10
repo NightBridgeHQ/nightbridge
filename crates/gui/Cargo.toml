@@ -22,7 +22,7 @@ url.workspace = true
 [target.'cfg(target_vendor = "apple")'.dependencies]
 # Tauri CLI enables tauri/native-tls for release bundles. Keep these pinned
 # with the Tauri 2.0 stack until the desktop bundle is upgraded as a unit.
-native-tls = "=0.2.13"
+native-tls = "=0.2.18"
 security-framework = "=2.11.1"
 
 [build-dependencies]
